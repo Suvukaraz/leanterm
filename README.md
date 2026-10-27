@@ -6,6 +6,18 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 
 > **Status:** 0.8.0 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
 
+## 📸 Screenshots
+
+**Connections, SFTP browser and SSH terminal**
+
+![LeanTerm main window with the connection tree, the SFTP browser and an SSH terminal](docs/screenshots/main-window-ssh.png)
+
+**Local shell with the local file browser**
+
+![LeanTerm local shell with the local file browser following the shell's folder](docs/screenshots/local-file-browser.png)
+
+<sub>The screenshots show demo data only.</sub>
+
 ---
 
 ## 🌟 Key Features
@@ -13,7 +25,7 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 ### Lean, Configurable UI
 - Main button bar at the top (default) or bottom of the window (*Preferences → Main Options*).
 - Toggles in the button bar: **Connections** tree, **File Browser** panels (SFTP and local), **Clusters** functions (hidden by default to keep the UI lean).
-- SFTP panel on the left (default) or right side of the terminal (*Preferences → Terminal Options → SFTP browser*).
+- SFTP panel on the left (default) or right side of the terminal (*Preferences → Terminal Options → File browser*).
 - New connections only need a name; the title is derived from it.
 - Closing the window asks for confirmation while connections or SFTP transfers are active.
 

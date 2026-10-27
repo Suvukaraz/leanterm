@@ -101,7 +101,10 @@
     // If not already opened, initialize the browser; a panel shown again resumes
     // following the terminal folder if that was on.
     if (!view || !view.sftpID) {
-      openSftp(tmpID, kind);
+      // New browsers start with the "Follow terminal folder" preference.
+      openSftp(tmpID, kind).then((id) => {
+        if (id && $settings?.sftpBrowser?.FollowTerminalFolder) toggleFollowTerminal(tmpID, true);
+      });
     } else if (view.followTerminal) {
       fsBackend(view.kind).setFollow(view.sftpID, true).catch(() => {});
     }
@@ -480,6 +483,7 @@
     currentPath={view?.currentPath || '/'}
     history={view?.history || []}
     followTerminal={view?.followTerminal ?? false}
+    local={kind === 'local'}
     onnavigate={handleNavigate}
     ontogglefollow={() => toggleFollowTerminal(tmpID)}
   />

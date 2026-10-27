@@ -3,11 +3,13 @@
     currentPath: string;
     history: string[];
     followTerminal: boolean;
+    /** Local browsers follow the shell directly, SSH tabs need OSC 7. */
+    local?: boolean;
     onnavigate: (path: string) => void;
     ontogglefollow: () => void;
   }
 
-  let { currentPath, history, followTerminal, onnavigate, ontogglefollow }: Props = $props();
+  let { currentPath, history, followTerminal, local = false, onnavigate, ontogglefollow }: Props = $props();
 
   let inputVal = $state(currentPath);
   let dropdownOpen = $state(false);
@@ -97,7 +99,7 @@
         checked={followTerminal}
         onchange={ontogglefollow}
       />
-      <span>Follow terminal folder (OSC 7)</span>
+      <span>Follow terminal folder{local ? '' : ' (OSC 7)'}</span>
     </label>
   </div>
 </div>
