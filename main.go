@@ -161,6 +161,8 @@ func main() {
 	sessionSvc := services.NewSessionService(cfgStore, sessionMgr)
 	sftpSvc := services.NewSFTPService(nil, sessionMgr, emitter)
 	sftpSvc.SetStore(cfgStore)
+	localFSSvc := services.NewLocalFSService(sessionMgr, emitter)
+	localFSSvc.SetStore(cfgStore)
 	dialogBroker := services.NewDialogBroker(emitter)
 	dialogSvc := services.NewDialogService(dialogBroker)
 	sessionMgr.SetPrompter(dialogBroker)
@@ -187,6 +189,7 @@ func main() {
 			application.NewService(configSvc),
 			application.NewService(sessionSvc),
 			application.NewService(sftpSvc),
+			application.NewService(localFSSvc),
 			application.NewService(dialogSvc),
 			application.NewService(systemSvc),
 			application.NewService(clusterSvc),

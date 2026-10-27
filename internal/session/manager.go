@@ -168,6 +168,15 @@ func (sm *SessionManager) GetSSHClient(tmpID string) *ssh.Client {
 	return nil
 }
 
+// LocalShellPID returns the shell process id of a local session (0 if tmpID is
+// not a running local shell).
+func (sm *SessionManager) LocalShellPID(tmpID string) int {
+	if ls, ok := sm.Get(tmpID).(*LocalSession); ok {
+		return ls.ShellPID()
+	}
+	return 0
+}
+
 func (sm *SessionManager) Open(req OpenRequest) ([]string, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()

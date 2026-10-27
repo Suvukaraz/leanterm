@@ -107,6 +107,10 @@
   --bg-primary: var(--gtk-bg-color);
   --bg-secondary: var(--gtk-header-bg);
   --bg-tertiary: var(--gtk-base-color);
+
+  /* Shared height of the bottom rows (connection panel, file browser footer and
+   * terminal status bar) so the panes end on one line. */
+  --leanterm-bottom-bar-height: 30px;
 }
 
 *,

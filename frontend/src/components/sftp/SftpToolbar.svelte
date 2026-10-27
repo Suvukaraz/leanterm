@@ -8,6 +8,8 @@
     hasSelection: boolean;
     showHidden: boolean;
     followTerminal: boolean;
+    /** Local file browser: no upload/download buttons. */
+    local?: boolean;
     onback: () => void;
     onforward: () => void;
     onup: () => void;
@@ -31,6 +33,7 @@
     hasSelection,
     showHidden,
     followTerminal,
+    local = false,
     onback,
     onforward,
     onup,
@@ -121,24 +124,26 @@
     <img src={getIcon('gtk-directory')} alt="New folder" width="16" height="16" />
   </button>
 
-  <button
-    type="button"
-    class="button-cp"
-    title="Upload files..."
-    onclick={onupload}
-  >
-    <img src={getIcon('gtk-open')} alt="Upload" width="16" height="16" />
-  </button>
+  {#if !local}
+    <button
+      type="button"
+      class="button-cp"
+      title="Upload files..."
+      onclick={onupload}
+    >
+      <img src={getIcon('gtk-open')} alt="Upload" width="16" height="16" />
+    </button>
 
-  <button
-    type="button"
-    class="button-cp"
-    title="Download selected"
-    disabled={!hasSelection}
-    onclick={ondownload}
-  >
-    <img src={getIcon('gtk-save')} alt="Download" width="16" height="16" />
-  </button>
+    <button
+      type="button"
+      class="button-cp"
+      title="Download selected"
+      disabled={!hasSelection}
+      onclick={ondownload}
+    >
+      <img src={getIcon('gtk-save')} alt="Download" width="16" height="16" />
+    </button>
+  {/if}
 
   <span class="toolbar-sep"></span>
 
@@ -205,7 +210,7 @@
           }}
         >
           <span class="item-spacer"></span>
-          <span>Open SFTP start folder</span>
+          <span>{local ? 'Open start folder' : 'Open SFTP start folder'}</span>
         </button>
 
         <button
@@ -233,7 +238,7 @@
           }}
         >
           <span class="item-spacer"></span>
-          <span>Hide SFTP browser</span>
+          <span>Hide {local ? 'file' : 'SFTP'} browser</span>
         </button>
       </div>
     {/if}

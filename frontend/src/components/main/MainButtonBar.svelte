@@ -45,8 +45,8 @@
   <ToggleButton
     checked={$sftpVisible}
     icon="asbru-method-sftp"
-    label="SFTP"
-    tooltip="Show/Hide the SFTP browser of the terminals"
+    label="File Browser"
+    tooltip="Show/Hide the file browser of the terminals (SFTP and local)"
     onchange={(v) => sftpVisible.set(v)}
   />
 

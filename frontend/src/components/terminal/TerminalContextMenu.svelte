@@ -259,7 +259,9 @@
       list.push(
         { separator: true },
         {
-          label: sftpOpen ? 'Hide SFTP browser' : 'Show SFTP browser',
+          label: kind === 'local'
+            ? (sftpOpen ? 'Hide file browser' : 'Show file browser')
+            : (sftpOpen ? 'Hide SFTP browser' : 'Show SFTP browser'),
           icon: 'asbru-method-sftp',
           shortcut: 'Alt+Ctrl+S',
           action: () => ontoggleSftp && ontoggleSftp(),

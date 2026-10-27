@@ -1,10 +1,10 @@
 {
 	"fixed": {
-		"file_version": "0.7.5"
+		"file_version": "0.8.0"
 	},
 	"info": {
 		"0409": {
-			"ProductVersion": "0.7.5",
+			"ProductVersion": "0.8.0",
 			"CompanyName": "My Company",
 			"FileDescription": "LeanTerm Connection Manager",
 			"LegalCopyright": "© 2026, My Company",

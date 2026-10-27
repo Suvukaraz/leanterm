@@ -28,7 +28,9 @@
   let sessionInfo = $derived($sessions.find((s) => s.tmpID === tmpID));
   let isConnected = $derived(sessionInfo?.state === 'connected');
   let isSFTPOnly = $derived(sessionInfo?.kind === 'sftp');
-  let hasSFTP = $derived(sessionInfo?.hasSFTP ?? false);
+  let isLocal = $derived(sessionInfo?.kind === 'local');
+  // SSH tabs with SFTP get the SFTP browser, local shells the local file browser.
+  let hasSFTP = $derived((sessionInfo?.hasSFTP ?? false) || isLocal);
 
   // Connection data (personal terminal look, per-connection SFTP setting).
   let conn = $state<any>(null);
@@ -142,82 +144,93 @@
     <!-- SSH / local session: SFTP side panel (left or right) + terminal -->
     <div class="terminal-tab-body" class:sftp-right={sftpSide === 'right'}>
       {#if hasSFTP && sftpOpen}
-        <SftpPanel {tmpID} side={sftpSide} onclose={toggleSFTP} />
+        <SftpPanel {tmpID} side={sftpSide} kind={isLocal ? 'local' : 'sftp'} onclose={toggleSFTP} />
       {/if}
 
-      <div
-        class="terminal-view-area"
-        class:chain-drag-over={isDragOver}
-        ondragover={handleDragOver}
-        ondragleave={() => (isDragOver = false)}
-        ondrop={handleDropConnection}
-        role="region"
-        aria-label="Terminal"
-      >
-        {#if macrosMode !== 'never'}
-          <MacrosBar {tmpID} connID={sessionInfo?.connID} mode={macrosMode} />
-        {/if}
-        <div class="terminal-view-slot">
-          <TerminalView
-            {tmpID}
-            {active}
-            {personalLook}
-            kind={sessionInfo?.kind || 'local'}
-            {hasSFTP}
-            {sftpOpen}
-            ontoggleSftp={toggleSFTP}
-            ondisconnect={() => disconnectSession(tmpID)}
-            onclose={() => closeSession(tmpID)}
-          />
+      <!-- The status bar sits under the terminal only, so its top edge lines up with
+           the file browser's footer and the connection panel's bottom row. -->
+      <div class="terminal-column">
+        <div
+          class="terminal-view-area"
+          class:chain-drag-over={isDragOver}
+          ondragover={handleDragOver}
+          ondragleave={() => (isDragOver = false)}
+          ondrop={handleDropConnection}
+          role="region"
+          aria-label="Terminal"
+        >
+          {#if macrosMode !== 'never'}
+            <MacrosBar {tmpID} connID={sessionInfo?.connID} mode={macrosMode} />
+          {/if}
+          <div class="terminal-view-slot">
+            <TerminalView
+              {tmpID}
+              {active}
+              {personalLook}
+              kind={sessionInfo?.kind || 'local'}
+              {hasSFTP}
+              {sftpOpen}
+              ontoggleSftp={toggleSFTP}
+              ondisconnect={() => disconnectSession(tmpID)}
+              onclose={() => closeSession(tmpID)}
+            />
+          </div>
         </div>
+        {#if showStatusBar}
+          {@render statusBar()}
+        {/if}
       </div>
     </div>
   {/if}
 
-  {#if showStatusBar}
-    <div class="terminal-status-bar" role="status">
-      <div class="status-left">
+  {#if isSFTPOnly && showStatusBar}
+    {@render statusBar()}
+  {/if}
+</div>
+
+{#snippet statusBar()}
+  <div class="terminal-status-bar" role="status">
+    <div class="status-left">
+      <img
+        src={getIcon(isConnected ? 'asbru-terminal-ok-small' : 'asbru-terminal-ko-small')}
+        alt={isConnected ? 'Connected' : 'Disconnected'}
+        title={isConnected ? 'Connected' : 'Disconnected'}
+        width="16"
+        height="16"
+      />
+      {#if $clustersVisible || sessionInfo?.cluster}
         <img
-          src={getIcon(isConnected ? 'asbru-terminal-ok-small' : 'asbru-terminal-ko-small')}
-          alt={isConnected ? 'Connected' : 'Disconnected'}
-          title={isConnected ? 'Connected' : 'Disconnected'}
+          src={getIcon(sessionInfo?.cluster ? 'asbru-cluster-manager' : 'asbru-cluster-manager-off')}
+          alt=""
+          title={sessionInfo?.cluster ? `In CLUSTER: ${sessionInfo.cluster}` : 'Unclustered'}
           width="16"
           height="16"
         />
-        {#if $clustersVisible || sessionInfo?.cluster}
-          <img
-            src={getIcon(sessionInfo?.cluster ? 'asbru-cluster-manager' : 'asbru-cluster-manager-off')}
-            alt=""
-            title={sessionInfo?.cluster ? `In CLUSTER: ${sessionInfo.cluster}` : 'Unclustered'}
-            width="16"
-            height="16"
-          />
-        {/if}
-        {#if sessionInfo?.state === 'connecting'}
-          <span class="status-progress" aria-hidden="true"></span>
-        {/if}
-        <span class="status-text" title={statusHistory.join('\n')}>{statusText}</span>
-      </div>
-
-      <div class="status-right">
-        {#if hasSFTP && !isSFTPOnly}
-          <button
-            type="button"
-            class="status-btn"
-            class:is-active={sftpOpen}
-            title="Show/Hide SFTP browser (Alt+Ctrl+S)"
-            onclick={toggleSFTP}
-          >
-            <img src={getIcon('asbru-method-sftp')} alt="SFTP" width="16" height="16" />
-          </button>
-        {/if}
-        <button type="button" class="status-btn" title="Show Info Tab" onclick={() => setActiveTab('info')}>
-          <img src={getIcon('gtk-info')} alt="Info" width="16" height="16" />
-        </button>
-      </div>
+      {/if}
+      {#if sessionInfo?.state === 'connecting'}
+        <span class="status-progress" aria-hidden="true"></span>
+      {/if}
+      <span class="status-text" title={statusHistory.join('\n')}>{statusText}</span>
     </div>
-  {/if}
-</div>
+
+    <div class="status-right">
+      {#if hasSFTP && !isSFTPOnly}
+        <button
+          type="button"
+          class="status-btn"
+          class:is-active={sftpOpen}
+          title={isLocal ? 'Show/Hide file browser (Alt+Ctrl+S)' : 'Show/Hide SFTP browser (Alt+Ctrl+S)'}
+          onclick={toggleSFTP}
+        >
+          <img src={getIcon(isLocal ? 'gtk-directory' : 'asbru-method-sftp')} alt="File browser" width="16" height="16" />
+        </button>
+      {/if}
+      <button type="button" class="status-btn" title="Show Info Tab" onclick={() => setActiveTab('info')}>
+        <img src={getIcon('gtk-info')} alt="Info" width="16" height="16" />
+      </button>
+    </div>
+  </div>
+{/snippet}
 
 {#if chainDialogOpen}
   <ChainSelectionDialog
@@ -262,8 +275,16 @@
     width: 100%;
   }
 
+  .terminal-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   .terminal-view-area {
     flex: 1;
+    min-height: 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -282,7 +303,8 @@
   }
 
   .terminal-status-bar {
-    height: 24px;
+    height: var(--leanterm-bottom-bar-height);
+    box-sizing: border-box;
     background: var(--gtk-header-bg);
     border-top: 1px solid var(--gtk-border-color);
     display: flex;

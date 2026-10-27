@@ -25,6 +25,10 @@
     oncdInTerminal: (p: string) => void;
     onuploadDialog: () => void;
     ontoggleshowhidden: () => void;
+    /** Local file browser: "Copy to…"/"Move to…" instead of download/upload. */
+    local?: boolean;
+    oncopyTo?: (paths: string[]) => void;
+    onmoveTo?: (paths: string[]) => void;
   }
 
   let {
@@ -49,6 +53,9 @@
     oncdInTerminal,
     onuploadDialog,
     ontoggleshowhidden,
+    local = false,
+    oncopyTo,
+    onmoveTo,
   }: Props = $props();
 
   let sortCol = $state<'name' | 'size' | 'modTime' | 'permissions'>('name');
@@ -248,7 +255,7 @@
   class="sftp-filelist-container {isDragOver ? 'is-drag-over' : ''}"
   tabindex="0"
   role="region"
-  aria-label="Remote File List"
+  aria-label={local ? 'Local File List' : 'Remote File List'}
   data-file-drop-target
   data-sftp-drop={dropId}
   onkeydown={handleKeyDown}
@@ -405,16 +412,39 @@
           </button>
         {/if}
 
-        <button
-          type="button"
-          class="context-item"
-          onclick={() => {
-            ondownload(selectedPaths);
-            closeContextMenu();
-          }}
-        >
-          Download
-        </button>
+        {#if local}
+          <button
+            type="button"
+            class="context-item"
+            onclick={() => {
+              oncopyTo?.(selectedPaths);
+              closeContextMenu();
+            }}
+          >
+            Copy to…
+          </button>
+          <button
+            type="button"
+            class="context-item"
+            onclick={() => {
+              onmoveTo?.(selectedPaths);
+              closeContextMenu();
+            }}
+          >
+            Move to…
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="context-item"
+            onclick={() => {
+              ondownload(selectedPaths);
+              closeContextMenu();
+            }}
+          >
+            Download
+          </button>
+        {/if}
 
         <div class="context-divider"></div>
 
@@ -544,16 +574,18 @@
           New empty file
         </button>
 
-        <button
-          type="button"
-          class="context-item"
-          onclick={() => {
-            onuploadDialog();
-            closeContextMenu();
-          }}
-        >
-          Upload files...
-        </button>
+        {#if !local}
+          <button
+            type="button"
+            class="context-item"
+            onclick={() => {
+              onuploadDialog();
+              closeContextMenu();
+            }}
+          >
+            Upload files...
+          </button>
+        {/if}
 
         <div class="context-divider"></div>
 

@@ -51,7 +51,7 @@
     { window: 'terminal', action: 'zoom_in', description: 'Zoom in', defaultKey: 'Ctrl+plus', currentKey: 'Ctrl+plus' },
     { window: 'terminal', action: 'zoom_out', description: 'Zoom out', defaultKey: 'Ctrl+minus', currentKey: 'Ctrl+minus' },
     { window: 'terminal', action: 'zoom_reset', description: 'Zoom reset', defaultKey: 'Ctrl+0', currentKey: 'Ctrl+0' },
-    { window: 'terminal', action: 'toggle_sftp_browser', description: 'Toggle SFTP browser panel', defaultKey: 'Alt+Ctrl+s', currentKey: 'Alt+Ctrl+s' },
+    { window: 'terminal', action: 'toggle_sftp_browser', description: 'Toggle file browser panel', defaultKey: 'Alt+Ctrl+s', currentKey: 'Alt+Ctrl+s' },
 
     { window: 'sftp_browser', action: 'refresh', description: 'Refresh remote files', defaultKey: 'F5', currentKey: 'F5' },
     { window: 'sftp_browser', action: 'parent', description: 'Navigate to parent folder', defaultKey: 'Backspace', currentKey: 'Backspace' },

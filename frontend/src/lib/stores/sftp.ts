@@ -1,11 +1,15 @@
 import { writable, get } from 'svelte/store';
+// State and actions of the file browser panels, keyed by session tmpID. SSH tabs
+// browse via SFTP, local shell tabs the local file system (see fsBackend.ts).
 import * as SFTPService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/sftpservice.js';
+import * as LocalFSService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/localfsservice.js';
 import type { FileEntry } from '../../../bindings/github.com/Suvukaraz/leanterm/internal/sftpsvc/models.js';
+import { fsBackend, type BrowserKind } from './fsBackend';
 
 export interface TransferItem {
   id: string;
   name: string;
-  direction: 'upload' | 'download';
+  direction: 'upload' | 'download' | 'copy' | 'move';
   progress: number;
   speed: string;
   eta: string;
@@ -14,7 +18,10 @@ export interface TransferItem {
 }
 
 export interface SftpViewState {
+  kind: BrowserKind;
   sftpID: string;
+  /** Folder the browser started in ("Open start folder"). */
+  startPath: string;
   currentPath: string;
   history: string[];
   historyIndex: number;
@@ -30,20 +37,23 @@ export interface SftpViewState {
 
 export const sftpViews = writable<Record<string, SftpViewState>>({});
 
-export async function openSftp(tmpID: string): Promise<string | null> {
+export async function openSftp(tmpID: string, kind: BrowserKind = 'sftp'): Promise<string | null> {
+  const backend = fsBackend(kind);
   try {
-    const sftpID = await SFTPService.OpenForSession(tmpID);
+    const sftpID = await backend.open(tmpID);
     if (!sftpID) return null;
 
     let initialPath = '/';
     try {
-      initialPath = (await SFTPService.Getwd(sftpID)) || '/';
+      initialPath = (await backend.getwd(sftpID)) || '/';
     } catch {}
 
     sftpViews.update((views) => ({
       ...views,
       [tmpID]: {
+        kind,
         sftpID,
+        startPath: initialPath,
         currentPath: initialPath,
         history: [initialPath],
         historyIndex: 0,
@@ -64,7 +74,9 @@ export async function openSftp(tmpID: string): Promise<string | null> {
     sftpViews.update((views) => ({
       ...views,
       [tmpID]: {
+        kind,
         sftpID: '',
+        startPath: '',
         currentPath: '',
         history: [],
         historyIndex: 0,
@@ -101,7 +113,7 @@ export async function loadDir(tmpID: string, targetPath: string): Promise<void> 
   }));
 
   try {
-    const entries = await SFTPService.List(view.sftpID, norm, view.showHidden);
+    const entries = await fsBackend(view.kind).list(view.sftpID, norm, view.showHidden);
 
     sftpViews.update((views) => {
       const curr = views[tmpID];
@@ -150,7 +162,7 @@ export async function fetchVFSInfo(tmpID: string, dirPath: string): Promise<void
   if (!view || !view.sftpID) return;
 
   try {
-    const vfs = await SFTPService.StatVFS(view.sftpID, dirPath);
+    const vfs = await fsBackend(view.kind).statVFS(view.sftpID, dirPath);
     if (vfs) {
       sftpViews.update((views) => {
         const curr = views[tmpID];
@@ -168,7 +180,7 @@ export async function fetchVFSInfo(tmpID: string, dirPath: string): Promise<void
       });
     }
   } catch {
-    // StatVFS is not supported on all servers, safe to ignore
+    // Free space is not available on all servers, safe to ignore
   }
 }
 
@@ -198,6 +210,17 @@ export function navigateUp(tmpID: string): void {
   loadDir(tmpID, parentPath);
 }
 
+/** Navigates to the home folder (Home button). */
+export async function goHome(tmpID: string): Promise<void> {
+  const view = get(sftpViews)[tmpID];
+  if (!view || !view.sftpID) return;
+  let target = '/';
+  try {
+    target = (await fsBackend(view.kind).home(view.sftpID)) || '/';
+  } catch {}
+  await loadDir(tmpID, target);
+}
+
 export function refresh(tmpID: string): void {
   const view = get(sftpViews)[tmpID];
   if (!view) return;
@@ -217,15 +240,35 @@ export function toggleShowHidden(tmpID: string): void {
 }
 
 export function toggleFollowTerminal(tmpID: string, force?: boolean): void {
+  const view = get(sftpViews)[tmpID];
+  if (!view) return;
+  const nextVal = force !== undefined ? force : !view.followTerminal;
   sftpViews.update((views) => {
     const curr = views[tmpID];
     if (!curr) return views;
-    const nextVal = force !== undefined ? force : !curr.followTerminal;
     return {
       ...views,
       [tmpID]: { ...curr, followTerminal: nextVal },
     };
   });
+  const backend = fsBackend(view.kind);
+  backend.setFollow(view.sftpID, nextVal).catch(() => {});
+  // A local shell's folder is always known: jump there right away.
+  if (nextVal && view.kind === 'local') goToTerminalFolder(tmpID);
+}
+
+/** Navigates to the shell's working directory (local tabs) or the last folder the
+ *  terminal reported via OSC 7 (SSH tabs). */
+export async function goToTerminalFolder(tmpID: string, lastReported = ''): Promise<void> {
+  const view = get(sftpViews)[tmpID];
+  if (!view || !view.sftpID) return;
+  let target = lastReported;
+  if (view.kind === 'local') {
+    try {
+      target = await fsBackend('local').getwd(view.sftpID);
+    } catch {}
+  }
+  if (target && target !== view.currentPath) await loadDir(tmpID, target);
 }
 
 export function setSelectedPaths(tmpID: string, paths: string[]): void {
@@ -244,7 +287,7 @@ export async function createFolder(tmpID: string, folderName: string): Promise<v
   if (!view || !view.sftpID || !folderName.trim()) return;
 
   const p = view.currentPath === '/' ? `/${folderName.trim()}` : `${view.currentPath}/${folderName.trim()}`;
-  await SFTPService.Mkdir(view.sftpID, p, false);
+  await fsBackend(view.kind).mkdir(view.sftpID, p);
   await refresh(tmpID);
 }
 
@@ -253,7 +296,7 @@ export async function createEmptyFile(tmpID: string, fileName: string): Promise<
   if (!view || !view.sftpID || !fileName.trim()) return;
 
   const p = view.currentPath === '/' ? `/${fileName.trim()}` : `${view.currentPath}/${fileName.trim()}`;
-  await SFTPService.CreateFile(view.sftpID, p);
+  await fsBackend(view.kind).createFile(view.sftpID, p);
   await refresh(tmpID);
 }
 
@@ -261,7 +304,7 @@ export async function removeItems(tmpID: string, paths: string[]): Promise<void>
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID || paths.length === 0) return;
 
-  await SFTPService.Remove(view.sftpID, paths, true);
+  await fsBackend(view.kind).remove(view.sftpID, paths);
   await refresh(tmpID);
 }
 
@@ -272,7 +315,7 @@ export async function renameItem(tmpID: string, fromPath: string, newName: strin
   const parts = fromPath.split('/');
   parts.pop();
   const toPath = (parts.join('/') || '') + '/' + newName.trim();
-  await SFTPService.Rename(view.sftpID, fromPath, toPath);
+  await fsBackend(view.kind).rename(view.sftpID, fromPath, toPath);
   await refresh(tmpID);
 }
 
@@ -286,7 +329,7 @@ export async function chmodItems(
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID || paths.length === 0) return;
 
-  await SFTPService.Chmod(view.sftpID, paths, mode, recursive, scope);
+  await fsBackend(view.kind).chmod(view.sftpID, paths, mode, recursive, scope);
   await refresh(tmpID);
 }
 
@@ -463,13 +506,12 @@ export function hasRunningTransfers(): boolean {
   return false;
 }
 
-export async function openWithDefaultApp(tmpID: string, remotePath: string): Promise<string | null> {
+export async function openWithDefaultApp(tmpID: string, remotePath: string): Promise<void> {
   const view = get(sftpViews)[tmpID];
-  if (!view || !view.sftpID) return null;
+  if (!view || !view.sftpID) return;
 
   try {
-    const localPath = await SFTPService.OpenWithDefaultApp(view.sftpID, remotePath);
-    return localPath;
+    await fsBackend(view.kind).openWithDefaultApp(view.sftpID, remotePath);
   } catch (err: any) {
     console.error(`Failed to open ${remotePath} with default app:`, err);
     throw err;
@@ -486,5 +528,73 @@ export async function uploadBack(tmpID: string, localPath: string, remotePath: s
   } catch (err: any) {
     console.error(`Failed to upload back ${localPath} -> ${remotePath}:`, err);
     throw err;
+  }
+}
+
+/** Names of paths that already exist in dstDir (local tabs ask the backend, SFTP
+ *  uploads go into the listed current folder). */
+export async function findConflicts(tmpID: string, paths: string[], dstDir: string): Promise<string[]> {
+  const view = get(sftpViews)[tmpID];
+  if (!view || !view.sftpID || paths.length === 0) return [];
+  if (view.kind === 'local') {
+    return (await LocalFSService.Conflicts(view.sftpID, paths, dstDir)) || [];
+  }
+  const existing = new Set(view.entries.map((e) => e.name));
+  return paths.map((p) => p.split(/[/\\]/).pop() || p).filter((n) => existing.has(n));
+}
+
+function updateTransfer(tmpID: string, transferId: string, patch: Partial<TransferItem>): void {
+  sftpViews.update((views) => {
+    const curr = views[tmpID];
+    if (!curr) return views;
+    return {
+      ...views,
+      [tmpID]: {
+        ...curr,
+        transfers: curr.transfers.map((t) => (t.id === transferId ? { ...t, ...patch } : t)),
+      },
+    };
+  });
+}
+
+/** Copies or moves local files into dstDir (local tabs), shown in the transfer queue. */
+export async function copyOrMoveLocal(
+  tmpID: string,
+  op: 'copy' | 'move',
+  paths: string[],
+  dstDir: string,
+  overwrite: boolean
+): Promise<void> {
+  const view = get(sftpViews)[tmpID];
+  if (!view || view.kind !== 'local' || paths.length === 0) return;
+
+  const transferId = op + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const item: TransferItem = {
+    id: transferId,
+    name: paths.length === 1 ? paths[0].split('/').pop() || 'file' : `${paths.length} items`,
+    direction: op,
+    progress: 10,
+    speed: op === 'copy' ? 'Copying...' : 'Moving...',
+    eta: '',
+    status: 'running',
+  };
+  sftpViews.update((views) => {
+    const curr = views[tmpID];
+    if (!curr) return views;
+    return { ...views, [tmpID]: { ...curr, transfers: [item, ...curr.transfers] } };
+  });
+
+  try {
+    if (op === 'copy') {
+      await LocalFSService.Copy(view.sftpID, paths, dstDir, overwrite);
+    } else {
+      await LocalFSService.Move(view.sftpID, paths, dstDir, overwrite);
+    }
+    updateTransfer(tmpID, transferId, { progress: 100, speed: `Done → ${dstDir}`, status: 'completed' });
+  } catch (err: any) {
+    updateTransfer(tmpID, transferId, { status: 'failed', error: err?.message || String(err) });
+    throw err;
+  } finally {
+    await refresh(tmpID);
   }
 }

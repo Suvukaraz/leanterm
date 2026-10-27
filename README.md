@@ -4,7 +4,7 @@
 
 LeanTerm is a fast, native Linux connection and terminal manager built with **Go** and **Svelte 5** (via Wails v3). It is a complete, clean rewrite of the legacy Perl-based *Ásbrú Connection Manager*, preserving complete visual and functional parity with the GTK3 interface while eliminating security flaws, shell injections, and slow script wrappers.
 
-> **Status:** 0.7.5 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
+> **Status:** 0.8.0 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
 
 ---
 
@@ -12,7 +12,7 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 
 ### Lean, Configurable UI
 - Main button bar at the top (default) or bottom of the window (*Preferences → Main Options*).
-- Toggles in the button bar: **Connections** tree, **SFTP** browser panels, **Clusters** functions (hidden by default to keep the UI lean).
+- Toggles in the button bar: **Connections** tree, **File Browser** panels (SFTP and local), **Clusters** functions (hidden by default to keep the UI lean).
 - SFTP panel on the left (default) or right side of the terminal (*Preferences → Terminal Options → SFTP browser*).
 - New connections only need a name; the title is derived from it.
 - Closing the window asks for confirmation while connections or SFTP transfers are active.
@@ -41,6 +41,14 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 - **"Open with default application":** Downloads to a temporary folder, opens with `xdg-open`, watches for changes via `fsnotify`, and prompts to upload modifications back to the remote server.
 - Transfer queue with progress, speed, ETA, parallel transfer throttling, and resume support.
 - Optional periodic folder polling (`poll_seconds`).
+
+### Local File Browser
+- Local shell tabs show the same browser for the local file system (title "File Browser").
+- Starts in the shell's working directory; "Follow terminal folder" tracks the shell via `/proc/<pid>/cwd` (no shell integration or OSC 7 needed).
+- Double-click opens files directly in their default application; folders are entered.
+- The Home button opens your home folder; free space is shown on Linux, macOS, FreeBSD and Windows.
+- Copy to… / Move to… instead of upload/download; files dropped from the desktop are copied into the current folder, asking before existing files are overwritten.
+- File operations use the Go standard library directly – no shell commands.
 
 ### Automation & Productivity
 - **Variable Substitution Engine:**
@@ -85,9 +93,9 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 ## 🛠️ Installation & Building
 
 ### Debian / Ubuntu Package (.deb)
-Download `leanterm_0.7.5_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
+Download `leanterm_0.8.0_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
-sudo apt install ./leanterm_0.7.5_amd64.deb
+sudo apt install ./leanterm_0.8.0_amd64.deb
 ```
 
 Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`, e.g. Debian 13 / Ubuntu 24.04 or newer); `apt` installs them automatically.
@@ -96,7 +104,7 @@ Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`
 
 To build the `.deb` package from source:
 ```bash
-./build/package-deb.sh 0.7.5
+./build/package-deb.sh 0.8.0
 ```
 
 ### Building from Source

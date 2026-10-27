@@ -5,6 +5,7 @@
     sftpViews,
     openSftp,
     loadDir,
+    goHome,
     navigateBack,
     navigateForward,
     navigateUp,
@@ -23,7 +24,11 @@
     dismissTransfer,
     openWithDefaultApp,
     uploadBack,
+    goToTerminalFolder,
+    findConflicts,
+    copyOrMoveLocal,
   } from '../../lib/stores/sftp';
+  import { fsBackend, type BrowserKind } from '../../lib/stores/fsBackend';
   import { settings } from '../../lib/stores/config';
   import { sftpPanelWidth } from '../../lib/stores/ui';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
@@ -43,10 +48,13 @@
     fullWidth?: boolean;
     /** Side of the terminal the panel is shown on (the resize handle faces the terminal). */
     side?: 'left' | 'right';
+    /** 'local' browses the local file system next to a local shell. */
+    kind?: BrowserKind;
     onclose?: () => void;
   }
 
-  let { tmpID, fullWidth = false, side = 'left', onclose }: Props = $props();
+  let { tmpID, fullWidth = false, side = 'left', kind = 'sftp', onclose }: Props = $props();
+  let isLocal = $derived(kind === 'local');
 
   let view = $derived($sftpViews[tmpID]);
   let sessionInfo = $derived($sessions.find((s) => s.tmpID === tmpID));
@@ -78,6 +86,8 @@
   let permissionsInitialMode = $state(0o755);
 
   let osc7Unsubscribe: (() => void) | null = null;
+  /** Last folder the terminal reported (OSC 7 or /proc/<pid>/cwd). */
+  let lastTerminalCwd = '';
   let dropUnsubscribe: (() => void) | null = null;
   let fileModifiedUnsubscribe: (() => void) | null = null;
   let pollInterval: any = null;
@@ -88,9 +98,12 @@
   let modifiedLocalPath = $state('');
 
   onMount(() => {
-    // If not already opened, initialize SFTP
+    // If not already opened, initialize the browser; a panel shown again resumes
+    // following the terminal folder if that was on.
     if (!view || !view.sftpID) {
-      openSftp(tmpID);
+      openSftp(tmpID, kind);
+    } else if (view.followTerminal) {
+      fsBackend(view.kind).setFollow(view.sftpID, true).catch(() => {});
     }
 
     const offDrop = Events.On('files:dropped', handleNativeDrop);
@@ -100,6 +113,7 @@
     try {
       osc7Unsubscribe = Events.On(`session:cwd:${tmpID}`, (event: any) => {
         const cwd = typeof event?.data === 'string' ? event.data : String(event || '');
+        if (cwd) lastTerminalCwd = cwd;
         if (cwd && view?.followTerminal && cwd !== view?.currentPath) {
           loadDir(tmpID, cwd);
         }
@@ -135,6 +149,7 @@
 
   onDestroy(() => {
     dropUnsubscribe?.();
+    if (view?.sftpID) fsBackend(view.kind).close(view.sftpID).catch(() => {});
     if (osc7Unsubscribe) {
       osc7Unsubscribe();
     }
@@ -187,8 +202,9 @@
     }
   }
 
-  // Open a remote file in its default desktop application (downloaded to a temp
-  // folder; saving it there offers to upload the changes back).
+  // Open a file in its default desktop application. Remote files are downloaded to
+  // a temp folder (saving there offers to upload the changes back); local files are
+  // opened directly.
   let openingFile = $state('');
   let openError = $state('');
   async function handleOpenFile(p: string) {
@@ -234,7 +250,7 @@
   }
 
   function handleOpenStartFolder() {
-    loadDir(tmpID, '/');
+    loadDir(tmpID, view?.startPath || '/');
   }
 
   function handleCopyCurrentPath() {
@@ -258,31 +274,91 @@
   }
 
   function handleGoToTerminalFolder() {
-    // Navigates to terminal folder if known
-    if (view?.currentPath) {
-      loadDir(tmpID, view.currentPath);
+    goToTerminalFolder(tmpID, lastTerminalCwd);
+  }
+
+  // Errors of file operations (e.g. missing permissions) are shown in a dialog.
+  let actionError = $state('');
+  async function run(action: () => Promise<unknown>) {
+    try {
+      await action();
+    } catch (err: any) {
+      actionError = err?.message || String(err);
     }
+  }
+
+  // Existing targets: ask whether to overwrite or skip them (or cancel).
+  let conflict = $state<{ names: string[]; resolve: (choice: 'overwrite' | 'skip' | 'cancel') => void } | null>(null);
+  function askConflict(names: string[]): Promise<'overwrite' | 'skip' | 'cancel'> {
+    return new Promise((resolve) => (conflict = { names, resolve }));
+  }
+  function answerConflict(choice: 'overwrite' | 'skip' | 'cancel') {
+    conflict?.resolve(choice);
+    conflict = null;
+  }
+
+  /** Copies/moves (local tab) or uploads (SFTP) paths into dstDir after resolving
+   *  name conflicts. */
+  async function transfer(op: 'upload' | 'copy' | 'move', paths: string[], dstDir: string) {
+    if (paths.length === 0) return;
+    await run(async () => {
+      const names = await findConflicts(tmpID, paths, dstDir);
+      let overwrite = false;
+      if (names.length > 0) {
+        const choice = await askConflict(names);
+        if (choice === 'cancel') return;
+        overwrite = choice === 'overwrite';
+        if (!overwrite) {
+          const skip = new Set(names);
+          paths = paths.filter((p) => !skip.has(p.split(/[/\\]/).pop() || p));
+          if (paths.length === 0) return;
+        }
+      }
+      if (op === 'upload') {
+        await uploadFiles(tmpID, paths);
+      } else {
+        await copyOrMoveLocal(tmpID, op, paths, dstDir, overwrite);
+      }
+    });
   }
 
   async function handleTriggerUploadDialog() {
     try {
       const path = await SystemService.ChooseFile('Upload file', '', false);
-      if (path) await uploadFiles(tmpID, [path]);
+      if (path) await transfer('upload', [path], view?.currentPath || '/');
     } catch (err) {
       console.warn('Upload dialog failed:', err);
     }
   }
 
-  // Files dropped from the desktop arrive from the backend with their real paths.
+  // Files dropped from the desktop arrive from the backend with their real paths:
+  // uploaded on SSH tabs, copied into the current folder on local tabs.
   function handleNativeDrop(ev: any) {
     const data = ev?.data ?? ev;
     if (data?.attributes?.['data-sftp-drop'] !== tmpID) return;
     const files: string[] = Array.isArray(data?.files) ? data.files : [];
-    if (files.length > 0 && isConnected) uploadFiles(tmpID, files);
+    if (files.length === 0 || !view?.currentPath) return;
+    if (isLocal) {
+      transfer('copy', files, view.currentPath);
+    } else if (isConnected) {
+      transfer('upload', files, view.currentPath);
+    }
   }
 
   function handleDownload(paths: string[], targetDir = '') {
-    downloadFiles(tmpID, paths, targetDir);
+    run(() => downloadFiles(tmpID, paths, targetDir));
+  }
+
+  // Local tabs: copy/move the selection into a folder chosen in a dialog.
+  async function handleCopyOrMoveTo(op: 'copy' | 'move', paths: string[]) {
+    if (paths.length === 0) return;
+    let dir = '';
+    try {
+      dir = await SystemService.ChooseFile(op === 'copy' ? 'Copy to folder' : 'Move to folder', view?.currentPath || '', true);
+    } catch (err) {
+      console.warn('Folder dialog failed:', err);
+    }
+    if (dir) await transfer(op, paths, dir);
   }
 
   // Dialog actions
@@ -294,7 +370,7 @@
   async function confirmNewFolder() {
     if (newFolderName.trim()) {
       newFolderOpen = false;
-      await createFolder(tmpID, newFolderName.trim());
+      await run(() => createFolder(tmpID, newFolderName.trim()));
     }
   }
 
@@ -306,7 +382,7 @@
   async function confirmNewFile() {
     if (newFileName.trim()) {
       newFileOpen = false;
-      await createEmptyFile(tmpID, newFileName.trim());
+      await run(() => createEmptyFile(tmpID, newFileName.trim()));
     }
   }
 
@@ -319,19 +395,25 @@
   async function confirmRename() {
     if (renameNewName.trim() && renameFromPath) {
       renameOpen = false;
-      await renameItem(tmpID, renameFromPath, renameNewName.trim());
+      await run(() => renameItem(tmpID, renameFromPath, renameNewName.trim()));
     }
   }
 
+  // Deleting asks first unless "Confirm before deleting" is turned off.
   function openDeleteDialog(paths: string[]) {
     deletePaths = paths;
-    deleteConfirmOpen = true;
+    if ($settings?.sftpBrowser?.ConfirmDelete ?? true) {
+      deleteConfirmOpen = true;
+    } else {
+      confirmDelete();
+    }
   }
 
   async function confirmDelete() {
     deleteConfirmOpen = false;
-    if (deletePaths.length > 0) {
-      await removeItems(tmpID, deletePaths);
+    const paths = deletePaths;
+    if (paths.length > 0) {
+      await run(() => removeItems(tmpID, paths));
     }
   }
 
@@ -345,7 +427,7 @@
   async function confirmPermissions(mode: number, recursive: boolean, scope: string) {
     permissionsOpen = false;
     if (permissionsPaths.length > 0) {
-      await chmodItems(tmpID, permissionsPaths, mode, recursive, scope);
+      await run(() => chmodItems(tmpID, permissionsPaths, mode, recursive, scope));
     }
   }
 </script>
@@ -360,7 +442,7 @@
 
   <!-- Header -->
   <div class="sftp-header">
-    <span class="header-title"><b>SFTP Browser</b></span>
+    <span class="header-title"><b>{isLocal ? 'File Browser' : 'SFTP Browser'}</b></span>
     {#if onclose}
       <button type="button" class="close-sftp-btn" title="Close SFTP" onclick={onclose}>
         ×
@@ -376,10 +458,11 @@
     hasSelection={(view?.selectedPaths?.length ?? 0) > 0}
     showHidden={view?.showHidden ?? false}
     followTerminal={view?.followTerminal ?? false}
+    local={isLocal}
     onback={() => navigateBack(tmpID)}
     onforward={() => navigateForward(tmpID)}
     onup={() => navigateUp(tmpID)}
-    onhome={() => loadDir(tmpID, '/')}
+    onhome={() => goHome(tmpID)}
     onrefresh={() => refresh(tmpID)}
     onnewfolder={openNewFolderDialog}
     onupload={handleTriggerUploadDialog}
@@ -401,9 +484,16 @@
     ontogglefollow={() => toggleFollowTerminal(tmpID)}
   />
 
+  {#if view?.error}
+    <div class="sftp-error" role="alert" title={view.error}>{view.error}</div>
+  {/if}
+
   <!-- File List Area -->
   <div class="file-list-wrap">
     <SftpFileList
+      local={isLocal}
+      oncopyTo={(paths) => handleCopyOrMoveTo('copy', paths)}
+      onmoveTo={(paths) => handleCopyOrMoveTo('move', paths)}
       entries={view?.entries || []}
       currentPath={view?.currentPath || '/'}
       selectedPaths={view?.selectedPaths || []}
@@ -551,6 +641,40 @@
 />
 
 <MessageDialog
+  open={!!actionError}
+  type="error"
+  title={isLocal ? 'File Browser' : 'SFTP Browser'}
+  secondaryText={actionError}
+  buttons="ok"
+  onresponse={() => (actionError = '')}
+/>
+
+<Dialog open={!!conflict} title="File already exists" width={420} onclose={() => answerConflict('cancel')}>
+  <div class="dialog-body">
+    <span>
+      {conflict?.names.length === 1
+        ? `'${conflict.names[0]}' already exists in the target folder.`
+        : `${conflict?.names.length} items already exist in the target folder:`}
+    </span>
+    {#if (conflict?.names.length ?? 0) > 1}
+      <ul class="conflict-list">
+        {#each conflict?.names.slice(0, 10) ?? [] as n (n)}
+          <li>{n}</li>
+        {/each}
+        {#if (conflict?.names.length ?? 0) > 10}
+          <li>… and {(conflict?.names.length ?? 0) - 10} more</li>
+        {/if}
+      </ul>
+    {/if}
+  </div>
+  {#snippet actions()}
+    <Button label="Cancel" onclick={() => answerConflict('cancel')} />
+    <Button label="Skip existing" onclick={() => answerConflict('skip')} />
+    <Button label="Overwrite" isDefault onclick={() => answerConflict('overwrite')} />
+  {/snippet}
+</Dialog>
+
+<MessageDialog
   open={!!openError}
   type="error"
   title="Open file"
@@ -649,10 +773,13 @@
   .sftp-footer {
     display: flex;
     align-items: center;
-    padding: 3px 6px;
-    background: var(--gtk-header-bg, #ececec);
-    border-top: 1px solid var(--gtk-border, #d3d7cf);
-    font-size: 10px;
+    flex-shrink: 0;
+    height: var(--leanterm-bottom-bar-height);
+    box-sizing: border-box;
+    padding: 0 6px;
+    background: var(--gtk-header-bg);
+    border-top: 1px solid var(--gtk-border-color);
+    font-size: 11px;
     color: var(--gtk-muted-fg);
   }
 
@@ -670,6 +797,24 @@
     height: 100%;
     cursor: col-resize;
     z-index: 20;
+  }
+
+  .sftp-error {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--gtk-error-fg);
+    background: var(--gtk-error-bg);
+    border-bottom: 1px solid var(--gtk-error-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conflict-list {
+    margin: 0;
+    padding-left: 18px;
+    max-height: 160px;
+    overflow-y: auto;
   }
 
   .sftp-resizer.on-right {

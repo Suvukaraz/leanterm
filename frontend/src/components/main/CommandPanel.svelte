@@ -698,9 +698,12 @@
   .cp-searchstart-row {
     display: flex;
     align-items: center;
+    flex-shrink: 0;
     gap: 4px;
-    padding: 4px;
-    background: var(--gtk-bg-color);
+    height: var(--leanterm-bottom-bar-height);
+    box-sizing: border-box;
+    padding: 0 4px;
+    background: var(--gtk-header-bg);
     border-top: 1px solid var(--gtk-border-color);
   }
   :global(.expand-btn) {

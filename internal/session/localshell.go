@@ -74,6 +74,16 @@ func (s *eventSink) Send(seq uint64, b64 string) {
 }
 
 func (ls *LocalSession) TmpID() string { return ls.tmpID }
+
+// ShellPID returns the process id of the running shell, or 0 when it is not running.
+func (ls *LocalSession) ShellPID() int {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	if ls.cmd == nil || ls.cmd.Process == nil || ls.state != "connected" {
+		return 0
+	}
+	return ls.cmd.Process.Pid
+}
 func (ls *LocalSession) Title() string { return ls.title }
 func (ls *LocalSession) Kind() string  { return "local" }
 func (ls *LocalSession) State() string {

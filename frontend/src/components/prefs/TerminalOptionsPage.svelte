@@ -25,7 +25,7 @@
     { id: 'behaviour', label: 'Behaviour' },
     { id: 'look_and_feel', label: 'Look and Feel' },
     { id: 'advanced', label: 'Advanced' },
-    { id: 'sftp_browser', label: 'SFTP browser' },
+    { id: 'sftp_browser', label: 'File browser' },
   ];
 
   const whenLastTabClosedOptions = [
@@ -384,12 +384,12 @@
               <div class="col-flex">
                 <CheckButton
                   bind:checked={sftp.AutoOpen}
-                  label="Open SFTP browser automatically on SSH connections"
+                  label="Open file browser automatically (SSH and local shells)"
                 />
                 <CheckButton
                   bind:checked={sftp.FollowTerminalFolder}
                   label="Follow terminal folder (OSC 7)"
-                  tooltip="Change the SFTP browser folder when the shell's working directory changes (requires the remote shell to report it, see Help)"
+                  tooltip="Change the browser folder when the shell's working directory changes (SSH: requires the remote shell to report it via OSC 7, see Help)"
                 />
                 <CheckButton
                   bind:checked={sftp.ShowHidden}

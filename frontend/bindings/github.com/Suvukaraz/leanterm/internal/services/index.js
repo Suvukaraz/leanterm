@@ -5,6 +5,7 @@
 import * as ClusterService from "./clusterservice.js";
 import * as ConfigService from "./configservice.js";
 import * as DialogService from "./dialogservice.js";
+import * as LocalFSService from "./localfsservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SessionService from "./sessionservice.js";
 import * as SystemService from "./systemservice.js";
@@ -12,6 +13,7 @@ export {
     ClusterService,
     ConfigService,
     DialogService,
+    LocalFSService,
     SFTPService,
     SessionService,
     SystemService

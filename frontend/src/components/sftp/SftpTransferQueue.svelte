@@ -42,7 +42,7 @@
           <div class="transfer-item">
             <div class="transfer-meta">
               <span class="transfer-direction" title={t.direction}>
-                {t.direction === 'upload' ? '⬆' : '⬇'}
+                {t.direction === 'upload' ? '⬆' : t.direction === 'download' ? '⬇' : t.direction === 'move' ? '➜' : '⧉'}
               </span>
               <span class="transfer-name" title={t.name}>{t.name}</span>
               <span class="transfer-status status-{t.status}">
