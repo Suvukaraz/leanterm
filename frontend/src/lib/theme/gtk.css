@@ -1,0 +1,381 @@
+/* LeanTerm GTK3/Adwaita-style theme.
+ * Dark is the default colour scheme; light is selected with <html data-theme="light">.
+ * Components must only use the tokens below (or their aliases) – never literal colours. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --gtk-font-family: system-ui, "Cantarell", "Ubuntu", "Segoe UI", sans-serif;
+  --gtk-font-size: 10pt;
+  --gtk-mono-font: "DejaVu Sans Mono", "Ubuntu Mono", "Noto Sans Mono", "Liberation Mono", monospace;
+
+  --gtk-bg-color: #2b2b2b;          /* window / panel background */
+  --gtk-fg-color: #e6e6e6;          /* normal text */
+  --gtk-base-color: #1f1f1f;        /* entries, lists, views */
+  --gtk-text-color: #f2f2f2;        /* text inside entries/lists */
+  --gtk-muted-fg: #a0a0a0;          /* secondary text */
+  --gtk-disabled-fg: #6f6f6f;
+  --gtk-border-color: #3c3c3c;
+  --gtk-header-bg: #333333;         /* toolbars, notebook headers, dialog bars */
+  --gtk-menu-bg: #2f2f2f;
+  --gtk-row-hover: rgba(255, 255, 255, 0.06);
+  --gtk-row-alt: rgba(255, 255, 255, 0.025);
+  --gtk-btn-bg: #3a3a3a;
+  --gtk-btn-border: #4a4a4a;
+  --gtk-btn-hover-border: #8a8a8a;
+  --gtk-btn-hover-bg: #474747;
+  --gtk-btn-active-bg: #2f2f2f;
+  --gtk-btn-focus-bg: #3d3a30;
+  --gtk-focus-ring: #4a90d9;
+  --gtk-accent: #4a90d9;
+  --gtk-selected-bg: #2f6db3;
+  --gtk-selected-fg: #ffffff;
+  --gtk-paned-handle: #3a3a3a;
+  --gtk-paned-handle-hover: #5a5a5a;
+  --gtk-tooltip-bg: rgba(15, 15, 15, 0.96);
+  --gtk-tooltip-fg: #eeeeee;
+  --gtk-shadow: rgba(0, 0, 0, 0.55);
+  --gtk-backdrop: rgba(0, 0, 0, 0.5);
+  --gtk-error-bg: #4a2326;
+  --gtk-error-fg: #ffb4b4;
+  --gtk-error-border: #7a3439;
+  --gtk-warning-bg: #4a4220;
+  --gtk-warning-fg: #f3df8a;
+  --gtk-success-fg: #8ae234;
+  --gtk-link-fg: #78aef0;
+  --gtk-scrollbar: #555555;
+  --gtk-scrollbar-hover: #777777;
+  --gtk-terminal-bg: #000000;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --gtk-bg-color: #f0f0f0;
+  --gtk-fg-color: #2e3436;
+  --gtk-base-color: #ffffff;
+  --gtk-text-color: #000000;
+  --gtk-muted-fg: #666666;
+  --gtk-disabled-fg: #a0a0a0;
+  --gtk-border-color: #d1d1d1;
+  --gtk-header-bg: #e4e4e4;
+  --gtk-menu-bg: #ffffff;
+  --gtk-row-hover: rgba(0, 0, 0, 0.06);
+  --gtk-row-alt: rgba(0, 0, 0, 0.025);
+  --gtk-btn-bg: #f6f6f6;
+  --gtk-btn-border: #cfcfcf;
+  --gtk-btn-hover-border: #555555;
+  --gtk-btn-hover-bg: #ffffff;
+  --gtk-btn-active-bg: #e2e2e2;
+  --gtk-btn-focus-bg: #ffebbb;
+  --gtk-focus-ring: #3584e4;
+  --gtk-accent: #3584e4;
+  --gtk-selected-bg: #3584e4;
+  --gtk-selected-fg: #ffffff;
+  --gtk-paned-handle: #d0d0d0;
+  --gtk-paned-handle-hover: #b0b0b0;
+  --gtk-tooltip-bg: rgba(40, 40, 40, 0.95);
+  --gtk-tooltip-fg: #ffffff;
+  --gtk-shadow: rgba(0, 0, 0, 0.3);
+  --gtk-backdrop: rgba(0, 0, 0, 0.35);
+  --gtk-error-bg: #fce4e4;
+  --gtk-error-fg: #721c24;
+  --gtk-error-border: #f5c6cb;
+  --gtk-warning-bg: #F6F877;
+  --gtk-warning-fg: #5c4a00;
+  --gtk-success-fg: #2e7d32;
+  --gtk-link-fg: #1e70bf;
+  --gtk-scrollbar: #c1c1c1;
+  --gtk-scrollbar-hover: #a1a1a1;
+}
+
+/* Aliases used by individual components – all resolve to the tokens above. */
+:root,
+[data-theme] {
+  --gtk-fg: var(--gtk-fg-color);
+  --gtk-bg: var(--gtk-bg-color);
+  --gtk-base: var(--gtk-base-color);
+  --gtk-border: var(--gtk-border-color);
+  --gtk-selected: var(--gtk-selected-bg);
+  --gtk-hover-bg: var(--gtk-row-hover);
+  --gtk-menu-fg: var(--gtk-fg-color);
+  --border-color: var(--gtk-border-color);
+  --text-color: var(--gtk-fg-color);
+  --text-muted: var(--gtk-muted-fg);
+  --accent-color: var(--gtk-accent);
+  --bg-primary: var(--gtk-bg-color);
+  --bg-secondary: var(--gtk-header-bg);
+  --bg-tertiary: var(--gtk-base-color);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--gtk-font-family);
+  font-size: var(--gtk-font-size);
+  background-color: var(--gtk-bg-color);
+  color: var(--gtk-fg-color);
+  user-select: none;
+  -webkit-user-select: none;
+  /* An app, not a document: nothing in the chrome drags the window. */
+  --wails-draggable: no-drag;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+a {
+  color: var(--gtk-link-fg);
+}
+
+/* Global button styling */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  background-color: var(--gtk-btn-bg);
+  color: var(--gtk-fg-color);
+  border: 1px solid var(--gtk-btn-border);
+  margin: 1px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--gtk-btn-hover-border);
+  background-color: var(--gtk-btn-hover-bg);
+}
+
+button:active:not(:disabled) {
+  background-color: var(--gtk-btn-active-bg);
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 1px solid var(--gtk-focus-ring);
+  outline-offset: -1px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--gtk-focus-ring);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Command panel toolbar buttons (.button-cp) */
+.button-cp {
+  border: 1px solid transparent !important;
+  border-radius: 3px !important;
+  padding: 3px !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+.button-cp:hover:not(:disabled) {
+  border-color: var(--gtk-btn-hover-border) !important;
+  background-color: var(--gtk-btn-hover-bg) !important;
+}
+
+/* Inputs */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input:not([type]),
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  background-color: var(--gtk-base-color);
+  color: var(--gtk-text-color);
+  border: 1px solid var(--gtk-border-color);
+  padding: 3px 6px;
+  border-radius: 3px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: var(--gtk-disabled-fg);
+  opacity: 0.8;
+}
+
+select option {
+  background-color: var(--gtk-base-color);
+  color: var(--gtk-text-color);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  margin: 2px 4px 2px 0;
+  cursor: pointer;
+  accent-color: var(--gtk-accent);
+}
+
+input[type="range"] {
+  accent-color: var(--gtk-accent);
+}
+
+/* Spinbutton */
+.spinbutton {
+  color: var(--gtk-text-color);
+  font-size: 0.9em;
+  border: 1px solid var(--gtk-border-color);
+  background-color: var(--gtk-base-color);
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.spinbutton:hover {
+  border-color: var(--gtk-btn-hover-border);
+}
+
+/* Paned handle (splitter) */
+.paned-handle {
+  width: 6px;
+  cursor: col-resize;
+  background-color: var(--gtk-paned-handle);
+  transition: background-color 0.15s;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.paned-handle:hover,
+.paned-handle.dragging {
+  background-color: var(--gtk-paned-handle-hover);
+}
+
+.paned-handle-horizontal {
+  height: 6px;
+  cursor: row-resize;
+  background-color: var(--gtk-paned-handle);
+  transition: background-color 0.15s;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.paned-handle-horizontal:hover,
+.paned-handle-horizontal.dragging {
+  background-color: var(--gtk-paned-handle-hover);
+}
+
+/* Banners */
+.banner-fill {
+  background-image: linear-gradient(to right, #007aff, #2fedde);
+  padding: 0.35em 1em;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .banner-fill {
+  background-image: linear-gradient(to right, #1f5fa8, #1a8f88);
+}
+
+.banner-text {
+  color: #eee;
+  text-shadow: 0 0 8px rgba(17, 17, 17, 0.75);
+  font-size: 2.2em;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+/* Tooltips */
+.tooltip {
+  font-size: 0.8em;
+  background-color: var(--gtk-tooltip-bg);
+  color: var(--gtk-tooltip-fg);
+  padding: 3px 6px;
+  border-radius: 3px;
+  box-shadow: 0 2px 5px var(--gtk-shadow);
+  pointer-events: none;
+  z-index: 10000;
+}
+
+/* Warning / Error classes */
+.w-warning {
+  background-color: var(--gtk-warning-bg) !important;
+  color: var(--gtk-warning-fg);
+}
+
+.w-error {
+  background-color: var(--gtk-error-bg) !important;
+  color: var(--gtk-error-fg);
+}
+
+/* Icons from the GTK stock set are dark glyphs; lighten them on the dark scheme. */
+[data-theme="dark"] img[src*="/icons/stock/"]:not([src*="dialog-warning"]) {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* Scrollbars - GTK style */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gtk-scrollbar);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gtk-scrollbar-hover);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
