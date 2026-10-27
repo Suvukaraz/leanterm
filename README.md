@@ -4,7 +4,7 @@
 
 LeanTerm is a fast, native Linux connection and terminal manager built with **Go** and **Svelte 5** (via Wails v3). It is a complete, clean rewrite of the legacy Perl-based *Ásbrú Connection Manager*, preserving complete visual and functional parity with the GTK3 interface while eliminating security flaws, shell injections, and slow script wrappers.
 
-> **Status:** 0.8.0 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
+> **Status:** 0.8.1 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
 
 ## 📸 Screenshots
 
@@ -105,9 +105,9 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 ## 🛠️ Installation & Building
 
 ### Debian / Ubuntu Package (.deb)
-Download `leanterm_0.8.0_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
+Download `leanterm_0.8.1_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
-sudo apt install ./leanterm_0.8.0_amd64.deb
+sudo apt install ./leanterm_0.8.1_amd64.deb
 ```
 
 Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`, e.g. Debian 13 / Ubuntu 24.04 or newer); `apt` installs them automatically.
@@ -116,7 +116,7 @@ Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`
 
 To build the `.deb` package from source:
 ```bash
-./build/package-deb.sh 0.8.0
+./build/package-deb.sh 0.8.1
 ```
 
 ### Building from Source
