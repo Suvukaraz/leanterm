@@ -389,7 +389,7 @@
                 <CheckButton
                   bind:checked={sftp.FollowTerminalFolder}
                   label="Follow terminal folder (OSC 7)"
-                  tooltip="Change the browser folder when the shell's working directory changes (SSH: requires the remote shell to report it via OSC 7, see Help)"
+                  tooltip="Change the browser folder when the shell's working directory changes (SSH: requires the remote shell to report it via OSC 7)"
                 />
                 <CheckButton
                   bind:checked={sftp.ShowHidden}

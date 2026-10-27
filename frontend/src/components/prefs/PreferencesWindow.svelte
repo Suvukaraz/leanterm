@@ -77,7 +77,6 @@
         x?.general?.Theme,
         x?.appearance?.TreePosition,
         x?.appearance?.TabsInMainWindow,
-        x?.appearance?.MonochromeTrayIcon,
         x?.appearance?.ProtectedColor,
         x?.appearance?.ProtectedColorTarget,
         x?.appearance?.UnprotectedColor,

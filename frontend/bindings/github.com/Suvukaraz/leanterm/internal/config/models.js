@@ -36,20 +36,6 @@ export class AppearanceConfig {
              */
             this["ShowStatistics"] = false;
         }
-        if (!("ShowTrayIcon" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["ShowTrayIcon"] = false;
-        }
-        if (!("MonochromeTrayIcon" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["MonochromeTrayIcon"] = false;
-        }
         if (!("SelectionToClipboard" in $$source)) {
             /**
              * @member
@@ -207,14 +193,14 @@ export class AppearanceConfig {
      * @returns {AppearanceConfig}
      */
     static createFrom($$source = {}) {
-        const $$createField12_0 = $$createType0;
-        const $$createField13_0 = $$createType0;
+        const $$createField10_0 = $$createType0;
+        const $$createField11_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("InfoFont" in $$parsedSource) {
-            $$parsedSource["InfoFont"] = $$createField12_0($$parsedSource["InfoFont"]);
+            $$parsedSource["InfoFont"] = $$createField10_0($$parsedSource["InfoFont"]);
         }
         if ("TreeFont" in $$parsedSource) {
-            $$parsedSource["TreeFont"] = $$createField13_0($$parsedSource["TreeFont"]);
+            $$parsedSource["TreeFont"] = $$createField11_0($$parsedSource["TreeFont"]);
         }
         return new AppearanceConfig(/** @type {Partial<AppearanceConfig>} */($$parsedSource));
     }
@@ -1151,26 +1137,12 @@ export class GeneralConfig {
              */
             this["RememberMainSize"] = false;
         }
-        if (!("StartIconified" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["StartIconified"] = false;
-        }
         if (!("StartAtLogin" in $$source)) {
             /**
              * @member
              * @type {boolean}
              */
             this["StartAtLogin"] = false;
-        }
-        if (!("CloseToTray" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["CloseToTray"] = false;
         }
         if (!("ConfirmExit" in $$source)) {
             /**
@@ -1199,13 +1171,6 @@ export class GeneralConfig {
              * @type {boolean}
              */
             this["ProtectWithPassword"] = false;
-        }
-        if (!("PasswordOnTrayRestore" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["PasswordOnTrayRestore"] = false;
         }
         if (!("ForceSplit50" in $$source)) {
             /**
@@ -1248,13 +1213,6 @@ export class GeneralConfig {
              * @type {boolean}
              */
             this["SortGroupsFirst"] = false;
-        }
-        if (!("HelpURL" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["HelpURL"] = "";
         }
 
         Object.assign(this, $$source);

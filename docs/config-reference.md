@@ -21,12 +21,8 @@ color_scheme = 'dark'
 start_main_maximized = false
 # At start: With last size
 remember_main_size = true
-# Iconified in 'systray'
-start_iconified = false
 # Start at session startup
 start_at_login = false
-# Hide to tray instead of closing
-close_to_tray = false
 # Confirm exit
 confirm_exit = true
 # Auto save on exit
@@ -35,8 +31,6 @@ save_on_exit = false
 auto_save = true
 # Protect with password
 protect_with_password = false
-# Ask to restore from Tray
-password_on_tray_restore = false
 # Force split tabs to 50%
 force_split_50 = false
 # Hide on connection
@@ -49,8 +43,6 @@ append_group_name_to_title = true
 allow_multiple_instances = false
 # Sort groups first in tree
 sort_groups_first = true
-# Target of all 'Help' link buttons
-help_url = 'https://github.com/Suvukaraz/leanterm/wiki'
 
 # Preferences > Main Options > Look and Feel
 [appearance]
@@ -60,10 +52,6 @@ start_tree_on = 'connections'
 show_screenshots = true
 # Show statistics section in Info tab
 show_statistics = true
-# Always show Tray icon
-show_tray_icon = true
-# Use Black & White tray icon
-monochrome_tray_icon = false
 # Mouse selection copies content to global clipboard
 selection_to_clipboard = true
 # Show connections on: left | right

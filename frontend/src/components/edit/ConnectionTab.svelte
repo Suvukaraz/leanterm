@@ -7,10 +7,8 @@
   import RadioGroup from '../gtk/RadioGroup.svelte';
   import Frame from '../gtk/Frame.svelte';
   import Button from '../gtk/Button.svelte';
-  import LinkButton from '../gtk/LinkButton.svelte';
   import FileChooserButton from '../gtk/FileChooserButton.svelte';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
-  import { settings } from '../../lib/stores/config';
 
   interface Props {
     conn: any;
@@ -80,10 +78,6 @@
     }
   }
 
-  function openHelp() {
-    const url = $settings?.general?.HelpURL || 'https://www.asbru-cm.net/';
-    SystemService.OpenURL(url);
-  }
 
   function openLogFolder() {
     const folder = conn.SessionLogs?.Folder || '';
@@ -111,8 +105,6 @@
                 {disabled}
                 onchange={handleMethodChange}
               />
-              <LinkButton label="Help" tooltip="Open Online Help" url={$settings?.general?.HelpURL || 'https://www.asbru-cm.net/'} />
-              <Button label="KeePass" disabled={true} tooltip="KeePassXC integration (Phase 3)" />
             </div>
 
             <div class="row-flex">
@@ -417,10 +409,6 @@
                   if (conn.Network) conn.Network.Mode = val;
                 }}
               />
-              <div style="margin-left: auto; display: flex; gap: 6px;">
-                <LinkButton label="Help" tooltip="Network help" url={$settings?.general?.HelpURL || 'https://www.asbru-cm.net/'} />
-                <Button label="KeePass" disabled={true} tooltip="KeePassXC (Phase 3)" />
-              </div>
             </div>
 
             {#if conn.Network?.Mode === 'socks'}

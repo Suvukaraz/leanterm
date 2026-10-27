@@ -145,7 +145,6 @@
               <div class="col-flex">
                 <RadioGroup name="start_size" options={startSizeOptions} value={startSize} onchange={setStartSize} />
                 <div class="row-flex wrap-row">
-                  <CheckButton bind:checked={gen.StartIconified} label="Iconified in 'systray'" />
                   <CheckButton bind:checked={gen.StartAtLogin} label="Start at session startup" />
                 </div>
               </div>
@@ -153,7 +152,6 @@
 
             <Frame label="At exit">
               <div class="grid-2col">
-                <CheckButton bind:checked={gen.CloseToTray} label="Hide to tray instead of closing" />
                 <CheckButton
                   bind:checked={gen.ConfirmExit}
                   label="Confirm exit"
@@ -168,11 +166,6 @@
               <div class="row-flex">
                 <CheckButton bind:checked={gen.ProtectWithPassword} label="Protect with password" />
                 <Button label="Set..." onclick={onSetMasterPassword} />
-                <CheckButton
-                  bind:checked={gen.PasswordOnTrayRestore}
-                  label="Ask to restore from Tray"
-                  disabled={!gen.ProtectWithPassword}
-                />
               </div>
               <div class="status-vault-line">Passwords are stored in: <b>{vaultStatusDisplay}</b></div>
             </div>
@@ -202,8 +195,6 @@
             <div class="grid-2col">
               <CheckButton bind:checked={app.ShowScreenshots} label="Show screenshots" />
               <CheckButton bind:checked={app.ShowStatistics} label="Show statistics" />
-              <CheckButton bind:checked={app.ShowTrayIcon} label="Always show Tray icon" />
-              <CheckButton bind:checked={app.MonochromeTrayIcon} label="Use Black & White tray icon (*)" />
               <CheckButton
                 bind:checked={app.SelectionToClipboard}
                 label="Mouse selection copies content to global clipboard"

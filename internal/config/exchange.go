@@ -167,7 +167,6 @@ func ExportFull(cfg *Config, vault *secrets.Vault, filePath string, debug bool, 
 
 	if debug {
 		// Strip personal/network identifiers
-		doc.General.HelpURL = ""
 		doc.Network = &NetworkConfig{Mode: "direct"}
 		for i := range doc.Connections {
 			doc.Connections[i].Host = "redacted"

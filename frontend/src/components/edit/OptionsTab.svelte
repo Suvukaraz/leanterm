@@ -6,9 +6,6 @@
   import CheckButton from '../gtk/CheckButton.svelte';
   import Frame from '../gtk/Frame.svelte';
   import Button from '../gtk/Button.svelte';
-  import LinkButton from '../gtk/LinkButton.svelte';
-  import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
-  import { settings } from '../../lib/stores/config';
 
   interface Props {
     conn: any;
@@ -136,10 +133,6 @@
     updateSSHForwards();
   }
 
-  function openHelp() {
-    const url = $settings?.general?.HelpURL || 'https://www.asbru-cm.net/';
-    SystemService.OpenURL(url);
-  }
 </script>
 
 <div class="options-tab-container">
@@ -154,7 +147,6 @@
             tooltip="-(4|6) : Uses IPv4, IPv6 or no specification (ip based)"
             {disabled}
           />
-          <LinkButton label="Help" tooltip="SSH options help" url={$settings?.general?.HelpURL || 'https://www.asbru-cm.net/'} />
         </div>
       </div>
 

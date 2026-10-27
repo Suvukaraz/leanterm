@@ -4,7 +4,6 @@
   import Entry from '../gtk/Entry.svelte';
   import SpinButton from '../gtk/SpinButton.svelte';
   import Button from '../gtk/Button.svelte';
-  import LinkButton from '../gtk/LinkButton.svelte';
   import FileChooserButton from '../gtk/FileChooserButton.svelte';
   import CheckButton from '../gtk/CheckButton.svelte';
 
@@ -37,18 +36,6 @@
           direction="vertical"
         />
 
-        <div class="action-links">
-          <LinkButton
-            label="Help"
-            tooltip="Network settings help"
-            url={settings?.general?.HelpURL || 'https://www.asbru-cm.net/'}
-          />
-          <Button
-            label="KeePass"
-            disabled={true}
-            tooltip="KeePassXC integration (Phase 3)"
-          />
-        </div>
       </div>
     </Frame>
   </div>
@@ -145,9 +132,4 @@
     font-size: 0.9em;
   }
 
-  .action-links {
-    display: flex;
-    gap: 8px;
-    margin-top: 4px;
-  }
 </style>

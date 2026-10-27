@@ -3,9 +3,6 @@
   import CheckButton from '../gtk/CheckButton.svelte';
   import Entry from '../gtk/Entry.svelte';
   import Button from '../gtk/Button.svelte';
-  import LinkButton from '../gtk/LinkButton.svelte';
-  import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
-  import { settings } from '../../lib/stores/config';
 
   interface Props {
     title: string;
@@ -29,16 +26,11 @@
     };
   }
 
-  function openHelp() {
-    const url = $settings?.general?.HelpURL || 'https://www.asbru-cm.net/';
-    SystemService.OpenURL(url);
-  }
 </script>
 
 <div class="prepost-tab-container">
   <div class="top-bar">
     <span class="info-text">{tooltip}</span>
-    <LinkButton label="Help" tooltip="Pre/Post exec help" url={$settings?.general?.HelpURL || 'https://www.asbru-cm.net/'} />
   </div>
 
   <EditableList

@@ -28,21 +28,17 @@ type GeneralConfig struct {
 	ColorScheme            string `toml:"color_scheme" comment:"Colour scheme of the user interface: dark | light"`
 	StartMainMaximized     bool   `toml:"start_main_maximized" comment:"At start: Maximized"`
 	RememberMainSize       bool   `toml:"remember_main_size" comment:"At start: With last size"`
-	StartIconified         bool   `toml:"start_iconified" comment:"Iconified in 'systray'"`
 	StartAtLogin           bool   `toml:"start_at_login" comment:"Start at session startup"`
-	CloseToTray            bool   `toml:"close_to_tray" comment:"Hide to tray instead of closing"`
 	ConfirmExit            bool   `toml:"confirm_exit" comment:"Confirm exit"`
 	SaveOnExit             bool   `toml:"save_on_exit" comment:"Auto save on exit"`
 	AutoSave               bool   `toml:"auto_save" comment:"Automatically save every configuration change"`
 	ProtectWithPassword    bool   `toml:"protect_with_password" comment:"Protect with password"`
-	PasswordOnTrayRestore  bool   `toml:"password_on_tray_restore" comment:"Ask to restore from Tray"`
 	ForceSplit50           bool   `toml:"force_split_50" comment:"Force split tabs to 50%"`
 	HideOnConnect          bool   `toml:"hide_on_connect" comment:"Hide on connection"`
 	AutoAcceptHostKeys     bool   `toml:"auto_accept_host_keys" comment:"Auto-accept or delete unknown or offending SSH keys"`
 	AppendGroupNameToTitle bool   `toml:"append_group_name_to_title" comment:"Automatically append group name to title for new connections"`
 	AllowMultipleInstances bool   `toml:"allow_multiple_instances" comment:"Allow more than one instance to run at the same time"`
 	SortGroupsFirst        bool   `toml:"sort_groups_first" comment:"Sort groups first in tree"`
-	HelpURL                string `toml:"help_url" comment:"Target of all 'Help' link buttons"`
 }
 
 // AppearanceConfig represents look and feel options
@@ -50,8 +46,6 @@ type AppearanceConfig struct {
 	StartTreeOn                string     `toml:"start_tree_on" comment:"Start on: connections | favourites | history | clusters"`
 	ShowScreenshots            bool       `toml:"show_screenshots" comment:"Show screenshots section in Info tab"`
 	ShowStatistics             bool       `toml:"show_statistics" comment:"Show statistics section in Info tab"`
-	ShowTrayIcon               bool       `toml:"show_tray_icon" comment:"Always show Tray icon"`
-	MonochromeTrayIcon         bool       `toml:"monochrome_tray_icon" comment:"Use Black & White tray icon"`
 	SelectionToClipboard       bool       `toml:"selection_to_clipboard" comment:"Mouse selection copies content to global clipboard"`
 	TreePosition               string     `toml:"tree_position" comment:"Show connections on: left | right"`
 	ButtonBarPosition          string     `toml:"button_bar_position" comment:"Main button bar position: top | bottom"`

@@ -52,12 +52,14 @@ type SFTPManager struct {
 	mu      sync.Mutex
 	clients map[string]*SFTPClientInstance // sftpID -> instance
 	session map[string]string              // tmpID -> sftpID
+	slots   *slotLimiter                   // parallel_transfers across all sessions
 }
 
 func NewSFTPManager() *SFTPManager {
 	return &SFTPManager{
 		clients: make(map[string]*SFTPClientInstance),
 		session: make(map[string]string),
+		slots:   newSlotLimiter(),
 	}
 }
 

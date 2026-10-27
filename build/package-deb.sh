@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${1:-0.8.2}"
+VERSION="${1:-0.8.3}"
 ARCH="amd64"
 PKG_NAME="leanterm"
 DEB_NAME="${PKG_NAME}_${VERSION}_${ARCH}.deb"

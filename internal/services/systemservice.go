@@ -115,7 +115,7 @@ func (ss *SystemService) OpenPath(path string) error {
 func (ss *SystemService) AppInfo() map[string]string {
 	return map[string]string{
 		"name":        "LeanTerm",
-		"version":     "0.8.2",
+		"version":     "0.8.3",
 		"license":     "GPLv3",
 		"description": "LeanTerm Connection Manager (rewrite of Ásbrú Connection Manager in Go + Wails + Svelte)",
 	}

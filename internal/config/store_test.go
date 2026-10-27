@@ -196,3 +196,34 @@ func TestMigrateLegacyConfigDir(t *testing.T) {
 		t.Fatalf("legacy dir should be left alone: %v", err)
 	}
 }
+
+func TestStoreIgnoresRemovedSettings(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewStore(StoreOptions{ConfigDir: tmpDir})
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Settings of dropped features (system tray, online help) from older versions.
+	old := `
+schema_version = 2
+[general]
+layout = "compact"
+start_iconified = true
+close_to_tray = true
+password_on_tray_restore = false
+help_url = "https://example.com/wiki"
+[appearance]
+show_tray_icon = true
+monochrome_tray_icon = false
+`
+	require.NoError(t, os.WriteFile(store.ConfigPath(), []byte(old), 0600))
+	require.NoError(t, store.Load())
+	assert.Empty(t, store.Warnings())
+	assert.Equal(t, "compact", store.Config().General.Layout)
+
+	require.NoError(t, store.Save())
+	data, err := os.ReadFile(store.ConfigPath())
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "tray")
+	assert.NotContains(t, string(data), "help_url")
+}

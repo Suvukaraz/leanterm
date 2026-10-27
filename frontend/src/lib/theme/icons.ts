@@ -93,10 +93,7 @@ const rootIconFiles: Record<string, string> = {
   'asbru-terminal-ok-big': '/icons/asbru_terminal64x64.png',
   'asbru-terminal-ko-small': '/icons/asbru_terminal_x16x16.png',
   'asbru-terminal-ko-big': '/icons/asbru_terminal_x64x64.png',
-  'asbru-tray-bw': '/icons/asbru_tray_bw.png',
-  'asbru-tray': '/icons/asbru-logo-tray.png',
   'leanterm-logo': '/icons/leanterm-logo.svg',
-  'leanterm-tray': '/icons/leanterm-tray.svg',
 };
 
 // Icon theme chosen in Preferences (general.theme). Callers that pass no theme

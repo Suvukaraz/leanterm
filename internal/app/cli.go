@@ -10,23 +10,22 @@ import (
 )
 
 type CLIFlags struct {
-	Help         bool
-	ConfigDir    string
-	TempDir      string
-	NoBackup     bool
-	StartShell   bool
-	Password     string
-	StartUUIDs   []string // id or id:cluster
-	EditUUID     string
-	DumpUUID     string
-	ListUUIDs    bool
-	Preferences  bool
-	QuickConn    bool
-	NoSplash     bool
-	Iconified    bool
-	ReadOnly     bool
-	Verbose      bool
-	UnknownArgs  []string
+	Help        bool
+	ConfigDir   string
+	TempDir     string
+	NoBackup    bool
+	StartShell  bool
+	Password    string
+	StartUUIDs  []string // id or id:cluster
+	EditUUID    string
+	DumpUUID    string
+	ListUUIDs   bool
+	Preferences bool
+	QuickConn   bool
+	NoSplash    bool
+	ReadOnly    bool
+	Verbose     bool
+	UnknownArgs []string
 }
 
 func ParseCLI(args []string) *CLIFlags {
@@ -106,8 +105,6 @@ func ParseCLI(args []string) *CLIFlags {
 			flags.QuickConn = true
 		case "no-splash":
 			flags.NoSplash = true
-		case "iconified":
-			flags.Iconified = true
 		case "readonly", "read-only":
 			flags.ReadOnly = true
 		case "verbose", "v":
@@ -139,7 +136,6 @@ Options:
   --preferences               Open the Preferences window on startup
   --quick-conn                Open the Quick Connect window on startup
   --no-splash                 Disable splash/greeting on startup
-  --iconified                 Start minimized in system tray
   --readonly                  Start in read-only mode (no configuration changes saved)
   --verbose, -v               Enable debug logging
 `

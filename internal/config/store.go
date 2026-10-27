@@ -216,6 +216,27 @@ func (s *Store) Load() error {
 	return nil
 }
 
+// removedKeys are settings of features that were dropped for good (system tray,
+// online help). Older config files still contain them; they are ignored without a
+// warning and disappear on the next save.
+var removedKeys = map[string]bool{
+	"general.start_iconified":          true,
+	"general.close_to_tray":            true,
+	"general.password_on_tray_restore": true,
+	"general.help_url":                 true,
+	"appearance.show_tray_icon":        true,
+	"appearance.monochrome_tray_icon":  true,
+}
+
+func onlyRemovedKeys(e *toml.StrictMissingError) bool {
+	for i := range e.Errors {
+		if !removedKeys[strings.Join(e.Errors[i].Key(), ".")] {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Store) parseConfig(data []byte) (*Config, error) {
 	cfg := Default()
 
@@ -225,6 +246,13 @@ func (s *Store) parseConfig(data []byte) (*Config, error) {
 	if err := strictDec.Decode(cfg); err != nil {
 		// Check if it's strict unknown fields error
 		var strictErr *toml.StrictMissingError
+		if errors.As(err, &strictErr) && onlyRemovedKeys(strictErr) {
+			cfgLoose := Default()
+			if errLoose := toml.Unmarshal(data, cfgLoose); errLoose != nil {
+				return nil, errLoose
+			}
+			return cfgLoose, nil
+		}
 		if errors.As(err, &strictErr) {
 			// Record warning and backup unknown settings
 			timestamp := time.Now().Format("20060102-150405")

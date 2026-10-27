@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/pkg/sftp"
 )
@@ -17,13 +18,120 @@ type TransferOptions struct {
 	PreserveTimestamps  bool
 	PreservePermissions bool
 	UsePartFiles        bool
+	// Parallel is the maximum number of files copied at the same time (1-8),
+	// counted across all transfers of all sessions.
+	Parallel int
 }
 
 func DefaultTransferOptions() TransferOptions {
-	return TransferOptions{PreserveTimestamps: true, PreservePermissions: true, UsePartFiles: true}
+	return TransferOptions{PreserveTimestamps: true, PreservePermissions: true, UsePartFiles: true, Parallel: 3}
 }
 
-const maxTransferDepth = 64
+const (
+	maxTransferDepth = 64
+	maxParallel      = 8
+)
+
+func clampParallel(n int) int {
+	if n < 1 {
+		return 1
+	}
+	if n > maxParallel {
+		return maxParallel
+	}
+	return n
+}
+
+// slotLimiter hands out transfer slots; the limit follows the latest setting, so
+// a changed preference applies to transfers that start afterwards.
+type slotLimiter struct {
+	mu     sync.Mutex
+	cond   *sync.Cond
+	active int
+	limit  int
+}
+
+func newSlotLimiter() *slotLimiter {
+	l := &slotLimiter{limit: 1}
+	l.cond = sync.NewCond(&l.mu)
+	return l
+}
+
+func (l *slotLimiter) acquire(limit int) {
+	l.mu.Lock()
+	if limit != l.limit {
+		l.limit = limit
+		l.cond.Broadcast()
+	}
+	for l.active >= l.limit {
+		l.cond.Wait()
+	}
+	l.active++
+	l.mu.Unlock()
+}
+
+func (l *slotLimiter) release() {
+	l.mu.Lock()
+	l.active--
+	l.cond.Broadcast()
+	l.mu.Unlock()
+}
+
+// fileJob is one file of a transfer; folders are created while planning.
+type fileJob struct {
+	src, dst string
+	fi       os.FileInfo
+}
+
+// dirMeta remembers a created folder whose permissions/times are applied after
+// all files are written (writing files would change its modification time).
+type dirMeta struct {
+	path string
+	fi   os.FileInfo
+}
+
+// errList collects errors of concurrently running jobs.
+type errList struct {
+	mu   sync.Mutex
+	errs []string
+}
+
+func (e *errList) add(err error) {
+	if err == nil {
+		return
+	}
+	e.mu.Lock()
+	e.errs = append(e.errs, err.Error())
+	e.mu.Unlock()
+}
+
+// runJobs copies the files with up to opts.Parallel workers, each holding one of
+// the manager's transfer slots while it copies.
+func (m *SFTPManager) runJobs(jobs []fileJob, opts TransferOptions, copyFile func(fileJob) error, errs *errList) {
+	limit := clampParallel(opts.Parallel)
+	workers := limit
+	if len(jobs) < workers {
+		workers = len(jobs)
+	}
+	ch := make(chan fileJob)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range ch {
+				m.slots.acquire(limit)
+				errs.add(copyFile(job))
+				m.slots.release()
+			}
+		}()
+	}
+	for _, job := range jobs {
+		ch <- job
+	}
+	close(ch)
+	wg.Wait()
+}
 
 // DownloadWithOptions downloads files and folders. Errors of single files are
 // collected; the remaining files are still transferred.
@@ -38,16 +146,22 @@ func (m *SFTPManager) DownloadWithOptions(sftpID string, remotePaths []string, l
 	if err := os.MkdirAll(localDir, 0o755); err != nil {
 		return err
 	}
-	var errs []string
+	errs := &errList{}
+	var jobs []fileJob
+	var dirs []dirMeta
 	for _, rp := range remotePaths {
-		if err := downloadPath(client, rp, filepath.Join(localDir, path.Base(rp)), opts, 0); err != nil {
-			errs = append(errs, err.Error())
-		}
+		errs.add(planDownload(client, rp, filepath.Join(localDir, path.Base(rp)), &jobs, &dirs, 0))
 	}
-	return joinErrors(errs)
+	m.runJobs(jobs, opts, func(j fileJob) error { return downloadFile(client, j, opts) }, errs)
+	// Deepest folders first, so setting a parent's time is not undone by a child.
+	for i := len(dirs) - 1; i >= 0; i-- {
+		applyLocalMeta(dirs[i].path, dirs[i].fi, opts)
+	}
+	return joinErrors(errs.errs)
 }
 
-func downloadPath(client *sftp.Client, remote, local string, opts TransferOptions, depth int) error {
+// planDownload creates the local folders and lists the files to copy.
+func planDownload(client *sftp.Client, remote, local string, jobs *[]fileJob, dirs *[]dirMeta, depth int) error {
 	if depth > maxTransferDepth {
 		return fmt.Errorf("%s: folder nesting too deep", remote)
 	}
@@ -55,24 +169,29 @@ func downloadPath(client *sftp.Client, remote, local string, opts TransferOption
 	if err != nil {
 		return fmt.Errorf("%s: %w", remote, err)
 	}
-	if fi.IsDir() {
-		if err := os.MkdirAll(local, 0o755); err != nil {
-			return err
-		}
-		entries, err := client.ReadDir(remote)
-		if err != nil {
-			return fmt.Errorf("%s: %w", remote, err)
-		}
-		var errs []string
-		for _, e := range entries {
-			if err := downloadPath(client, path.Join(remote, e.Name()), filepath.Join(local, e.Name()), opts, depth+1); err != nil {
-				errs = append(errs, err.Error())
-			}
-		}
-		applyLocalMeta(local, fi, opts)
-		return joinErrors(errs)
+	if !fi.IsDir() {
+		*jobs = append(*jobs, fileJob{src: remote, dst: local, fi: fi})
+		return nil
 	}
+	if err := os.MkdirAll(local, 0o755); err != nil {
+		return err
+	}
+	*dirs = append(*dirs, dirMeta{path: local, fi: fi})
+	entries, err := client.ReadDir(remote)
+	if err != nil {
+		return fmt.Errorf("%s: %w", remote, err)
+	}
+	var errs []string
+	for _, e := range entries {
+		if err := planDownload(client, path.Join(remote, e.Name()), filepath.Join(local, e.Name()), jobs, dirs, depth+1); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return joinErrors(errs)
+}
 
+func downloadFile(client *sftp.Client, j fileJob, opts TransferOptions) error {
+	remote, local := j.src, j.dst
 	src, err := client.Open(remote)
 	if err != nil {
 		return fmt.Errorf("%s: %w", remote, err)
@@ -101,7 +220,7 @@ func downloadPath(client *sftp.Client, remote, local string, opts TransferOption
 			return err
 		}
 	}
-	applyLocalMeta(local, fi, opts)
+	applyLocalMeta(local, j.fi, opts)
 	return nil
 }
 
@@ -120,16 +239,21 @@ func (m *SFTPManager) UploadWithOptions(sftpID string, localPaths []string, remo
 	if err != nil {
 		return err
 	}
-	var errs []string
+	errs := &errList{}
+	var jobs []fileJob
+	var dirs []dirMeta
 	for _, lp := range localPaths {
-		if err := uploadPath(client, lp, path.Join(remoteDir, filepath.Base(lp)), opts, 0); err != nil {
-			errs = append(errs, err.Error())
-		}
+		errs.add(planUpload(client, lp, path.Join(remoteDir, filepath.Base(lp)), &jobs, &dirs, 0))
 	}
-	return joinErrors(errs)
+	m.runJobs(jobs, opts, func(j fileJob) error { return uploadFile(client, j, opts) }, errs)
+	for i := len(dirs) - 1; i >= 0; i-- {
+		applyRemoteMeta(client, dirs[i].path, dirs[i].fi, opts)
+	}
+	return joinErrors(errs.errs)
 }
 
-func uploadPath(client *sftp.Client, local, remote string, opts TransferOptions, depth int) error {
+// planUpload creates the remote folders and lists the files to copy.
+func planUpload(client *sftp.Client, local, remote string, jobs *[]fileJob, dirs *[]dirMeta, depth int) error {
 	if depth > maxTransferDepth {
 		return fmt.Errorf("%s: folder nesting too deep", local)
 	}
@@ -137,24 +261,29 @@ func uploadPath(client *sftp.Client, local, remote string, opts TransferOptions,
 	if err != nil {
 		return err
 	}
-	if fi.IsDir() {
-		if err := client.MkdirAll(remote); err != nil {
-			return fmt.Errorf("%s: %w", remote, err)
-		}
-		entries, err := os.ReadDir(local)
-		if err != nil {
-			return err
-		}
-		var errs []string
-		for _, e := range entries {
-			if err := uploadPath(client, filepath.Join(local, e.Name()), path.Join(remote, e.Name()), opts, depth+1); err != nil {
-				errs = append(errs, err.Error())
-			}
-		}
-		applyRemoteMeta(client, remote, fi, opts)
-		return joinErrors(errs)
+	if !fi.IsDir() {
+		*jobs = append(*jobs, fileJob{src: local, dst: remote, fi: fi})
+		return nil
 	}
+	if err := client.MkdirAll(remote); err != nil {
+		return fmt.Errorf("%s: %w", remote, err)
+	}
+	*dirs = append(*dirs, dirMeta{path: remote, fi: fi})
+	entries, err := os.ReadDir(local)
+	if err != nil {
+		return err
+	}
+	var errs []string
+	for _, e := range entries {
+		if err := planUpload(client, filepath.Join(local, e.Name()), path.Join(remote, e.Name()), jobs, dirs, depth+1); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return joinErrors(errs)
+}
 
+func uploadFile(client *sftp.Client, j fileJob, opts TransferOptions) error {
+	local, remote := j.src, j.dst
 	src, err := os.Open(local)
 	if err != nil {
 		return err
@@ -186,7 +315,7 @@ func uploadPath(client *sftp.Client, local, remote string, opts TransferOptions,
 			}
 		}
 	}
-	applyRemoteMeta(client, remote, fi, opts)
+	applyRemoteMeta(client, remote, j.fi, opts)
 	return nil
 }
 

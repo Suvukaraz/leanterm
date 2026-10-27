@@ -133,6 +133,7 @@ func (s *SFTPService) transferSettings() (sftpsvc.TransferOptions, string) {
 		PreserveTimestamps:  b.PreserveTimestamps,
 		PreservePermissions: b.PreservePermissions,
 		UsePartFiles:        b.UsePartFiles,
+		Parallel:            b.ParallelTransfers,
 	}, sftpsvc.DefaultDownloadDir(b.DownloadDir)
 }
 

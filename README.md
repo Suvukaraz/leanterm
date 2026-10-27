@@ -4,9 +4,9 @@
 
 LeanTerm is a connection and terminal manager for Linux, built with **Go** and **Svelte 5** (via Wails v3). It started as a rewrite of the Perl-based *Ásbrú Connection Manager*: the connection tree, the tabbed terminals, the Expect/variable automation and the clusters will feel familiar to Ásbrú users.
 
-It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a local file browser next to the terminal, uses a reworked button bar, hides rarely used functions (clusters) by default and drops features such as the system tray. SSH, SFTP and Telnet are implemented natively in Go, so there are no `ssh`/`sftp`/`expect` wrappers and no shell calls for file operations.
+It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a local file browser next to the terminal, uses a reworked button bar, and hides rarely used functions (clusters) by default. SSH, SFTP and Telnet are implemented natively in Go, so there are no `ssh`/`sftp`/`expect` wrappers and no shell calls for file operations.
 
-> **Status:** 0.8.2 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested. Ásbrú configurations cannot be imported yet.
+> **Status:** 0.8.3 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
 
 ## 📸 Screenshots
 
@@ -61,6 +61,7 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - Full file operations: Upload (drag-and-drop or file dialog), download, rename (F2), delete (Del), mkdir (F7), empty file creation, and chmod (rwx matrix + octal).
 - **"Open with default application":** Downloads to a temporary folder, opens with `xdg-open`, watches for changes via `fsnotify`, and prompts to upload modifications back to the remote server.
 - Transfer queue with progress, speed and ETA; transfers can be cancelled.
+- Files of uploads and downloads are copied in parallel; `parallel_transfers` (1–8) limits how many run at the same time across all tabs.
 - Asks before overwriting existing files (Overwrite / Skip existing / Cancel).
 - Optional periodic folder polling (`poll_seconds`).
 
@@ -110,20 +111,14 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - Passwords are never written to `config.toml` or passed as process arguments.
 - Lock button to lock the GUI with the master password.
 
-### Known Limitations
-- No system tray: *Hide to tray*, *Start iconified* and `--iconified` have no effect yet.
-- `parallel_transfers` is stored but not enforced yet; all queued transfers run at once.
-- The *Help* links point to a project wiki that does not exist yet.
-- Only Linux is tested.
-
 ---
 
 ## 🛠️ Installation & Building
 
 ### Debian / Ubuntu Package (.deb)
-Download `leanterm_0.8.2_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
+Download `leanterm_0.8.3_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
-sudo apt install ./leanterm_0.8.2_amd64.deb
+sudo apt install ./leanterm_0.8.3_amd64.deb
 ```
 
 Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`, e.g. Debian 13 / Ubuntu 24.04 or newer); `apt` installs them automatically.
@@ -133,7 +128,7 @@ Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`
 To build the `.deb` package from source (builds the frontend and the binary, then packages them into `bin/`):
 ```bash
 npm --prefix frontend install
-./build/package-deb.sh 0.8.2
+./build/package-deb.sh 0.8.3
 ```
 
 ### Building from Source
@@ -227,6 +222,7 @@ LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/
 | `follow_terminal_folder` | bool | `false` | Follow the shell's folder (SSH via OSC 7, local shells directly) |
 | `show_hidden` | bool | `false` | Show hidden (dot) files in browser |
 | `confirm_delete` | bool | `true` | Prompt for confirmation before deleting files |
+| `parallel_transfers` | int | `3` | Maximum number of files transferred at the same time (1–8) |
 | `preserve_timestamps` | bool | `true` | Keep modification times when copying |
 | `preserve_permissions` | bool | `true` | Keep permissions when copying |
 | `poll_seconds` | int | `0` | Polling interval in seconds (0 = disabled) |
