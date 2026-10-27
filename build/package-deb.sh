@@ -4,13 +4,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${1:-0.8.1}"
+VERSION="${1:-0.8.2}"
 ARCH="amd64"
 PKG_NAME="leanterm"
 DEB_NAME="${PKG_NAME}_${VERSION}_${ARCH}.deb"
 
-echo "Building LeanTerm binary..."
 cd "$ROOT_DIR"
+# The binary embeds frontend/dist, so build the frontend first.
+echo "Building frontend..."
+npm --prefix frontend run build
+
+echo "Building LeanTerm binary..."
 go build -o "$ROOT_DIR/bin/leanterm" .
 
 DEB_ROOT="$ROOT_DIR/build/deb-root"

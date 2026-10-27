@@ -7,14 +7,16 @@
 
 ```toml
 # Configuration schema version
-schema_version = 1
+schema_version = 2
 
 # Preferences > Main Options > Behaviour
 [general]
 # Main Window Layout: traditional | compact
 layout = 'traditional'
 # Icons Theme: default | asbru-color | asbru-dark | system
-theme = 'default'
+theme = 'asbru-dark'
+# Colour scheme of the user interface: dark | light
+color_scheme = 'dark'
 # At start: Maximized
 start_main_maximized = false
 # At start: With last size
@@ -66,6 +68,8 @@ monochrome_tray_icon = false
 selection_to_clipboard = true
 # Show connections on: left | right
 tree_position = 'left'
+# Main button bar position: top | bottom
+button_bar_position = 'top'
 # Show tooltips in connection tree
 show_tree_tooltips = false
 # Show lines in connections tree
@@ -170,8 +174,6 @@ hide_connections_submenu = false
 confirm_chains = true
 # Skip first Chain expect
 skip_first_chain_expect = true
-# Use login shell to start connections (external methods)
-use_login_shell = false
 # Expect DEBUG
 debug = false
 
@@ -216,7 +218,7 @@ palette = ['#000000', '#cc0000', '#4e9a06', '#c4a000', '#3465a4', '#75507b', '#0
 # Font family name
 family = 'Monospace'
 # Font size in points
-size = 9
+size = 11
 
 # Session logs auto save configuration
 [terminal.session_logs]
@@ -239,6 +241,8 @@ timestamps = false
 auto_open = true
 # Panel width in pixels
 width = 340
+# Panel position: left | right
+position = 'left'
 # Follow terminal folder (OSC 7)
 follow_terminal_folder = false
 # Show hidden files

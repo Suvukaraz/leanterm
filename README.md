@@ -2,11 +2,17 @@
 
 <p align="center"><img src="LeanTerm_Icon.svg" alt="LeanTerm logo" width="128"></p>
 
-LeanTerm is a fast, native Linux connection and terminal manager built with **Go** and **Svelte 5** (via Wails v3). It is a complete, clean rewrite of the legacy Perl-based *Ásbrú Connection Manager*, preserving complete visual and functional parity with the GTK3 interface while eliminating security flaws, shell injections, and slow script wrappers.
+LeanTerm is a connection and terminal manager for Linux, built with **Go** and **Svelte 5** (via Wails v3). It started as a rewrite of the Perl-based *Ásbrú Connection Manager*: the connection tree, the tabbed terminals, the Expect/variable automation and the clusters will feel familiar to Ásbrú users.
 
-> **Status:** 0.8.1 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
+It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a local file browser next to the terminal, uses a reworked button bar, hides rarely used functions (clusters) by default and drops features such as the system tray. SSH, SFTP and Telnet are implemented natively in Go, so there are no `ssh`/`sftp`/`expect` wrappers and no shell calls for file operations.
+
+> **Status:** 0.8.2 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested. Ásbrú configurations cannot be imported yet.
 
 ## 📸 Screenshots
+
+**Welcome screen**
+
+![LeanTerm welcome screen with the connection tree](docs/screenshots/welcome.png)
 
 **Connections, SFTP browser and SSH terminal**
 
@@ -25,9 +31,11 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
 ### Lean, Configurable UI
 - Main button bar at the top (default) or bottom of the window (*Preferences → Main Options*).
 - Toggles in the button bar: **Connections** tree, **File Browser** panels (SFTP and local), **Clusters** functions (hidden by default to keep the UI lean).
-- SFTP panel on the left (default) or right side of the terminal (*Preferences → Terminal Options → File browser*).
+- File browser on the left (default) or right side of the terminal (*Preferences → Terminal Options → File browser*).
+- Dark (default) or light colour scheme.
+- Split terminal tabs, tab colours and a find bar in the terminal.
 - New connections only need a name; the title is derived from it.
-- Closing the window asks for confirmation while connections or SFTP transfers are active.
+- Closing the window asks for confirmation while connections or file transfers are active (and, with *Confirm exit*, always).
 
 ### Native Protocols (No CLI wrappers)
 - **Native SSH (Go `x/crypto/ssh`):**
@@ -43,15 +51,17 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
   - Automatic prompt login state machine via Perl-compatible regexes (`regexp2`).
   - Interactive escape character prompt (`^]`).
 - **Local PTY Shell:**
-  - High-performance local terminal using native Unix pseudo-terminals (`creack/pty`).
+  - Local terminal using native Unix pseudo-terminals (`creack/pty`); shell, options and start folder are configurable.
+- **SFTP-only connections:** open just the file browser without a terminal.
 
-### Embedded SFTP Browser (MobaXterm Style)
-- Slides out on the left or right side of every SSH terminal tab.
+### Embedded SFTP Browser
+- Opens on the left or right side of every SSH terminal tab (automatically, per connection or on demand).
 - Operates directly over the session's active SSH client (no second login).
 - Real-time directory synchronization via **OSC 7** terminal sequences ("Follow terminal folder").
 - Full file operations: Upload (drag-and-drop or file dialog), download, rename (F2), delete (Del), mkdir (F7), empty file creation, and chmod (rwx matrix + octal).
 - **"Open with default application":** Downloads to a temporary folder, opens with `xdg-open`, watches for changes via `fsnotify`, and prompts to upload modifications back to the remote server.
-- Transfer queue with progress, speed, ETA, parallel transfer throttling, and resume support.
+- Transfer queue with progress, speed and ETA; transfers can be cancelled.
+- Asks before overwriting existing files (Overwrite / Skip existing / Cancel).
 - Optional periodic folder polling (`poll_seconds`).
 
 ### Local File Browser
@@ -94,35 +104,42 @@ LeanTerm is a fast, native Linux connection and terminal manager built with **Go
   - UDP magic packet generator and `/proc/net/arp` reader.
   - Safe bulk search-and-replace across connections without `eval`.
 
-### Security First
+### Security
 - Secrets are encrypted using **`filippo.io/age`** (X25519 & scrypt) and stored in `secrets.age`.
-- Supports OS Keyring (Secret Service / libsecret via D-Bus) or Master Password mode.
-- Plain text passwords never appear in `config.toml`, process arguments, or terminal logs.
-- Master password GUI lock overlay.
+- The vault key is kept in the OS keyring (Secret Service / libsecret via D-Bus) or protected by a master password.
+- Passwords are never written to `config.toml` or passed as process arguments.
+- Lock button to lock the GUI with the master password.
+
+### Known Limitations
+- No system tray: *Hide to tray*, *Start iconified* and `--iconified` have no effect yet.
+- `parallel_transfers` is stored but not enforced yet; all queued transfers run at once.
+- The *Help* links point to a project wiki that does not exist yet.
+- Only Linux is tested.
 
 ---
 
 ## 🛠️ Installation & Building
 
 ### Debian / Ubuntu Package (.deb)
-Download `leanterm_0.8.1_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
+Download `leanterm_0.8.2_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
-sudo apt install ./leanterm_0.8.1_amd64.deb
+sudo apt install ./leanterm_0.8.2_amd64.deb
 ```
 
 Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`, e.g. Debian 13 / Ubuntu 24.04 or newer); `apt` installs them automatically.
 
 > **Upgrading from LinXTerm:** LeanTerm was previously called LinXTerm. The package replaces `linxterm`, and on first start `~/.config/linxterm` is moved to `~/.config/leanterm` (including the keyring entry), so all connections are kept.
 
-To build the `.deb` package from source:
+To build the `.deb` package from source (builds the frontend and the binary, then packages them into `bin/`):
 ```bash
-./build/package-deb.sh 0.8.1
+npm --prefix frontend install
+./build/package-deb.sh 0.8.2
 ```
 
 ### Building from Source
 **Prerequisites:**
-- Go ≥ 1.22
-- Node.js ≥ 18 & npm
+- Go ≥ 1.26
+- Node.js ≥ 20.19 & npm
 - GTK4 / WebKitGTK 6.0 development headers (`libgtk-4-dev`, `libwebkitgtk-6.0-dev`)
 
 **Build steps:**
@@ -133,70 +150,85 @@ npm --prefix frontend install
 # 2. Build frontend production bundle
 npm --prefix frontend run build
 
-# 3. Build standalone binary
+# 3. Build standalone binary (embeds frontend/dist)
 go build -o bin/leanterm .
 ```
+
+The JavaScript bindings in `frontend/bindings` are committed. After changing a Go service API, regenerate them with `wails3 generate bindings -clean=true`.
 
 ---
 
 ## 💻 CLI Usage
 
 ```
-leanterm [options] [uuid:cluster ...]
+leanterm [options]
 
 Options:
-  --config-dir <dir>      Path to configuration directory (default: ~/.config/leanterm)
-  --start-uuid <uuid>     Start connection by UUID (can be repeated or use uuid:cluster)
-  --edit-uuid <uuid>      Open connection editor for UUID
-  --dump-uuid <uuid>      Dump connection configuration in TOML format
-  --list-uuids            List all configured UUIDs and names in tabular format
-  --quick-conn            Open Quick Connect dialog
-  --start-shell           Launch local terminal shell
-  --preferences           Open Preferences dialog
-  --readonly              Start in read-only mode (modifications disabled)
-  --no-backup             Disable automatic configuration backups
-  --password <pwd>        Master password for vault decryption
-  --help, -h              Display help and options
+  --config-dir=<path>         Configuration directory (default: ~/.config/leanterm,
+                              or $LEANTERM_CONFIG_DIR)
+  --temp-dir=<path>           Temporary directory
+  --start-uuid=<id>[:<clust>] Start the connection with the given UUID (can be repeated)
+  --edit-uuid=<id>            Open the edit window for the connection
+  --dump-uuid=<id>            Print the connection as TOML and exit
+  --list-uuids                Print all connections and groups (UUID/Type/Method/Name)
+  --quick-conn                Open the Quick Connect window on startup
+  --start-shell               Open a local shell on startup
+  --preferences               Open the Preferences window on startup
+  --readonly                  Read-only mode (configuration changes are not saved)
+  --no-backup                 Do not create configuration backups on startup
+  --password=<pwd>            Master password to unlock stored credentials
+  --verbose, -v               Debug logging
+  --help, -h                  Show help and exit
 ```
+
+A second start hands its options to the running instance unless *Allow more than one instance* is enabled.
 
 ---
 
 ## ⚙️ Configuration Reference (`config.toml`)
 
-LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/config.toml`. All secrets are stored separately in `secrets.age`.
+LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/config.toml`; window and panel layout is kept in `state/ui.toml`. All secrets are stored separately in `secrets.age`. Every option is listed with its default in [`docs/config-reference.md`](docs/config-reference.md); the most important ones:
 
 ### Section `[general]`
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `main_window_layout` | string | `"traditional"` | `"traditional"` (tree on left) or `"compact"` |
-| `icons_theme` | string | `"default"` | `"default"`, `"asbru-color"`, `"asbru-dark"`, `"system"` |
+| `layout` | string | `"traditional"` | `"traditional"` or `"compact"` |
+| `theme` | string | `"default"` | Icon theme: `"default"`, `"asbru-color"`, `"asbru-dark"`, `"system"` |
 | `start_main_maximized` | bool | `false` | Start main window maximized |
-| `start_iconified` | bool | `false` | Start minimized to system tray |
-| `close_to_tray` | bool | `false` | Minimize to tray instead of closing |
-| `confirm_exit` | bool | `true` | Show confirmation prompt before exiting |
+| `confirm_exit` | bool | `true` | Ask before quitting |
 | `auto_save` | bool | `true` | Automatically save configuration changes |
 | `protect_with_password` | bool | `false` | Master password protection for GUI and secrets |
-| `auto_accept_host_keys`| bool | `false` | Automatically accept and store new SSH host keys |
+| `auto_accept_host_keys` | bool | `true` | Automatically accept and store new SSH host keys |
+| `allow_multiple_instances` | bool | `false` | Allow more than one running instance |
+
+### Section `[appearance]`
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `color_scheme` | string | `"dark"` | `"dark"` or `"light"` |
+| `tree_position` | string | `"left"` | Connection tree on the `"left"` or `"right"` |
+| `button_bar_position` | string | `"top"` | Main button bar at the `"top"` or `"bottom"` |
 
 ### Section `[terminal]`
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `show_status_bar` | bool | `true` | Show terminal status bar with port forwarding and state |
-| `macros_bar` | string | `"buttons"` | Toolbar mode for macros: `"never"`, `"combo"`, `"buttons"` |
+| `macros_bar` | string | `"never"` | Toolbar mode for macros: `"never"`, `"combo"`, `"buttons"` |
 | `show_global_macros` | bool | `false` | Display global macros alongside connection macros |
 | `confirm_chains` | bool | `true` | Prompt for confirmation when dropping connection chain |
 | `skip_first_chain_expect` | bool | `true` | Skip the first Expect entry during chained execution |
-| `max_reconnect_attempts` | int | `3` | Max automated reconnection attempts on drop |
+| `max_reconnect_attempts` | int | `50` | Max automated reconnection attempts on drop |
 
 ### Section `[sftp_browser]`
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `auto_open` | bool | `true` | Automatically open SFTP browser on SSH connections |
-| `width` | int | `340` | Default width of the SFTP panel in pixels |
-| `follow_terminal_folder`| bool | `false` | Follow terminal remote folder changes via OSC 7 |
+| `auto_open` | bool | `true` | Open the file browser automatically (SSH and local shells) |
+| `position` | string | `"left"` | File browser on the `"left"` or `"right"` of the terminal |
+| `width` | int | `340` | Default width of the file browser in pixels |
+| `follow_terminal_folder` | bool | `false` | Follow the shell's folder (SSH via OSC 7, local shells directly) |
 | `show_hidden` | bool | `false` | Show hidden (dot) files in browser |
 | `confirm_delete` | bool | `true` | Prompt for confirmation before deleting files |
-| `parallel_transfers` | int | `3` | Maximum concurrent SFTP file transfers (1–8) |
+| `preserve_timestamps` | bool | `true` | Keep modification times when copying |
+| `preserve_permissions` | bool | `true` | Keep permissions when copying |
 | `poll_seconds` | int | `0` | Polling interval in seconds (0 = disabled) |
 
 ### Section `[keepass]`
@@ -212,7 +244,7 @@ LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/
 id = "c1b2c3d4-..."
 name = "Production Web Server"
 title = "Prod Web 01"
-method = "ssh" # "ssh" | "telnet"
+method = "ssh" # "ssh" | "telnet" | "sftp"
 host = "192.168.1.100"
 port = 22
 auto_reconnect = true

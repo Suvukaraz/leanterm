@@ -233,17 +233,14 @@
         <div class="info-page">
           {#if isRootOrEmpty}
             <div class="welcome-box">
-              <h2 class="welcome-title">
-                <img src={getIcon('asbru-app-big')} alt="" width="32" height="32" />
-                Welcome to LeanTerm
-              </h2>
-              <div class="welcome-text">
-                <p><b>LeanTerm Connection Manager</b> is ready for your sessions.</p>
-                <ul>
-                  <li>Select a connection in the left tree and click <b>Connect</b> or double-click to start.</li>
-                  <li>Right-click any item in the tree to edit connection details, manage groups, or wake devices via WOL.</li>
-                  <li>Use <b>Local shell</b> in the bottom bar to open an instant terminal.</li>
-                  <li>Click <b>Preferences</b> to customize colors, keys, prompts, and security settings.</li>
+              <h1 class="welcome-title">Welcome to LeanTerm</h1>
+              <p class="welcome-subtitle">LeanTerm Connection Manager is ready for your sessions.</p>
+              <div class="welcome-body">
+                <img class="welcome-logo" src={getIcon('asbru-app-big')} alt="LeanTerm logo" />
+                <ul class="welcome-list">
+                  <li>Select or create a connection in the left tree and click Connect or double-click to start.</li>
+                  <li>Use Local shell to open an instant terminal.</li>
+                  <li>Click Preferences to customize colors, keys, fonts, and security settings.</li>
                 </ul>
               </div>
             </div>
@@ -381,33 +378,60 @@
   }
 
   .welcome-box {
-    max-width: 600px;
-    margin: 24px auto;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 8px;
+    padding: 32px 24px;
     background: var(--gtk-base-color);
     border: 1px solid var(--gtk-border-color);
-    border-radius: 6px;
-    padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+    font-family: var(--gtk-mono-font);
+    color: var(--gtk-fg-color);
+    text-align: center;
   }
   .welcome-title {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 56px);
+    font-weight: bold;
+    line-height: 1.1;
+  }
+  .welcome-subtitle {
+    margin: 0 0 24px 0;
+    font-size: clamp(14px, 1.7vw, 20px);
+    font-weight: bold;
+  }
+  .welcome-body {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
-    margin: 0 0 16px 0;
-    font-size: 18px;
-    color: var(--text-color, #2e3436);
+    justify-content: center;
+    gap: 16px 40px;
+    max-width: 900px;
   }
-  .welcome-text {
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--gtk-muted-fg);
+  .welcome-logo {
+    width: clamp(120px, 18vw, 200px);
+    height: auto;
+    flex-shrink: 0;
   }
-  .welcome-text ul {
+  .welcome-list {
+    flex: 1 1 320px;
+    max-width: 520px;
+    margin: 0;
     padding-left: 20px;
-    margin: 10px 0;
+    text-align: left;
+    font-size: clamp(13px, 1.4vw, 16px);
+    line-height: 1.4;
   }
-  .welcome-text li {
-    margin-bottom: 6px;
+  .welcome-list li {
+    margin: 0 0 20px 0;
+  }
+  .welcome-list li:last-child {
+    margin-bottom: 0;
   }
 
   .node-info-view {
