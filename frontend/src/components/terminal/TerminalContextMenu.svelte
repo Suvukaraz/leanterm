@@ -1,6 +1,6 @@
 <script lang="ts">
   import ContextMenu, { type MenuItem } from '../gtk/ContextMenu.svelte';
-  import type { Terminal } from '@xterm/xterm';
+  import type { TermHandle } from '../../lib/terminal/engine';
   import * as SessionService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/sessionservice.js';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
   import * as ClusterService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/clusterservice.js';
@@ -22,7 +22,7 @@
     y: number;
     tmpID: string;
     kind: string;
-    term?: Terminal;
+    term?: TermHandle;
     hasSFTP?: boolean;
     sftpOpen?: boolean;
     ontoggleSftp?: () => void;
@@ -71,11 +71,7 @@
         ctx.fillRect(0, 0, offscreen.width, offscreen.height);
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px monospace';
-        const buffer = term.buffer.active;
-        for (let i = 0; i < Math.min(buffer.length, 50); i++) {
-          const line = buffer.getLine(i)?.translateToString(true) || '';
-          ctx.fillText(line, 10, 20 + i * 14);
-        }
+        term.lines(50).forEach((line, i) => ctx.fillText(line, 10, 20 + i * 14));
         dataUrl = offscreen.toDataURL('image/png');
       }
     }

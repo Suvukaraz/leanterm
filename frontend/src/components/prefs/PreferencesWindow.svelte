@@ -341,23 +341,6 @@
     overflow-y: auto;
   }
 
-  .placeholder-page {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 32px;
-  }
-
-  .placeholder-box {
-    text-align: center;
-    background: var(--gtk-row-alt);
-    border: 1px solid var(--gtk-border-color);
-    border-radius: 6px;
-    padding: 32px;
-    max-width: 400px;
-  }
-
   .prefs-footer {
     display: flex;
     align-items: center;

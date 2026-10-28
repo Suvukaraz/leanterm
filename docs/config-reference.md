@@ -144,6 +144,8 @@ window_height = 600
 start_maximized = false
 # Show status bar on every terminal
 show_status_bar = true
+# Terminal engine: xterm | ghostty (applies to new terminals)
+engine = 'xterm'
 # Change main window title with terminal title
 change_main_title = false
 # Show MACROS: never | combo | buttons

@@ -11,12 +11,9 @@
 
   let { currentPath, history, followTerminal, local = false, onnavigate, ontogglefollow }: Props = $props();
 
-  let inputVal = $state(currentPath);
+  // Follows currentPath; typing overrides it until the path changes again.
+  let inputVal = $derived(currentPath);
   let dropdownOpen = $state(false);
-
-  $effect(() => {
-    inputVal = currentPath;
-  });
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') {

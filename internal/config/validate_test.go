@@ -60,3 +60,16 @@ func TestValidateSSHForwardDuplicates(t *testing.T) {
 	assert.True(t, res.HasErrors())
 	assert.NotEmpty(t, res.Warnings)
 }
+
+func TestValidateTerminalEngine(t *testing.T) {
+	cfg := Default()
+	assert.Equal(t, "xterm", cfg.Terminal.Engine)
+
+	cfg.Terminal.Engine = "ghostty"
+	assert.False(t, Validate(cfg).HasErrors())
+
+	cfg.Terminal.Engine = "vte"
+	res := Validate(cfg)
+	assert.True(t, res.HasErrors())
+	assert.Len(t, res.Errors, 1)
+}

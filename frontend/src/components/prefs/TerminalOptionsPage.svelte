@@ -50,6 +50,11 @@
     { value: 'right', label: 'Right' },
   ];
 
+  const engineOptions = [
+    { value: 'xterm', label: 'xterm.js (default)' },
+    { value: 'ghostty', label: 'Ghostty (ghostty-web, experimental)' },
+  ];
+
   const tabsPositionOptions = [
     { value: 'top', label: 'Top' },
     { value: 'bottom', label: 'Bottom' },
@@ -258,6 +263,20 @@
                 <ColorButton bind:value={term.Colors.Disconnected} />
                 <span class="field-label" style="margin-left: 12px;">New data color:</span>
                 <ColorButton bind:value={term.Colors.NewData} />
+              </div>
+            </Frame>
+
+            <Frame label="Terminal engine">
+              <div class="col-flex">
+                <RadioGroup
+                  name="terminal_engine"
+                  options={engineOptions}
+                  bind:value={term.Engine}
+                />
+                <span class="hint-text">
+                  Applies to newly opened terminals. With Ghostty, colour changes also only apply to new terminals,
+                  links open with Ctrl+Click and selected text is always copied to the clipboard.
+                </span>
               </div>
             </Frame>
 
@@ -492,6 +511,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .hint-text {
+    font-size: 0.85em;
+    color: var(--gtk-muted-fg);
   }
 
   .wrap-row {

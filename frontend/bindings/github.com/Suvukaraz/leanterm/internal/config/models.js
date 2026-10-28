@@ -2499,6 +2499,13 @@ export class TerminalConfig {
              */
             this["ShowStatusBar"] = false;
         }
+        if (!("Engine" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["Engine"] = "";
+        }
         if (!("ChangeMainTitle" in $$source)) {
             /**
              * @member

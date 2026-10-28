@@ -250,11 +250,10 @@
 
 <svelte:window onclick={closeContextMenu} />
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="sftp-filelist-container {isDragOver ? 'is-drag-over' : ''}"
   tabindex="0"
-  role="region"
+  role="grid"
   aria-label={local ? 'Local File List' : 'Remote File List'}
   data-file-drop-target
   data-sftp-drop={dropId}
@@ -316,6 +315,7 @@
       <div
         class="sftp-row parent-row"
         role="row"
+        tabindex="-1"
         ondblclick={onnavigateUp}
       >
         <span class="cell cell-name">
@@ -330,9 +330,12 @@
 
     {#each sortedEntries as entry (entry.path)}
       {@const isSelected = selectedPaths.includes(entry.path)}
+      <!-- Keyboard input is handled by the list container (handleKeyDown). -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div
         class="sftp-row {isSelected ? 'is-selected' : ''} {entry.linkBroken ? 'is-broken' : ''}"
         role="row"
+        tabindex="-1"
         aria-selected={isSelected}
         onclick={(e) => handleRowClick(e, entry)}
         ondblclick={() => handleRowDoubleClick(entry)}
@@ -381,10 +384,13 @@
 
   <!-- Context Menu -->
   {#if contextMenuOpen}
+    <!-- The click handler only keeps the window handler from closing the menu. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
       class="context-menu"
       style="left: {contextMenuX}px; top: {contextMenuY}px;"
       role="menu"
+      tabindex="-1"
       onclick={(e) => e.stopPropagation()}
     >
       {#if contextMenuItem}

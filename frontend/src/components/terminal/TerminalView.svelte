@@ -1,24 +1,11 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack } from 'svelte';
-  import { Terminal } from '@xterm/xterm';
-  import { FitAddon } from '@xterm/addon-fit';
-  import { SearchAddon } from '@xterm/addon-search';
-  import { WebLinksAddon } from '@xterm/addon-web-links';
-  import { Unicode11Addon } from '@xterm/addon-unicode11';
-  import '@xterm/xterm/css/xterm.css';
 
   import { TerminalStream } from '../../lib/bridge/terminalStream';
   import { settings } from '../../lib/stores/config';
   import { markNewData } from '../../lib/stores/sessions';
-  import {
-    buildTerminalOptions,
-    buildTheme,
-    mergeLook,
-    ptToPx,
-    fontFamilyCss,
-    DEFAULT_FONT_PT,
-    type TerminalLook,
-  } from '../../lib/terminal/xtermOptions';
+  import { mergeLook, ptToPx, DEFAULT_FONT_PT, type TerminalLook } from '../../lib/terminal/xtermOptions';
+  import { createTerminal, normalizeEngine, type TermHandle } from '../../lib/terminal/engine';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
   import FindInTerminal from './FindInTerminal.svelte';
   import TerminalContextMenu from './TerminalContextMenu.svelte';
@@ -50,12 +37,11 @@
   }: Props = $props();
 
   let terminalEl: HTMLElement;
-  let term = $state.raw<Terminal | undefined>(undefined);
-  let fitAddon: FitAddon;
-  let searchAddon = $state.raw<SearchAddon | undefined>(undefined);
-  let stream: TerminalStream;
-  let resizeObserver: ResizeObserver;
+  let term = $state.raw<TermHandle | undefined>(undefined);
+  let stream: TerminalStream | undefined;
+  let resizeObserver: ResizeObserver | undefined;
   let fitFrame = 0;
+  let destroyed = false;
 
   let menuOpen = $state(false);
   let menuX = $state(0);
@@ -69,13 +55,9 @@
   let basePt = $derived(look.Font?.Size && look.Font.Size > 0 ? look.Font.Size : DEFAULT_FONT_PT);
 
   function fitNow() {
-    if (!term || !fitAddon || !terminalEl || terminalEl.offsetParent === null) return;
-    const dims = fitAddon.proposeDimensions();
-    if (!dims || !dims.cols || !dims.rows) return;
-    if (dims.cols !== term.cols || dims.rows !== term.rows) {
-      term.resize(dims.cols, dims.rows);
-    }
-    stream?.resize(term.cols, term.rows);
+    if (!term || !terminalEl || terminalEl.offsetParent === null) return;
+    const dims = term.fit();
+    if (dims) stream?.resize(dims.cols, dims.rows);
   }
 
   function scheduleFit() {
@@ -89,7 +71,7 @@
   function setZoom(deltaPt: number | null) {
     if (!term) return;
     zoomPt = deltaPt === null ? 0 : Math.max(6 - basePt, Math.min(40 - basePt, zoomPt + deltaPt));
-    term.options.fontSize = ptToPx(basePt + zoomPt);
+    term.setFontSize(ptToPx(basePt + zoomPt));
     scheduleFit();
   }
 
@@ -103,104 +85,104 @@
     if (text) term?.paste(text);
   }
 
-  onMount(() => {
-    const t = new Terminal(buildTerminalOptions(untrack(() => look)));
-    fitAddon = new FitAddon();
-    const search = new SearchAddon();
-    t.loadAddon(fitAddon);
-    t.loadAddon(search);
-    t.loadAddon(new Unicode11Addon());
-    t.unicode.activeVersion = '11';
-    t.loadAddon(
-      new WebLinksAddon((_e, uri) => {
-        SystemService.OpenURL(uri).catch(() => window.open(uri, '_blank'));
-      })
-    );
-    t.open(terminalEl);
-
-    // Terminal shortcuts that must not reach the shell. Everything else (incl.
-    // Ctrl+C / Ctrl+V without Shift) goes to the remote side.
-    t.attachCustomKeyEventHandler((e) => {
-      if (e.type !== 'keydown') return true;
-      const k = e.key.toLowerCase();
-      if (e.ctrlKey && e.shiftKey && !e.altKey && k === 'c') {
-        void copySelection();
-        return false;
-      }
-      if (e.ctrlKey && e.shiftKey && !e.altKey && k === 'v') {
-        void pasteClipboard();
-        return false;
-      }
-      if (e.shiftKey && !e.ctrlKey && e.key === 'Insert') {
-        void pasteClipboard();
-        return false;
-      }
-      if (e.ctrlKey && !e.shiftKey && e.key === 'Insert') {
-        void copySelection();
-        return false;
-      }
-      if (e.ctrlKey && !e.altKey && (e.key === '+' || e.key === '=')) {
-        setZoom(1);
-        return false;
-      }
-      if (e.ctrlKey && !e.altKey && e.key === '-') {
-        setZoom(-1);
-        return false;
-      }
-      if (e.ctrlKey && !e.altKey && e.key === '0') {
-        setZoom(null);
-        return false;
-      }
-      if (e.ctrlKey && e.key === 'F3') {
-        findOpen = true;
-        return false;
-      }
-      if (e.ctrlKey && e.altKey && k === 's' && hasSFTP) {
-        ontoggleSftp?.();
-        return false;
-      }
+  // Terminal shortcuts that must not reach the shell. Everything else (incl.
+  // Ctrl+C / Ctrl+V without Shift) goes to the remote side.
+  function handleTerminalKey(e: KeyboardEvent): boolean {
+    const k = e.key.toLowerCase();
+    if (e.ctrlKey && e.shiftKey && !e.altKey && k === 'c') {
+      void copySelection();
       return true;
+    }
+    if (e.ctrlKey && e.shiftKey && !e.altKey && k === 'v') {
+      void pasteClipboard();
+      return true;
+    }
+    if (e.shiftKey && !e.ctrlKey && e.key === 'Insert') {
+      void pasteClipboard();
+      return true;
+    }
+    if (e.ctrlKey && !e.shiftKey && e.key === 'Insert') {
+      void copySelection();
+      return true;
+    }
+    if (e.ctrlKey && !e.altKey && (e.key === '+' || e.key === '=')) {
+      setZoom(1);
+      return true;
+    }
+    if (e.ctrlKey && !e.altKey && e.key === '-') {
+      setZoom(-1);
+      return true;
+    }
+    if (e.ctrlKey && !e.altKey && e.key === '0') {
+      setZoom(null);
+      return true;
+    }
+    if (e.ctrlKey && e.key === 'F3') {
+      findOpen = true;
+      return true;
+    }
+    if (e.ctrlKey && e.altKey && k === 's' && hasSFTP) {
+      ontoggleSftp?.();
+      return true;
+    }
+    return false;
+  }
+
+  onMount(() => {
+    // The engine is chosen when the terminal opens; a changed preference applies to new terminals.
+    const engine = normalizeEngine(untrack(() => $settings?.terminal?.Engine));
+    const s = new TerminalStream(tmpID, {
+      write: (data, callback) => {
+        if (term) term.write(data, callback);
+      },
     });
 
-    stream = new TerminalStream(tmpID, t);
-    stream.ondata = () => {
-      if (!active) markNewData(tmpID);
-    };
-    void stream.connect();
+    createTerminal(engine, terminalEl, untrack(() => look), {
+      onKey: handleTerminalKey,
+      onWheel: (e) => {
+        if (!e.ctrlKey) return false;
+        handleWheel(e);
+        return true;
+      },
+      onData: (data) => s.write(data),
+      onSelectionChange: () => {
+        if (!$settings?.appearance?.SelectionToClipboard) return;
+        const selection = term?.getSelection();
+        if (selection) navigator.clipboard.writeText(selection).catch(() => {});
+      },
+      openLink: (uri) => {
+        SystemService.OpenURL(uri).catch(() => window.open(uri, '_blank'));
+      },
+    })
+      .then((t) => {
+        if (destroyed) {
+          t.dispose();
+          return;
+        }
+        term = t;
+        stream = s;
+        s.ondata = () => {
+          if (!active) markNewData(tmpID);
+        };
+        void s.connect();
 
-    t.onData((data) => stream.write(data));
-    t.onBinary((data) => {
-      const bytes = new Uint8Array(data.length);
-      for (let i = 0; i < data.length; i++) bytes[i] = data.charCodeAt(i) & 0xff;
-      stream.write(bytes);
-    });
-
-    t.onSelectionChange(() => {
-      if (!$settings?.appearance?.SelectionToClipboard) return;
-      const selection = t.getSelection();
-      if (selection) navigator.clipboard.writeText(selection).catch(() => {});
-    });
-
-    resizeObserver = new ResizeObserver(() => scheduleFit());
-    resizeObserver.observe(terminalEl);
-
-    term = t;
-    searchAddon = search;
-    scheduleFit();
-    if (active) t.focus();
+        resizeObserver = new ResizeObserver(() => scheduleFit());
+        resizeObserver.observe(terminalEl);
+        scheduleFit();
+        if (active) t.focus();
+      })
+      .catch((err) => {
+        console.error(`Failed to create ${engine} terminal for ${tmpID}:`, err);
+      });
   });
 
-  // Apply look changes from Preferences live (colours, font, cursor, scrollback).
+  // Apply look changes from Preferences live (colours, font, cursor).
   $effect(() => {
     const l = look;
     const t = term;
     if (!t) return;
     untrack(() => {
-      t.options.theme = buildTheme(l);
-      t.options.fontFamily = fontFamilyCss(l.Font?.Family);
-      t.options.fontSize = ptToPx(basePt + zoomPt);
-      t.options.cursorStyle = l.CursorShape === 'ibeam' ? 'bar' : l.CursorShape === 'underline' ? 'underline' : 'block';
-      t.options.drawBoldTextInBrightColors = !!l.BoldIsBright;
+      t.setLook(l, ptToPx(basePt + zoomPt));
       scheduleFit();
     });
   });
@@ -217,6 +199,7 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
     cancelAnimationFrame(fitFrame);
     resizeObserver?.disconnect();
     stream?.destroy();
@@ -261,8 +244,8 @@
 >
   <div bind:this={terminalEl} class="xterm-container"></div>
 
-  {#if searchAddon}
-    <FindInTerminal bind:open={findOpen} {searchAddon} onclose={() => (findOpen = false)} />
+  {#if term}
+    <FindInTerminal bind:open={findOpen} search={term.search} onclose={() => (findOpen = false)} />
   {/if}
 
   <TerminalContextMenu

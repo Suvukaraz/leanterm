@@ -534,19 +534,4 @@
     height: 100%;
     object-fit: cover;
   }
-
-  .terminal-tab-placeholder {
-    width: 100%;
-    height: 100%;
-    background: #1e1e1e;
-    color: #00ff00;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  .term-status-text {
-    font-family: monospace;
-    font-size: 13px;
-  }
 </style>
