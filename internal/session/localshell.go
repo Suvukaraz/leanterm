@@ -136,7 +136,7 @@ func (ls *LocalSession) startLocked() error {
 		}
 	}
 	cmd.Dir = dir
-	cmd.Env = os.Environ()
+	cmd.Env = localShellEnv(os.Environ())
 
 	// Initial winsize
 	ws := &pty.Winsize{
@@ -165,6 +165,21 @@ func (ls *LocalSession) startLocked() error {
 	go ls.waitLoop(cmd)
 
 	return nil
+}
+
+// localShellEnv returns the environment for the local shell. When LeanTerm is
+// started from a desktop launcher, TERM is unset or "dumb", which makes shells
+// and tools disable colors. The PTY is rendered by an xterm-compatible engine,
+// so advertise xterm-256color with truecolor support like the SSH session does.
+func localShellEnv(base []string) []string {
+	env := make([]string, 0, len(base)+2)
+	for _, kv := range base {
+		if strings.HasPrefix(kv, "TERM=") || strings.HasPrefix(kv, "COLORTERM=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, "TERM=xterm-256color", "COLORTERM=truecolor")
 }
 
 func (ls *LocalSession) readLoop(ptyFile *os.File) {

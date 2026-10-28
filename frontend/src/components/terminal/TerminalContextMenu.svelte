@@ -1,6 +1,7 @@
 <script lang="ts">
   import ContextMenu, { type MenuItem } from '../gtk/ContextMenu.svelte';
   import type { TermHandle } from '../../lib/terminal/engine';
+  import { readClipboardText } from '../../lib/bridge/clipboard';
   import * as SessionService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/sessionservice.js';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
   import * as ClusterService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/clusterservice.js';
@@ -114,8 +115,9 @@
         shortcut: 'Ctrl+Shift+V',
         action: async () => {
           if (term) {
-            const text = await navigator.clipboard.readText();
+            const text = await readClipboardText();
             if (text) term.paste(text);
+            term.focus();
           }
         },
       },

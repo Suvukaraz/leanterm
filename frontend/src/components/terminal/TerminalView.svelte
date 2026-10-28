@@ -2,6 +2,7 @@
   import { onMount, onDestroy, untrack } from 'svelte';
 
   import { TerminalStream } from '../../lib/bridge/terminalStream';
+  import { readClipboardText } from '../../lib/bridge/clipboard';
   import { settings } from '../../lib/stores/config';
   import { markNewData } from '../../lib/stores/sessions';
   import { mergeLook, ptToPx, DEFAULT_FONT_PT, type TerminalLook } from '../../lib/terminal/xtermOptions';
@@ -81,7 +82,7 @@
   }
 
   async function pasteClipboard() {
-    const text = await navigator.clipboard.readText().catch(() => '');
+    const text = await readClipboardText();
     if (text) term?.paste(text);
   }
 

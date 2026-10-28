@@ -28,7 +28,9 @@ interface GhosttyInternals {
     selectionEnd: SelectionPoint | null;
     requestRender(): void;
     selectionChangedEmitter: { fire(): void };
+    boundContextMenuHandler: ((e: MouseEvent) => void) | null;
   };
+  renderer?: { getCanvas(): HTMLCanvasElement };
   linkDetector?: {
     providers: ILinkProvider[];
     invalidateCache(): void;
@@ -69,10 +71,57 @@ export async function createGhosttyTerminal(
   const fitAddon = new FitAddon();
   t.loadAddon(fitAddon);
   t.attachCustomKeyEventHandler((e) => hooks.onKey(e));
-  t.attachCustomWheelEventHandler((e) => hooks.onWheel(e));
+  // Accumulates fractional wheel deltas (touchpads) so slow scrolling still moves.
+  let wheelRemainder = 0;
+  t.attachCustomWheelEventHandler((e) => {
+    if (hooks.onWheel(e)) return true;
+    // ghostty-web turns the wheel into arrow keys on the alternate screen and never
+    // reports it to applications. Like xterm.js, send wheel reports when the
+    // application enabled mouse tracking (mc, htop, tmux, vim mouse=a, ...).
+    if (!t.hasMouseTracking()) return false;
+
+    const rect = t.element?.getBoundingClientRect();
+    const lineHeight = rect && t.rows ? rect.height / t.rows : 20;
+    const lines =
+      e.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? e.deltaY
+        : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? e.deltaY * t.rows
+          : e.deltaY / lineHeight;
+    wheelRemainder += lines;
+    const steps = Math.trunc(wheelRemainder);
+    wheelRemainder -= steps;
+    if (steps === 0) return true;
+
+    let col = 0;
+    let row = 0;
+    if (rect && rect.width > 0 && rect.height > 0) {
+      col = Math.floor(((e.clientX - rect.left) / rect.width) * t.cols);
+      row = Math.floor(((e.clientY - rect.top) / rect.height) * t.rows);
+    }
+    col = Math.max(0, Math.min(t.cols - 1, col)) + 1;
+    row = Math.max(0, Math.min(t.rows - 1, row)) + 1;
+
+    const button = (steps < 0 ? 64 : 65) + (e.shiftKey ? 4 : 0) + (e.altKey ? 8 : 0);
+    const sgr = t.getMode(1006);
+    const report = sgr
+      ? `\x1b[<${button};${col};${row}M`
+      : `\x1b[M${String.fromCharCode(32 + button, 32 + Math.min(col, 223), 32 + Math.min(row, 223))}`;
+    hooks.onData(report.repeat(Math.min(Math.abs(steps), 10)));
+    return true;
+  });
   t.open(container);
 
   const internals = t as unknown as GhosttyInternals;
+
+  // ghostty-web moves a hidden textarea under the pointer and focuses it on right
+  // click (meant for the browser's native menu). That breaks LeanTerm's own
+  // context menu (Paste did nothing), so drop the handler.
+  const sel = internals.selectionManager;
+  if (sel?.boundContextMenuHandler) {
+    internals.renderer?.getCanvas().removeEventListener('contextmenu', sel.boundContextMenuHandler);
+    sel.boundContextMenuHandler = null;
+  }
 
   // Open links through the backend (xdg-open) instead of window.open().
   for (const provider of internals.linkDetector?.providers ?? []) {

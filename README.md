@@ -6,7 +6,7 @@ LeanTerm is a connection and terminal manager for Linux, built with **Go** and *
 
 It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a local file browser next to the terminal, uses a reworked button bar, and hides rarely used functions (clusters) by default. SSH, SFTP and Telnet are implemented natively in Go, so there are no `ssh`/`sftp`/`expect` wrappers and no shell calls for file operations.
 
-> **Status:** 0.8.3 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
+> **Status:** 0.8.4 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
 
 ## 📸 Screenshots
 
@@ -117,9 +117,9 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 ## 🛠️ Installation & Building
 
 ### Debian / Ubuntu Package (.deb)
-Download `leanterm_0.8.3_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
+Download `leanterm_0.8.4_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
-sudo apt install ./leanterm_0.8.3_amd64.deb
+sudo apt install ./leanterm_0.8.4_amd64.deb
 ```
 
 Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`, e.g. Debian 13 / Ubuntu 24.04 or newer); `apt` installs them automatically.
@@ -129,7 +129,7 @@ Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`
 To build the `.deb` package from source (builds the frontend and the binary, then packages them into `bin/`):
 ```bash
 npm --prefix frontend install
-./build/package-deb.sh 0.8.3
+./build/package-deb.sh 0.8.4
 ```
 
 ### Building from Source
