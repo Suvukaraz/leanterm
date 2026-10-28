@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { SearchAddon } from '@xterm/addon-search';
+  import type { TerminalSearch } from '../../lib/terminal/engine';
   import Entry from '../gtk/Entry.svelte';
   import CheckButton from '../gtk/CheckButton.svelte';
   import Button from '../gtk/Button.svelte';
 
   interface Props {
     open: boolean;
-    searchAddon?: SearchAddon;
+    search?: TerminalSearch;
     onclose: () => void;
   }
 
-  let { open = $bindable(false), searchAddon, onclose }: Props = $props();
+  let { open = $bindable(false), search, onclose }: Props = $props();
 
   let searchText = $state('');
   let caseSensitive = $state(false);
@@ -18,35 +18,13 @@
   let regex = $state(false);
 
   function findNext() {
-    if (!searchAddon || !searchText) return;
-    searchAddon.findNext(searchText, {
-      caseSensitive,
-      wholeWord,
-      regex,
-      decorations: {
-        matchBackground: '#ffff00',
-        matchBorder: '#000000',
-        matchOverviewRuler: '#ffff00',
-        activeMatchBackground: '#ff9900',
-        activeMatchColorOverviewRuler: '#ff9900',
-      },
-    });
+    if (!search || !searchText) return;
+    search.findNext(searchText, { caseSensitive, wholeWord, regex });
   }
 
   function findPrevious() {
-    if (!searchAddon || !searchText) return;
-    searchAddon.findPrevious(searchText, {
-      caseSensitive,
-      wholeWord,
-      regex,
-      decorations: {
-        matchBackground: '#ffff00',
-        matchBorder: '#000000',
-        matchOverviewRuler: '#ffff00',
-        activeMatchBackground: '#ff9900',
-        activeMatchColorOverviewRuler: '#ff9900',
-      },
-    });
+    if (!search || !searchText) return;
+    search.findPrevious(searchText, { caseSensitive, wholeWord, regex });
   }
 
   function handleKeyDown(e: KeyboardEvent) {

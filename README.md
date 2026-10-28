@@ -34,6 +34,7 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - File browser on the left (default) or right side of the terminal (*Preferences → Terminal Options → File browser*).
 - Dark (default) or light colour scheme.
 - Split terminal tabs, tab colours and a find bar in the terminal.
+- Two terminal engines (*Preferences → Terminal Options → Look and Feel*): **xterm.js** (default) or the experimental **Ghostty** engine ([ghostty-web](https://github.com/coder/ghostty-web), Ghostty's VT parser as WebAssembly). With Ghostty, colour changes apply to newly opened terminals only, links open with Ctrl+Click and selected text is always copied to the clipboard.
 - New connections only need a name; the title is derived from it.
 - Closing the window asks for confirmation while connections or file transfers are active (and, with *Confirm exit*, always).
 
@@ -207,6 +208,7 @@ LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `show_status_bar` | bool | `true` | Show terminal status bar with port forwarding and state |
+| `engine` | string | `"xterm"` | Terminal engine: `"xterm"` (xterm.js) or `"ghostty"` (experimental, see below); applies to newly opened terminals |
 | `macros_bar` | string | `"never"` | Toolbar mode for macros: `"never"`, `"combo"`, `"buttons"` |
 | `show_global_macros` | bool | `false` | Display global macros alongside connection macros |
 | `confirm_chains` | bool | `true` | Prompt for confirmation when dropping connection chain |

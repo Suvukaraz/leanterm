@@ -1,6 +1,6 @@
 import { Events } from '@wailsio/runtime';
 import * as SessionService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/sessionservice.js';
-import type { Terminal } from '@xterm/xterm';
+import type { TermHandle } from '../terminal/engine';
 
 export function base64ToUint8Array(b64: string): Uint8Array {
   const binaryString = window.atob(b64);
@@ -31,7 +31,7 @@ const INPUT_BATCH_MS = 4;
 const PASTE_CHUNK = 4096;
 
 /**
- * Connects one xterm.js instance to a backend session.
+ * Connects one terminal (xterm.js or ghostty-web) to a backend session.
  *
  * Output: subscribes to `term:data:<tmpID>` *before* requesting the replay, buffers
  * packets until the replay is written and then drops everything already contained
@@ -42,7 +42,7 @@ const PASTE_CHUNK = 4096;
  */
 export class TerminalStream {
   private tmpID: string;
-  private term: Terminal;
+  private term: Pick<TermHandle, 'write'>;
   private unsubscribeEvent?: () => void;
   private lastSeq = 0;
   private replayDone = false;
@@ -59,7 +59,7 @@ export class TerminalStream {
   /** Called for every output packet (used for the "new data" tab colour). */
   public ondata?: () => void;
 
-  constructor(tmpID: string, term: Terminal) {
+  constructor(tmpID: string, term: Pick<TermHandle, 'write'>) {
     this.tmpID = tmpID;
     this.term = term;
   }

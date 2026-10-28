@@ -150,6 +150,12 @@ func Validate(cfg *Config) ValidationResult {
 		res.AddError("terminal.macros_bar", "must be 'never', 'combo', or 'buttons'")
 	}
 
+	switch cfg.Terminal.Engine {
+	case "xterm", "ghostty":
+	default:
+		res.AddError("terminal.engine", "must be 'xterm' or 'ghostty'")
+	}
+
 	switch cfg.Terminal.TabsPosition {
 	case "top", "bottom", "left", "right":
 	default:
