@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { getIcon } from '../../lib/theme/icons';
 
   export interface TreeItem {
@@ -56,8 +57,9 @@
     onexpandchange,
   }: Props = $props();
 
+  // expandedIds only seeds the state; later changes are reported via onexpandchange.
   let expandedMap = $state<Record<string, boolean>>(
-    Object.fromEntries(expandedIds.map((id) => [id, true]))
+    Object.fromEntries(untrack(() => expandedIds).map((id) => [id, true]))
   );
 
   function notifyExpanded() {
@@ -313,10 +315,13 @@
   {@const isExpanded = expandedMap[item.id] ?? false}
   {@const hasChildren = item.children && item.children.length > 0}
 
+  <!-- Keyboard input is handled by the tree container (handleKeyDown). -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
     class={`tree-row ${isSelected ? 'is-selected' : ''} ${dragOverId === item.id ? 'drag-over' : ''}`}
     style={`padding-left: ${depth * 16 + 4}px;`}
     role="treeitem"
+    tabindex="-1"
     data-node-id={item.id}
     aria-selected={isSelected}
     aria-expanded={item.isGroup ? isExpanded : undefined}
@@ -331,7 +336,8 @@
     onauxclick={(e) => handleAuxClick(item, e)}
     oncontextmenu={(e) => handleContextMenu(item, e)}
   >
-    <!-- Expander arrow -->
+    <!-- Expander arrow (keyboard: ArrowLeft/ArrowRight on the tree) -->
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <span
       class="tree-expander"
       onclick={(e) => item.isGroup && toggleExpand(item.id, e)}

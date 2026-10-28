@@ -40,7 +40,9 @@
 </script>
 
 {#if open}
-  <div class="find-terminal-panel" onkeydown={handleKeyDown}>
+  <!-- Enter/Escape are handled for all controls in the panel (entry, checkboxes, buttons). -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div class="find-terminal-panel" role="search" aria-label="Find in terminal" onkeydown={handleKeyDown}>
     <div class="find-row-input">
       <Entry
         value={searchText}

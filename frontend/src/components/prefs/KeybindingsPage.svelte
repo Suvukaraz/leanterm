@@ -158,12 +158,6 @@
     width: 160px;
   }
 
-  .col-actions {
-    width: 140px;
-    display: flex;
-    gap: 4px;
-  }
-
   .key-badge {
     display: inline-block;
     padding: 2px 6px;
@@ -172,22 +166,5 @@
     border-radius: 3px;
     font-family: monospace;
     font-size: 0.85em;
-  }
-
-  .recording-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    background: var(--gtk-warning-bg);
-    border: 1px solid var(--gtk-border-color);
-    color: var(--gtk-warning-fg);
-    border-radius: 3px;
-    font-size: 0.85em;
-    outline: none;
-    animation: blink 1s infinite;
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
   }
 </style>

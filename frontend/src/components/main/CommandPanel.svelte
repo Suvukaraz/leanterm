@@ -418,9 +418,10 @@
   <!-- 3. Search area _vboxSearch (hidden by default) -->
   {#if $searchVisible}
     <div class="cp-search-area">
-      <div class="search-input-row" onkeydown={handleSearchKeyDown}>
+      <div class="search-input-row">
         <Entry
           value={$searchQuery}
+          onkeydown={handleSearchKeyDown}
           placeholder="Search..."
           onchange={(val) => {
             searchQuery.set(val);
