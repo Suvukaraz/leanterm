@@ -4,7 +4,8 @@
   import { loadTree, loadSettings, checkUnsaved, settings } from './lib/stores/config';
   import { refreshSessions, initSessionEvents } from './lib/stores/sessions';
   import { loadUIState } from './lib/stores/uistate';
-  import { activeLeftTab } from './lib/stores/ui';
+  import { activeLeftTab, prefsDialogOpen, prefsStartPage } from './lib/stores/ui';
+  import { Events } from '@wailsio/runtime';
   import { setIconTheme } from './lib/theme/icons';
   import './lib/theme/gtk.css';
 
@@ -18,6 +19,11 @@
 
   onMount(() => {
     const stopEvents = initSessionEvents();
+    // "Settings → Configure Editor…" in the editor window.
+    const stopConfigure = Events.On('editor:configure', () => {
+      prefsStartPage.set('editor');
+      prefsDialogOpen.set(true);
+    });
 
     (async () => {
       try {
@@ -40,7 +46,10 @@
       }
     })();
 
-    return stopEvents;
+    return () => {
+      stopEvents();
+      stopConfigure();
+    };
   });
 </script>
 

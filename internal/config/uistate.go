@@ -11,6 +11,7 @@ import (
 // UIState holds window/panel layout that is remembered between runs (state/ui.toml).
 type UIState struct {
 	MainWindow          WindowGeometry `toml:"main_window" json:"mainWindow"`
+	EditorWindow        WindowGeometry `toml:"editor_window" json:"editorWindow"`
 	CommandPanelWidth   int            `toml:"tree_pane" json:"commandPanelWidth"`
 	CommandPanelVisible bool           `toml:"tree_visible" json:"commandPanelVisible"`
 	ClustersVisible     bool           `toml:"clusters_visible" json:"clustersVisible"`

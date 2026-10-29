@@ -14,6 +14,7 @@ export {
     ConnectionTerminal,
     DialogGeometry,
     DynamicForward,
+    EditorConfig,
     ExpectEntry,
     FontConfig,
     GeneralConfig,

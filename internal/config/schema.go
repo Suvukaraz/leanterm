@@ -142,6 +142,18 @@ type TerminalConfig struct {
 	SessionLogs            SessionLogsConfig    `toml:"session_logs" comment:"Session logs auto save configuration"`
 }
 
+// EditorConfig represents the built-in text editor (Preferences > Editor)
+type EditorConfig struct {
+	Font            FontConfig `toml:"font" comment:"Editor font"`
+	OpenTextFilesIn string     `toml:"open_text_files_in" comment:"Double-click on a text file opens it in: editor | default_app"`
+	TabWidth        int        `toml:"tab_width" comment:"Tab width in columns (1-16)"`
+	IndentWithTabs  bool       `toml:"indent_with_tabs" comment:"Indent with tabs instead of spaces"`
+	WordWrap        bool       `toml:"word_wrap" comment:"Wrap long lines"`
+	ShowWhitespace  bool       `toml:"show_whitespace" comment:"Show spaces and tabs"`
+	LargeFileMB     int        `toml:"large_file_mb" comment:"Ask once before opening files larger than this (MB)"`
+	HugeFileMB      int        `toml:"huge_file_mb" comment:"Ask twice before opening files larger than this (MB); syntax highlighting starts off"`
+}
+
 // SFTPBrowserConfig represents settings for the embedded SFTP browser
 type SFTPBrowserConfig struct {
 	AutoOpen             bool   `toml:"auto_open" comment:"Open SFTP browser automatically on SSH connections"`
@@ -396,6 +408,7 @@ type Config struct {
 	Prompts       PromptsConfig       `toml:"prompts" comment:"Preferences > Main Options > Advanced"`
 	Terminal      TerminalConfig      `toml:"terminal" comment:"Preferences > Terminal Options"`
 	SFTPBrowser   SFTPBrowserConfig   `toml:"sftp_browser" comment:"SFTP browser side panel settings"`
+	Editor        EditorConfig        `toml:"editor" comment:"Preferences > Editor"`
 	LocalShell    LocalShellConfig    `toml:"local_shell" comment:"Local Shell options"`
 	Network       NetworkConfig       `toml:"network" comment:"Global Network Settings"`
 	Variables     []VariableConfig    `toml:"variables,omitempty" comment:"Global Variables (<GV:name>)"`

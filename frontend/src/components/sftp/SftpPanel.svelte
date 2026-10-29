@@ -32,6 +32,8 @@
   import { settings } from '../../lib/stores/config';
   import { sftpPanelWidth } from '../../lib/stores/ui';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
+  import * as EditorService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/editorservice.js';
+  import { isTextFile } from '../../lib/editor/languages';
   import { sessions, sendSessionInput } from '../../lib/stores/sessions';
   import SftpToolbar from './SftpToolbar.svelte';
   import SftpPathBar from './SftpPathBar.svelte';
@@ -219,6 +221,22 @@
       openError = `Could not open '${openingFile}':\n${err?.message || err}`;
     } finally {
       openingFile = '';
+    }
+  }
+
+  // LeanTerm's editor: remote files are read and written directly over this SFTP session.
+  function opensInEditor(p: string): boolean {
+    return ($settings as any)?.editor?.OpenTextFilesIn !== 'default_app' && isTextFile(p);
+  }
+
+  async function handleOpenInEditor(p: string) {
+    const file = isLocal
+      ? { kind: 'local', path: p }
+      : { kind: 'sftp', sftpId: view?.sftpID, connId: sessionInfo?.connID, host: sessionInfo?.title || '', path: p };
+    try {
+      await EditorService.Open(file as any);
+    } catch (err: any) {
+      openError = `Could not open '${p.split('/').pop() || p}' in the editor:\n${err?.message || err}`;
     }
   }
 
@@ -505,6 +523,8 @@
       onselect={(paths) => setSelectedPaths(tmpID, paths)}
       onopen={handleNavigate}
       onopenWithDefaultApp={handleOpenFile}
+      onopenInEditor={handleOpenInEditor}
+      {opensInEditor}
       onnavigateUp={() => navigateUp(tmpID)}
       ondownload={handleDownload}
       dropId={tmpID}

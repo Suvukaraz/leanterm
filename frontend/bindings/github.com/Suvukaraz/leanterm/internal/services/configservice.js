@@ -263,6 +263,16 @@ export function SetDescription(id, text) {
 }
 
 /**
+ * SetEmitter lets the service announce changed settings ("settings:changed") to
+ * all windows, e.g. the editor window, which keeps its own copy.
+ * @param {$models.settingsEmitter} e
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetEmitter(e) {
+    return $Call.ByID(2900209107, e);
+}
+
+/**
  * @param {string} id
  * @param {boolean} on
  * @returns {$CancellablePromise<void>}

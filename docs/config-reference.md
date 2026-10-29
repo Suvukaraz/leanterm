@@ -252,6 +252,30 @@ download_dir = ''
 # Polling interval in seconds (0 = disabled)
 poll_seconds = 0
 
+# Preferences > Editor
+[editor]
+# Double-click on a text file opens it in: editor | default_app
+open_text_files_in = 'editor'
+# Tab width in columns (1-16)
+tab_width = 4
+# Indent with tabs instead of spaces
+indent_with_tabs = false
+# Wrap long lines
+word_wrap = false
+# Show spaces and tabs
+show_whitespace = false
+# Ask once before opening files larger than this (MB)
+large_file_mb = 10
+# Ask twice before opening files larger than this (MB); syntax highlighting starts off
+huge_file_mb = 100
+
+# Editor font
+[editor.font]
+# Font family name
+family = 'Monospace'
+# Font size in points
+size = 11
+
 # Local Shell options
 [local_shell]
 # Start a shell upon startup

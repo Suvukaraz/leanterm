@@ -47,6 +47,24 @@
   --gtk-scrollbar: #555555;
   --gtk-scrollbar-hover: #777777;
   --gtk-terminal-bg: #000000;
+
+  /* Text editor: syntax colours derived from the accent/link/status colours above */
+  --gtk-syntax-keyword: #78aef0;
+  --gtk-syntax-string: #9ccc65;
+  --gtk-syntax-comment: #8c8c8c;
+  --gtk-syntax-number: #e5b567;
+  --gtk-syntax-type: #6fc3c3;
+  --gtk-syntax-function: #f3df8a;
+  --gtk-syntax-constant: #e59a6f;
+  --gtk-syntax-operator: #c8c8c8;
+  --gtk-syntax-tag: #78aef0;
+  --gtk-syntax-attribute: #c39ac9;
+  --gtk-syntax-property: #9fc7f0;
+  --gtk-syntax-meta: #b48ead;
+  --gtk-syntax-invalid: #ffb4b4;
+  --gtk-editor-selection: rgba(74, 144, 217, 0.38);
+  --gtk-editor-active-line: rgba(255, 255, 255, 0.045);
+  --gtk-editor-search-match: rgba(243, 223, 138, 0.28);
 }
 
 [data-theme="light"] {
@@ -88,6 +106,24 @@
   --gtk-link-fg: #1e70bf;
   --gtk-scrollbar: #c1c1c1;
   --gtk-scrollbar-hover: #a1a1a1;
+
+  /* Text editor: syntax colours derived from the accent/link/status colours above */
+  --gtk-syntax-keyword: #1e5fb3;
+  --gtk-syntax-string: #3a7d17;
+  --gtk-syntax-comment: #7a7a7a;
+  --gtk-syntax-number: #a35a00;
+  --gtk-syntax-type: #0e7a7a;
+  --gtk-syntax-function: #8a6100;
+  --gtk-syntax-constant: #b5480f;
+  --gtk-syntax-operator: #444444;
+  --gtk-syntax-tag: #1e5fb3;
+  --gtk-syntax-attribute: #7b3f9e;
+  --gtk-syntax-property: #2b5b8a;
+  --gtk-syntax-meta: #7b3f9e;
+  --gtk-syntax-invalid: #c01c28;
+  --gtk-editor-selection: rgba(53, 132, 228, 0.25);
+  --gtk-editor-active-line: rgba(0, 0, 0, 0.04);
+  --gtk-editor-search-match: rgba(255, 200, 0, 0.35);
 }
 
 /* Aliases used by individual components – all resolve to the tokens above. */

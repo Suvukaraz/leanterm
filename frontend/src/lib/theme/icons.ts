@@ -34,6 +34,7 @@ const stockIcons: Record<string, string> = {
   'gtk-dialog-warning': '/icons/stock/gtk-dialog-warning.svg',
   'gtk-dialog-error': '/icons/stock/gtk-dialog-warning.svg',
   'gtk-undo': '/icons/stock/gtk-undo.svg',
+  'gtk-redo': '/icons/stock/gtk-redo.svg',
   'gtk-refresh': '/icons/stock/gtk-refresh.svg',
   'gtk-go-up': '/icons/stock/gtk-go-up.svg',
   'gtk-go-back': '/icons/stock/gtk-go-back.svg',

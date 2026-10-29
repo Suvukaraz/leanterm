@@ -34,6 +34,7 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - File browser on the left (default) or right side of the terminal (*Preferences → Terminal Options → File browser*).
 - Dark (default) or light colour scheme.
 - Split terminal tabs, tab colours and a find bar in the terminal.
+- Preferences, Edit Connection and About can be moved (title bar) and resized (edges and corners) inside the main window; their position and size are remembered, a double-click on the title bar resets them.
 - Two terminal engines (*Preferences → Terminal Options → Look and Feel*): **xterm.js** (default) or the experimental **Ghostty** engine ([ghostty-web](https://github.com/coder/ghostty-web), Ghostty's VT parser as WebAssembly). With Ghostty, colour changes apply to newly opened terminals only, links open with Ctrl+Click and selected text is always copied to the clipboard.
 - New connections only need a name; the title is derived from it.
 - Closing the window asks for confirmation while connections or file transfers are active (and, with *Confirm exit*, always).
@@ -73,6 +74,15 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - The Home button opens your home folder; free space is shown on Linux, macOS, FreeBSD and Windows.
 - Copy to… / Move to… instead of upload/download; files dropped from the desktop are copied into the current folder, asking before existing files are overwritten.
 - File operations use the Go standard library directly – no shell commands.
+
+### Built-in Text Editor
+- Double-click on a text, code, Markdown or configuration file in the SFTP or the local file browser opens it in LeanTerm's editor (or use *Open in Editor* in the context menu; *Preferences → Editor* switches double-click back to the default application).
+- Its own window (movable, resizable, minimisable) with one tab per file, a KWrite-like menu bar, toolbar and status bar; it uses LeanTerm's colour scheme (dark or light) and its own font setting.
+- **Remote files are read and written directly over the SSH connection** (no temporary copy). Saving writes a temporary file and renames it, keeping permissions and owner; a file changed elsewhere in the meantime is detected (Overwrite / Reload / Cancel). If the connection drops, reconnecting the same connection lets you save again, or you save a local copy.
+- No size limit: files above 10 MB ask once, files above 100 MB ask twice and open without syntax highlighting (both limits are configurable).
+- Line endings: Unix (LF) / Windows (CRLF) switch in the status bar; encodings UTF-8, UTF-8 with BOM, Windows-1252, ISO-8859-1 and ISO-8859-15 (detected on open, changeable for saving or *Reload with Encoding*).
+- Syntax highlighting (CodeMirror 6) for C, C++, Arduino, C#, Java, Kotlin, Dart/Flutter, Go, Rust, Python, Mojo, Nim, Clojure, Lua, Bash, PowerShell, Windows Batch, HTML, CSS/SCSS/Less, JavaScript, TypeScript, React (JSX/TSX), Svelte, Markdown, SQL and the common configuration formats: JSON/JSONC, YAML, TOML, XML, INI/systemd/.env, nginx, Apache, SSH config, crontab, hosts/fstab, Dockerfile, Makefile, CMake, .gitignore, Windows registry (.reg), Protocol Buffers, Jinja2, RPM spec and diff/patch. Detection uses the file name, the extension and the `#!` line.
+- Search and replace (regular expressions), go to line, folding, multiple cursors, overwrite mode (Insert), toggle comment, upper/lower case, word wrap and visible whitespace.
 
 ### Automation & Productivity
 - **Variable Substitution Engine:**
@@ -228,6 +238,18 @@ LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/
 | `preserve_timestamps` | bool | `true` | Keep modification times when copying |
 | `preserve_permissions` | bool | `true` | Keep permissions when copying |
 | `poll_seconds` | int | `0` | Polling interval in seconds (0 = disabled) |
+
+### Section `[editor]`
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `font` | table | `Monospace`, 11 pt | Editor font (`family`, `size` in points) |
+| `open_text_files_in` | string | `"editor"` | Double-click on a text file opens it in `"editor"` or `"default_app"` |
+| `tab_width` | int | `4` | Tab width (1–16) |
+| `indent_with_tabs` | bool | `false` | Indent with tabs instead of spaces |
+| `word_wrap` | bool | `false` | Wrap long lines |
+| `show_whitespace` | bool | `false` | Show spaces and tabs |
+| `large_file_mb` | int | `10` | Ask once before opening larger files |
+| `huge_file_mb` | int | `100` | Ask twice before opening larger files; they start without syntax highlighting |
 
 ### Section `[keepass]`
 | Key | Type | Default | Description |

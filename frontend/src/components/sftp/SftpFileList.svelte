@@ -10,6 +10,10 @@
     onselect: (paths: string[]) => void;
     onopen: (p: string) => void;
     onopenWithDefaultApp?: (p: string) => void;
+    /** Opens a file in LeanTerm's editor window. */
+    onopenInEditor?: (p: string) => void;
+    /** Whether a double-click opens the file in the editor (else the default application). */
+    opensInEditor?: (p: string) => boolean;
     onnavigateUp: () => void;
     ondownload: (paths: string[], targetDir?: string) => void;
     /** Identifies this list in native "files:dropped" events. */
@@ -39,6 +43,8 @@
     onselect,
     onopen,
     onopenWithDefaultApp,
+    onopenInEditor,
+    opensInEditor,
     onnavigateUp,
     ondownload,
     dropId,
@@ -145,10 +151,13 @@
     }
   }
 
-  // Double click / Enter: folders are entered, files open in their default application.
+  // Double click / Enter: folders are entered, text files open in the editor (if
+  // configured), other files in their default application.
   function handleRowDoubleClick(entry: FileEntry) {
     if (entry.isDir) {
       onopen(entry.path);
+    } else if (onopenInEditor && opensInEditor?.(entry.path)) {
+      onopenInEditor(entry.path);
     } else if (onopenWithDefaultApp) {
       onopenWithDefaultApp(entry.path);
     } else {
@@ -406,6 +415,18 @@
             Open
           </button>
         {:else}
+          {#if onopenInEditor}
+            <button
+              type="button"
+              class="context-item"
+              onclick={() => {
+                if (contextMenuItem) onopenInEditor(contextMenuItem.path);
+                closeContextMenu();
+              }}
+            >
+              Open in Editor
+            </button>
+          {/if}
           <button
             type="button"
             class="context-item"

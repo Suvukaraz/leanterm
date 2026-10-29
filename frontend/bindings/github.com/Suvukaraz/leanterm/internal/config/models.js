@@ -1007,6 +1007,90 @@ export class DynamicForward {
 }
 
 /**
+ * EditorConfig represents the built-in text editor (Preferences > Editor)
+ */
+export class EditorConfig {
+    /**
+     * Creates a new EditorConfig instance.
+     * @param {Partial<EditorConfig>} [$$source = {}] - The source object to create the EditorConfig.
+     */
+    constructor($$source = {}) {
+        if (!("Font" in $$source)) {
+            /**
+             * @member
+             * @type {FontConfig}
+             */
+            this["Font"] = (new FontConfig());
+        }
+        if (!("OpenTextFilesIn" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["OpenTextFilesIn"] = "";
+        }
+        if (!("TabWidth" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["TabWidth"] = 0;
+        }
+        if (!("IndentWithTabs" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["IndentWithTabs"] = false;
+        }
+        if (!("WordWrap" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["WordWrap"] = false;
+        }
+        if (!("ShowWhitespace" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ShowWhitespace"] = false;
+        }
+        if (!("LargeFileMB" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["LargeFileMB"] = 0;
+        }
+        if (!("HugeFileMB" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["HugeFileMB"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EditorConfig instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {EditorConfig}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("Font" in $$parsedSource) {
+            $$parsedSource["Font"] = $$createField0_0($$parsedSource["Font"]);
+        }
+        return new EditorConfig(/** @type {Partial<EditorConfig>} */($$parsedSource));
+    }
+}
+
+/**
  * ExpectEntry represents an automated expect step
  */
 export class ExpectEntry {
@@ -2931,6 +3015,13 @@ export class UIState {
              */
             this["mainWindow"] = (new WindowGeometry());
         }
+        if (!("editorWindow" in $$source)) {
+            /**
+             * @member
+             * @type {WindowGeometry}
+             */
+            this["editorWindow"] = (new WindowGeometry());
+        }
         if (!("commandPanelWidth" in $$source)) {
             /**
              * @member
@@ -3000,17 +3091,21 @@ export class UIState {
      */
     static createFrom($$source = {}) {
         const $$createField0_0 = $$createType32;
-        const $$createField7_0 = $$createType1;
-        const $$createField8_0 = $$createType34;
+        const $$createField1_0 = $$createType32;
+        const $$createField8_0 = $$createType1;
+        const $$createField9_0 = $$createType34;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("mainWindow" in $$parsedSource) {
             $$parsedSource["mainWindow"] = $$createField0_0($$parsedSource["mainWindow"]);
         }
+        if ("editorWindow" in $$parsedSource) {
+            $$parsedSource["editorWindow"] = $$createField1_0($$parsedSource["editorWindow"]);
+        }
         if ("expandedGroups" in $$parsedSource) {
-            $$parsedSource["expandedGroups"] = $$createField7_0($$parsedSource["expandedGroups"]);
+            $$parsedSource["expandedGroups"] = $$createField8_0($$parsedSource["expandedGroups"]);
         }
         if ("dialogs" in $$parsedSource) {
-            $$parsedSource["dialogs"] = $$createField8_0($$parsedSource["dialogs"]);
+            $$parsedSource["dialogs"] = $$createField9_0($$parsedSource["dialogs"]);
         }
         return new UIState(/** @type {Partial<UIState>} */($$parsedSource));
     }

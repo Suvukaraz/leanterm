@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Quitting the application (window X, compact-layout buttons): confirms running
-  // SFTP transfers, open connections or (if configured) every exit first.
+  // Quitting the application (window X, compact-layout buttons): confirms unsaved
+  // editor documents, running SFTP transfers, open connections or (if configured)
+  // every exit first.
   import { onMount } from 'svelte';
   import { Events } from '@wailsio/runtime';
   import { settings } from '../../lib/stores/config';
@@ -9,15 +10,25 @@
   import { quitRequested } from '../../lib/stores/ui';
   import MessageDialog from '../gtk/MessageDialog.svelte';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
+  import * as EditorService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/editorservice.js';
 
-  let quitConfirm = $state<{ open: boolean; message: string; subtext: string }>({
+  let quitConfirm = $state<{ open: boolean; message: string; subtext: string; editor?: boolean }>({
     open: false,
     message: '',
     subtext: '',
   });
 
-  function handleQuit() {
+  async function handleQuit(editorChecked = false) {
     if (quitConfirm.open) return;
+    if (!editorChecked && (await EditorService.HasUnsaved().catch(() => false))) {
+      quitConfirm = {
+        open: true,
+        editor: true,
+        message: 'Unsaved Changes in the Editor',
+        subtext: 'The editor has documents with unsaved changes. Quit anyway and discard them? (No shows the editor.)',
+      };
+      return;
+    }
     if (hasRunningTransfers()) {
       quitConfirm = {
         open: true,
@@ -47,7 +58,7 @@
 
   onMount(() => {
     const unsubStore = quitRequested.subscribe((n) => {
-      if (n > 0) handleQuit();
+      if (n > 0) void handleQuit();
     });
     const unsubEvent = Events.On('app:close-requested', () => quitRequested.update((n) => n + 1));
     return () => {
@@ -65,8 +76,12 @@
     type="warning"
     buttons="yes_no"
     onresponse={(res) => {
-      quitConfirm.open = false;
-      if (res === 'yes') {
+      const wasEditor = quitConfirm.editor;
+      quitConfirm = { open: false, message: '', subtext: '' };
+      if (wasEditor) {
+        if (res === 'yes') void handleQuit(true);
+        else void EditorService.ShowWindow();
+      } else if (res === 'yes') {
         SystemService.Quit(true);
       }
     }}

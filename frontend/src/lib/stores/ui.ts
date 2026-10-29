@@ -81,6 +81,8 @@ export const editConnDialog = writable<EditConnDialogState>({
 
 export const aboutDialogOpen = writable<boolean>(false);
 export const prefsDialogOpen = writable<boolean>(false);
+/** Page Preferences opens on next time ('' = the last one). */
+export const prefsStartPage = writable<string>('');
 export const wolDialog = writable<WolDialogState>({
   open: false,
   mac: '',
