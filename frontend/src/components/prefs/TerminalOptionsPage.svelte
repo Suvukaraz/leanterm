@@ -314,7 +314,7 @@
                 </div>
                 <div class="row-flex">
                   <span class="field-label">Font:</span>
-                  <FontButton bind:font={look.Font} />
+                  <FontButton bind:font={look.Font} monospace />
                 </div>
                 <div class="row-flex wrap-row">
                   <span class="field-label">Cursor shape:</span>

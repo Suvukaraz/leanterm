@@ -18,12 +18,14 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from '@codemirror/language';
 import { gotoLine, highlightSelectionMatches, openSearchPanel, search, searchKeymap } from '@codemirror/search';
 import { editorTheme, leanHighlighting } from './theme';
+import { minimap } from './minimap';
 
 export interface ViewPrefs {
   tabWidth: number;
   indentWithTabs: boolean;
   wordWrap: boolean;
   showWhitespace: boolean;
+  showMinimap: boolean;
   dark: boolean;
 }
 
@@ -32,6 +34,7 @@ export const highlightConf = new Compartment();
 export const indentConf = new Compartment();
 export const wrapConf = new Compartment();
 export const whitespaceConf = new Compartment();
+export const minimapConf = new Compartment();
 export const themeConf = new Compartment();
 
 // ---- Overwrite mode (Insert key, "OVR" in the status bar) ------------------------
@@ -87,6 +90,7 @@ export function indentExtension(p: Pick<ViewPrefs, 'tabWidth' | 'indentWithTabs'
 
 export const wrapExtension = (on: boolean): Extension => (on ? EditorView.lineWrapping : []);
 export const whitespaceExtension = (on: boolean): Extension => (on ? highlightWhitespace() : []);
+export const minimapExtension = (on: boolean): Extension => (on ? minimap() : []);
 
 /**
  * Builds the extensions of a new document state. `onUpdate` sees every update
@@ -136,6 +140,7 @@ export function editorExtensions(prefs: ViewPrefs, onUpdate: (u: import('@codemi
     indentConf.of(indentExtension(prefs)),
     wrapConf.of(wrapExtension(prefs.wordWrap)),
     whitespaceConf.of(whitespaceExtension(prefs.showWhitespace)),
+    minimapConf.of(minimapExtension(prefs.showMinimap)),
     themeConf.of(editorTheme(prefs.dark)),
     EditorView.updateListener.of(onUpdate),
   ];
@@ -147,6 +152,7 @@ export function prefsEffects(prefs: ViewPrefs): StateEffect<unknown>[] {
     indentConf.reconfigure(indentExtension(prefs)),
     wrapConf.reconfigure(wrapExtension(prefs.wordWrap)),
     whitespaceConf.reconfigure(whitespaceExtension(prefs.showWhitespace)),
+    minimapConf.reconfigure(minimapExtension(prefs.showMinimap)),
     themeConf.reconfigure(editorTheme(prefs.dark)),
   ];
 }

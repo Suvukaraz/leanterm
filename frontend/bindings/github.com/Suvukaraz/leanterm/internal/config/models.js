@@ -1057,6 +1057,13 @@ export class EditorConfig {
              */
             this["ShowWhitespace"] = false;
         }
+        if (!("ShowMinimap" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ShowMinimap"] = false;
+        }
         if (!("LargeFileMB" in $$source)) {
             /**
              * @member
@@ -1213,6 +1220,20 @@ export class FontConfig {
              * @type {number}
              */
             this["Size"] = 0;
+        }
+        if (!("Style" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["Style"] = "";
+        }
+        if (!("Features" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["Features"] = "";
         }
 
         Object.assign(this, $$source);

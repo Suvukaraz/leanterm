@@ -14,6 +14,7 @@
   import { readClipboardText } from '../../lib/bridge/clipboard';
   import { setIconTheme } from '../../lib/theme/icons';
   import { fontFamilyCss, ptToPx } from '../../lib/terminal/xtermOptions';
+  import { fontFeaturesCss, parseStyle } from '../../lib/fonts';
   import { LANGUAGES, detectLanguage, languageById, type LanguageGroup } from '../../lib/editor/languages';
   import {
     baseName,
@@ -103,23 +104,33 @@
     indentWithTabs: !!editorCfg.IndentWithTabs,
     wordWrap: !!editorCfg.WordWrap,
     showWhitespace: !!editorCfg.ShowWhitespace,
+    showMinimap: editorCfg.ShowMinimap ?? true,
     dark,
   });
   let basePt = $derived(editorCfg.Font?.Size > 0 ? editorCfg.Font.Size : 11);
   let fontFamily = $derived(fontFamilyCss(editorCfg.Font?.Family));
+  let fontFace = $derived.by(() => {
+    const p = parseStyle(editorCfg.Font?.Style);
+    return (
+      `--editor-font-weight: ${p.weight}; --editor-font-style: ${p.italic ? 'italic' : 'normal'}; ` +
+      `--editor-font-stretch: ${p.stretch || 'normal'}; --editor-font-features: ${fontFeaturesCss(editorCfg.Font?.Features)};`
+    );
+  });
   let fontPx = $derived(ptToPx(Math.max(6, basePt + zoomPt)));
 
   $effect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   });
 
-  // Word wrap / whitespace can be toggled per window from the View menu.
+  // Word wrap / whitespace / minimap can be toggled per window from the View menu.
   let wrapOverride = $state<boolean | null>(null);
   let whitespaceOverride = $state<boolean | null>(null);
+  let minimapOverride = $state<boolean | null>(null);
   let effectivePrefs = $derived<ViewPrefs>({
     ...prefs,
     wordWrap: wrapOverride ?? prefs.wordWrap,
     showWhitespace: whitespaceOverride ?? prefs.showWhitespace,
+    showMinimap: minimapOverride ?? prefs.showMinimap,
   });
 
   $effect(() => {
@@ -798,6 +809,11 @@
             checked: effectivePrefs.showWhitespace,
             action: () => (whitespaceOverride = !effectivePrefs.showWhitespace),
           },
+          {
+            label: 'Show Scrollbar Minimap',
+            checked: effectivePrefs.showMinimap,
+            action: () => (minimapOverride = !effectivePrefs.showMinimap),
+          },
           { label: 'Syntax Highlighting', checked: !!t?.highlight, disabled: !hasDoc, action: toggleHighlight },
           { separator: true },
           { label: 'Fold All', disabled: !hasDoc, action: () => run(foldAll) },
@@ -913,7 +929,7 @@
 
 <div
   class="editor-app"
-  style={`--editor-font-family: ${fontFamily}; --editor-font-size: ${fontPx}px;`}
+  style={`--editor-font-family: ${fontFamily}; --editor-font-size: ${fontPx}px; ${fontFace}`}
 >
   <EditorMenuBar {menus} />
 

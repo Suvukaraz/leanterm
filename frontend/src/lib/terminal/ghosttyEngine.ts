@@ -2,7 +2,6 @@
 // with a canvas renderer and an xterm.js-like API.
 //
 // Differences to xterm.js handled here:
-// - init() must load the WASM once before the first Terminal is created.
 // - attachCustomKeyEventHandler: returning true means "consumed" (inverse of xterm).
 // - Wheel events are swallowed (stopPropagation), so zoom uses the wheel hook.
 // - No search addon: the find bar uses textSearch.ts and sets the selection directly
@@ -10,7 +9,10 @@
 // - Built-in link providers call window.open(); they are rewired to hooks.openLink.
 // - Theme colours are baked into the WASM terminal at creation (no live update) and
 //   #rrggbbaa is not understood, so the background is always opaque.
-import { init, FitAddon, Terminal, type ILink, type ILinkProvider } from 'ghostty-web';
+// - Every terminal gets its own WASM instance. With one shared instance, memory freed
+//   by a closed terminal is handed to another one without being zeroed, and a resize
+//   (new columns/rows) then shows old text from that closed terminal.
+import { Ghostty, FitAddon, Terminal, type ILink, type ILinkProvider } from 'ghostty-web';
 
 import type { SearchOptions, TermHandle, TerminalHooks } from './engine';
 import { buildMatcher, findMatch, type SearchMatch, type SearchRow } from './textSearch';
@@ -37,16 +39,6 @@ interface GhosttyInternals {
   };
 }
 
-let wasmReady: Promise<void> | undefined;
-
-function ensureWasm(): Promise<void> {
-  wasmReady ??= init().catch((err) => {
-    wasmReady = undefined;
-    throw err;
-  });
-  return wasmReady;
-}
-
 function cursorStyle(look: TerminalLook): 'block' | 'underline' | 'bar' {
   return look.CursorShape === 'ibeam' ? 'bar' : look.CursorShape === 'underline' ? 'underline' : 'block';
 }
@@ -56,10 +48,11 @@ export async function createGhosttyTerminal(
   look: TerminalLook,
   hooks: TerminalHooks
 ): Promise<TermHandle> {
-  await ensureWasm();
+  const ghostty = await Ghostty.load();
 
   const base = buildTerminalOptions(look);
   const t = new Terminal({
+    ghostty,
     fontFamily: base.fontFamily,
     fontSize: base.fontSize,
     cursorBlink: true,

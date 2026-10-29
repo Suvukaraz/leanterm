@@ -97,6 +97,11 @@ screenshot_viewer_command = 'xdg-open'
 family = 'monospace'
 # Font size in points
 size = 10
+# Optional in every font table (written only when set in the font dialog):
+# Font style as listed by fontconfig, e.g. Regular, Bold, Light Italic (empty = Regular)
+# style = 'Bold'
+# Comma-separated OpenType features, e.g. liga, calt, -dlig, ss01=2
+# features = 'liga, calt'
 
 # Connection list font
 [appearance.tree_font]
@@ -264,6 +269,8 @@ indent_with_tabs = false
 word_wrap = false
 # Show spaces and tabs
 show_whitespace = false
+# Show the scrollbar minimap (KWrite style)
+show_minimap = true
 # Ask once before opening files larger than this (MB)
 large_file_mb = 10
 # Ask twice before opening files larger than this (MB); syntax highlighting starts off

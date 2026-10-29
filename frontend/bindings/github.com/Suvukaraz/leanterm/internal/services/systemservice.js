@@ -13,6 +13,10 @@ import * as config$0 from "../config/models.js";
 // @ts-ignore: Unused imports
 import * as application$0 from "../../../../wailsapp/wails/v3/pkg/application/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * @returns {$CancellablePromise<{ [_ in string]?: string }>}
  */
@@ -58,6 +62,18 @@ export function IsLocked() {
  */
 export function IsQuitting() {
     return $Call.ByID(1059434921);
+}
+
+/**
+ * ListFonts returns the installed font families (via fc-list), sorted by name.
+ * An empty list means fontconfig is not available; the font dialog then falls
+ * back to a built-in list.
+ * @returns {$CancellablePromise<$models.FontFamily[]>}
+ */
+export function ListFonts() {
+    return $Call.ByID(1284666128).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType2($result);
+    }));
 }
 
 /**
@@ -154,3 +170,5 @@ export function WakeOnLan(macStr, host, port, broadcast) {
 
 // Private type creation functions
 const $$createType0 = $Create.Map($Create.Any, $Create.Any);
+const $$createType1 = $models.FontFamily.createFrom;
+const $$createType2 = $Create.Array($$createType1);

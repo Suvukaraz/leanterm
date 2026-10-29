@@ -25,6 +25,7 @@ export {
     AttachResult,
     ConnectionEdit,
     EditorFile,
+    FontFamily,
     OpenRequest,
     PCCOptions,
     SessionInfo,

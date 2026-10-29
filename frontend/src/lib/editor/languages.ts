@@ -184,20 +184,42 @@ export const LANGUAGES: LanguageDef[] = [
     load: async () => (await import('@codemirror/lang-xml')).xml(),
   },
   {
-    id: 'ini',
-    name: 'INI / Conf / systemd',
+    id: 'systemd',
+    name: 'systemd Unit',
     group: 'config',
     extensions: [
-      'ini', 'cfg', 'conf', 'cnf', 'properties', 'prefs', 'desktop', 'directory', 'service', 'socket',
-      'timer', 'target', 'mount', 'automount', 'path', 'slice', 'scope', 'network', 'netdev', 'link',
-      'inf', 'url', 'lnk', 'env', 'npmrc', 'cfg.example', 'conf.example', 'ini.example',
+      'service', 'socket', 'device', 'mount', 'automount', 'swap', 'target', 'path', 'timer', 'slice', 'scope',
+      'network', 'netdev', 'link', 'nspawn',
+    ],
+    pathPatterns: [
+      /\/systemd\/.+\.(conf|d\/[^/]+)$/,
+      /\/containers\/systemd\/.+\.(container|volume|network|kube|pod|image|build|artifact)$/,
+    ],
+    load: custom('systemd'),
+  },
+  {
+    id: 'desktop',
+    name: 'Desktop Entry',
+    group: 'config',
+    extensions: ['desktop', 'directory', 'kdelnk'],
+    filenames: ['mimeapps.list', 'defaults.list', 'mimeinfo.cache'],
+    load: custom('desktopEntry'),
+  },
+  { id: 'kdl', name: 'KDL', group: 'config', extensions: ['kdl'], load: custom('kdl') },
+  {
+    id: 'ini',
+    name: 'INI / Conf',
+    group: 'config',
+    extensions: [
+      'ini', 'cfg', 'conf', 'cnf', 'properties', 'prefs', 'inf', 'url', 'lnk', 'env', 'npmrc', 'cfg.example',
+      'conf.example', 'ini.example',
     ],
     filenames: [
       '.editorconfig', '.gitconfig', '.gitmodules', '.gitattributes', '.npmrc', '.yarnrc', '.pypirc',
       'pip.conf', 'my.cnf', 'php.ini', 'setup.cfg', 'tox.ini', 'pytest.ini', 'mypy.ini', 'desktop.ini',
       '.flake8', '.pylintrc', '.coveragerc', 'smb.conf', 'pacman.conf', 'yum.conf', 'dnf.conf',
     ],
-    pathPatterns: [/\/\.env(\.[^/]*)?$/, /\/\.git\/config$/, /\/systemd\/.+\.(conf|d\/[^/]+)$/],
+    pathPatterns: [/\/\.env(\.[^/]*)?$/, /\/\.git\/config$/],
     load: iniLike,
   },
   {

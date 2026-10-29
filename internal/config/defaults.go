@@ -121,6 +121,7 @@ func Default() *Config {
 			IndentWithTabs:  false,
 			WordWrap:        false,
 			ShowWhitespace:  false,
+			ShowMinimap:     true,
 			LargeFileMB:     10,
 			HugeFileMB:      100,
 		},

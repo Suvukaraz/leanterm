@@ -1,9 +1,10 @@
 // Maps LeanTerm terminal look settings ([terminal.look], optionally overridden per
 // connection) to xterm.js options.
-import type { ITerminalOptions, ITheme } from '@xterm/xterm';
+import type { FontWeight, ITerminalOptions, ITheme } from '@xterm/xterm';
+import { parseStyle, type FontSetting } from '../fonts';
 
 export interface TerminalLook {
-  Font?: { Family?: string; Size?: number };
+  Font?: FontSetting;
   Foreground?: string;
   Background?: string;
   Bold?: string;
@@ -45,9 +46,13 @@ export function mergeLook(global: TerminalLook | undefined, personal: TerminalLo
     if (v === undefined || v === null || v === '') continue;
     if (k === 'Font') {
       const font = v as TerminalLook['Font'];
+      // Style and features belong to the family they were chosen for.
+      const own = !!font?.Family;
       out.Font = {
         Family: font?.Family || g.Font?.Family,
         Size: font?.Size && font.Size > 0 ? font.Size : g.Font?.Size,
+        Style: own ? font?.Style : g.Font?.Style,
+        Features: own ? font?.Features : g.Font?.Features,
       };
     } else if (k === 'Palette') {
       if (Array.isArray(v) && v.length === 16) out.Palette = v as string[];
@@ -94,6 +99,12 @@ export function wordSeparator(wordChars: string | undefined): string {
   return candidates.split('').filter((c) => !keep.has(c)).join('');
 }
 
+/** Normal and bold weight for xterm.js from the font style (xterm has no italic/stretch option). */
+export function fontWeights(font: FontSetting | undefined): { fontWeight: FontWeight; fontWeightBold: FontWeight } {
+  const { weight } = parseStyle(font?.Style);
+  return { fontWeight: weight as FontWeight, fontWeightBold: Math.min(900, Math.max(700, weight + 300)) as FontWeight };
+}
+
 export function buildTerminalOptions(look: TerminalLook): ITerminalOptions {
   const pt = look.Font?.Size && look.Font.Size > 0 ? look.Font.Size : DEFAULT_FONT_PT;
   const cursor = look.CursorShape === 'ibeam' ? 'bar' : look.CursorShape === 'underline' ? 'underline' : 'block';
@@ -101,6 +112,7 @@ export function buildTerminalOptions(look: TerminalLook): ITerminalOptions {
   return {
     fontFamily: fontFamilyCss(look.Font?.Family),
     fontSize: ptToPx(pt),
+    ...fontWeights(look.Font),
     lineHeight: 1.0,
     cursorBlink: true,
     cursorStyle: cursor,

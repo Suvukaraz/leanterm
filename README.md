@@ -81,7 +81,8 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - **Remote files are read and written directly over the SSH connection** (no temporary copy). Saving writes a temporary file and renames it, keeping permissions and owner; a file changed elsewhere in the meantime is detected (Overwrite / Reload / Cancel). If the connection drops, reconnecting the same connection lets you save again, or you save a local copy.
 - No size limit: files above 10 MB ask once, files above 100 MB ask twice and open without syntax highlighting (both limits are configurable).
 - Line endings: Unix (LF) / Windows (CRLF) switch in the status bar; encodings UTF-8, UTF-8 with BOM, Windows-1252, ISO-8859-1 and ISO-8859-15 (detected on open, changeable for saving or *Reload with Encoding*).
-- Syntax highlighting (CodeMirror 6) for C, C++, Arduino, C#, Java, Kotlin, Dart/Flutter, Go, Rust, Python, Mojo, Nim, Clojure, Lua, Bash, PowerShell, Windows Batch, HTML, CSS/SCSS/Less, JavaScript, TypeScript, React (JSX/TSX), Svelte, Markdown, SQL and the common configuration formats: JSON/JSONC, YAML, TOML, XML, INI/systemd/.env, nginx, Apache, SSH config, crontab, hosts/fstab, Dockerfile, Makefile, CMake, .gitignore, Windows registry (.reg), Protocol Buffers, Jinja2, RPM spec and diff/patch. Detection uses the file name, the extension and the `#!` line.
+- Syntax highlighting (CodeMirror 6) for C, C++, Arduino, C#, Java, Kotlin, Dart/Flutter, Go, Rust, Python, Mojo, Nim, Clojure, Lua, Bash, PowerShell, Windows Batch, HTML, CSS/SCSS/Less, JavaScript, TypeScript, React (JSX/TSX), Svelte, Markdown, SQL and the common configuration formats: JSON/JSONC, YAML, TOML, XML, INI/.env, systemd units (all unit types plus networkd, nspawn and Quadlet files, drop-ins and `/etc/systemd/*.conf`), desktop entries (.desktop/.directory), KDL, nginx, Apache, SSH config, crontab, hosts/fstab, Dockerfile, Makefile, CMake, .gitignore, Windows registry (.reg), Protocol Buffers, Jinja2, RPM spec and diff/patch. Detection uses the file name, the extension and the `#!` line.
+- KWrite-style scrollbar minimap: the right edge shows the document as text graphics in the syntax colours; click to jump, drag the marked area to scroll (View → Show Scrollbar Minimap).
 - Search and replace (regular expressions), go to line, folding, multiple cursors, overwrite mode (Insert), toggle comment, upper/lower case, word wrap and visible whitespace.
 
 ### Automation & Productivity
@@ -242,12 +243,13 @@ LeanTerm stores its configuration in human-readable TOML in `~/.config/leanterm/
 ### Section `[editor]`
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `font` | table | `Monospace`, 11 pt | Editor font (`family`, `size` in points) |
+| `font` | table | `Monospace`, 11 pt | Editor font (`family`, `size` in points, optional `style` and `features`) |
 | `open_text_files_in` | string | `"editor"` | Double-click on a text file opens it in `"editor"` or `"default_app"` |
 | `tab_width` | int | `4` | Tab width (1–16) |
 | `indent_with_tabs` | bool | `false` | Indent with tabs instead of spaces |
 | `word_wrap` | bool | `false` | Wrap long lines |
 | `show_whitespace` | bool | `false` | Show spaces and tabs |
+| `show_minimap` | bool | `true` | Show the scrollbar minimap (KWrite style) |
 | `large_file_mb` | int | `10` | Ask once before opening larger files |
 | `huge_file_mb` | int | `100` | Ask twice before opening larger files; they start without syntax highlighting |
 

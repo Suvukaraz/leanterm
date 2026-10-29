@@ -17,8 +17,10 @@ const (
 
 // FontConfig represents a font family and size
 type FontConfig struct {
-	Family string `toml:"family" comment:"Font family name"`
-	Size   int    `toml:"size" comment:"Font size in points"`
+	Family   string `toml:"family" comment:"Font family name"`
+	Size     int    `toml:"size" comment:"Font size in points"`
+	Style    string `toml:"style,omitempty" comment:"Font style as listed by fontconfig, e.g. Regular, Bold, Light Italic (empty = Regular)"`
+	Features string `toml:"features,omitempty" comment:"Comma-separated OpenType features, e.g. liga, calt, -dlig, ss01=2"`
 }
 
 // GeneralConfig represents application general behaviour
@@ -150,6 +152,7 @@ type EditorConfig struct {
 	IndentWithTabs  bool       `toml:"indent_with_tabs" comment:"Indent with tabs instead of spaces"`
 	WordWrap        bool       `toml:"word_wrap" comment:"Wrap long lines"`
 	ShowWhitespace  bool       `toml:"show_whitespace" comment:"Show spaces and tabs"`
+	ShowMinimap     bool       `toml:"show_minimap" comment:"Show the scrollbar minimap (KWrite style)"`
 	LargeFileMB     int        `toml:"large_file_mb" comment:"Ask once before opening files larger than this (MB)"`
 	HugeFileMB      int        `toml:"huge_file_mb" comment:"Ask twice before opening files larger than this (MB); syntax highlighting starts off"`
 }
