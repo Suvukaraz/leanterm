@@ -26,7 +26,7 @@
     </div>
     <div class="about-info">
       <h2 class="app-title">LeanTerm</h2>
-      <div class="app-version">Version 0.8.3</div>
+      <div class="app-version">Version 0.8.4</div>
       <p class="app-desc">
         Next-generation Connection Manager, modern rewrite of Ásbrú Connection Manager
         built with Go, Wails v3, and Svelte 5.

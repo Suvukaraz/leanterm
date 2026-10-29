@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${1:-0.8.3}"
+VERSION="${1:-0.8.4}"
 ARCH="amd64"
 PKG_NAME="leanterm"
 DEB_NAME="${PKG_NAME}_${VERSION}_${ARCH}.deb"
@@ -100,6 +100,8 @@ fi
 exit 0
 EOF
 chmod 0755 "$DEB_ROOT/DEBIAN/postrm"
+
+find "$DEB_ROOT" -type d -exec chmod 0755 {} +
 
 mkdir -p "$ROOT_DIR/bin"
 dpkg-deb --build --root-owner-group "$DEB_ROOT" "$ROOT_DIR/bin/$DEB_NAME"
