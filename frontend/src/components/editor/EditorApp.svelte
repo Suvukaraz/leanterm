@@ -2,7 +2,7 @@
   // The editor window (#/editor): KWrite-like text editor with one tab per file,
   // built on CodeMirror. Files come from the file browsers via EditorService.Open.
   import { onMount, untrack } from 'svelte';
-  import { Events, Window as WailsWindow } from '@wailsio/runtime';
+  import { Clipboard, Events, Window as WailsWindow } from '@wailsio/runtime';
   import { EditorState, type Extension, type Text } from '@codemirror/state';
   import type { EditorView, ViewUpdate } from '@codemirror/view';
   import { indentLess, indentMore, redo, selectAll, toggleComment, undo } from '@codemirror/commands';
@@ -11,6 +11,7 @@
 
   import * as EditorService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/editorservice.js';
   import { settings, loadSettings } from '../../lib/stores/config';
+  import { readClipboardText } from '../../lib/bridge/clipboard';
   import { setIconTheme } from '../../lib/theme/icons';
   import { fontFamilyCss, ptToPx } from '../../lib/terminal/xtermOptions';
   import { LANGUAGES, detectLanguage, languageById, type LanguageGroup } from '../../lib/editor/languages';
@@ -668,7 +669,7 @@
     if (!view) return;
     const text = view.state.selection.ranges.map((r) => view.state.sliceDoc(r.from, r.to)).join('\n');
     if (!text) return;
-    await navigator.clipboard.writeText(text).catch(() => {});
+    await Clipboard.SetText(text).catch(() => navigator.clipboard.writeText(text).catch(() => {}));
     if (cut) view.dispatch(view.state.replaceSelection(''), { userEvent: 'delete.cut' });
     view.focus();
   }
@@ -676,7 +677,7 @@
   async function paste() {
     const view = activeView();
     if (!view) return;
-    const text = await navigator.clipboard.readText().catch(() => '');
+    const text = await readClipboardText();
     if (text) view.dispatch(view.state.replaceSelection(text), { userEvent: 'input.paste', scrollIntoView: true });
     view.focus();
   }
