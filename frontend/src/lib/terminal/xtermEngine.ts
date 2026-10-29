@@ -7,7 +7,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 
 import type { SearchOptions, TermHandle, TerminalHooks } from './engine';
-import { buildTerminalOptions, buildTheme, fontFamilyCss, type TerminalLook } from './xtermOptions';
+import { buildTerminalOptions, buildTheme, fontFamilyCss, fontWeights, type TerminalLook } from './xtermOptions';
 
 const SEARCH_DECORATIONS: ISearchOptions['decorations'] = {
   matchBackground: '#ffff00',
@@ -75,6 +75,7 @@ export function createXtermTerminal(container: HTMLElement, look: TerminalLook, 
       t.options.theme = buildTheme(l);
       t.options.fontFamily = fontFamilyCss(l.Font?.Family);
       t.options.fontSize = fontPx;
+      Object.assign(t.options, fontWeights(l.Font));
       t.options.cursorStyle = l.CursorShape === 'ibeam' ? 'bar' : l.CursorShape === 'underline' ? 'underline' : 'block';
       t.options.drawBoldTextInBrightColors = !!l.BoldIsBright;
     },

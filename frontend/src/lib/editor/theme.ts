@@ -18,6 +18,10 @@ export function editorTheme(dark: boolean): Extension {
       },
       '.cm-scroller': {
         fontFamily: 'var(--editor-font-family, monospace)',
+        fontWeight: 'var(--editor-font-weight, normal)',
+        fontStyle: 'var(--editor-font-style, normal)',
+        fontStretch: 'var(--editor-font-stretch, normal)',
+        fontFeatureSettings: 'var(--editor-font-features, normal)',
         lineHeight: '1.45',
       },
       '.cm-content': { caretColor: v('text-color') },

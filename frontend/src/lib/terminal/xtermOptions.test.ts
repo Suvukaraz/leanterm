@@ -22,6 +22,23 @@ describe('xtermOptions', () => {
     expect(merged.ScrollbackLines).toBe(5000);
   });
 
+  it('keeps style and features with the family they were chosen for', () => {
+    const global = { Font: { Family: 'Hack', Size: 11, Style: 'Bold', Features: 'liga' } };
+    expect(mergeLook(global, { Font: { Family: '', Size: 14 } }).Font).toEqual({ Family: 'Hack', Size: 14, Style: 'Bold', Features: 'liga' });
+    expect(mergeLook(global, { Font: { Family: 'Fira Code', Size: 0, Style: '' } }).Font).toEqual({
+      Family: 'Fira Code',
+      Size: 11,
+      Style: '',
+    });
+  });
+
+  it('maps the font style to xterm weights', () => {
+    const opts = buildTerminalOptions({ Font: { Family: 'Hack', Size: 11, Style: 'Light' } });
+    expect(opts.fontWeight).toBe(300);
+    expect(opts.fontWeightBold).toBe(700);
+    expect(buildTerminalOptions({ Font: { Style: 'Bold' } }).fontWeightBold).toBe(900);
+  });
+
   it('treats configured word characters as part of words', () => {
     const sep = wordSeparator('-.:_/');
     expect(sep).not.toContain('-');

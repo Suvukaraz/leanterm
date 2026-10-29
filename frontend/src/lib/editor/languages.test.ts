@@ -30,7 +30,15 @@ describe('detectLanguage', () => {
     expect(id('tweak.reg')).toBe('reg');
     expect(id('docker-compose.yml')).toBe('yaml');
     expect(id('pubspec.yaml')).toBe('yaml');
-    expect(id('app.service')).toBe('ini');
+    expect(id('app.service')).toBe('systemd');
+    for (const ext of ['socket', 'device', 'mount', 'automount', 'swap', 'target', 'path', 'timer', 'slice', 'scope']) {
+      expect(id(`/etc/systemd/system/x.${ext}`)).toBe('systemd');
+    }
+    expect(id('/etc/systemd/network/10-eth.network')).toBe('systemd');
+    expect(id('/etc/systemd/nspawn/box.nspawn')).toBe('systemd');
+    expect(id('/usr/share/applications/firefox.desktop')).toBe('desktop');
+    expect(id('/home/u/.config/niri/config.kdl')).toBe('kdl');
+    expect(id('/project/meson.build')).toBeUndefined();
     expect(id('web.config')).toBe('xml');
   });
 
@@ -57,6 +65,10 @@ describe('detectLanguage', () => {
     expect(id('C:\\Windows\\System32\\drivers\\etc\\hosts')).toBe('conf');
     expect(id('/project/.env.local')).toBe('ini');
     expect(id('/repo/.git/config')).toBe('ini');
+    expect(id('/etc/systemd/journald.conf')).toBe('systemd');
+    expect(id('/etc/systemd/system/nginx.service.d/override.conf')).toBe('systemd');
+    expect(id('/etc/containers/systemd/web.container')).toBe('systemd');
+    expect(id('/home/u/.config/mimeapps.list')).toBe('desktop');
   });
 
   it('detects by shebang', () => {
@@ -180,5 +192,61 @@ describe('custom modes', () => {
     expect(has(g, '# build output', 'comment')).toBe(true);
     expect(has(g, '!', 'operator')).toBe(true);
     expect(has(g, '**', 'operator')).toBe(true);
+  });
+
+  it('systemd', () => {
+    const t = tokens(
+      modes.systemd,
+      '# unit\n[Service]\nType=notify\nExecStart=-/usr/bin/app --id %i $OPTS \\\n    --verbose\nRestart=on-failure\nRestartSec=5s\nPrivateTmp=yes\nAfter=network.target\nX-Custom=1'
+    );
+    expect(has(t, '# unit', 'comment')).toBe(true);
+    expect(has(t, '[Service]', 'heading')).toBe(true);
+    expect(has(t, 'Type', 'keyword')).toBe(true);
+    expect(has(t, 'ExecStart', 'keyword')).toBe(true);
+    expect(has(t, '-', 'operator')).toBe(true);
+    expect(has(t, '%i', 'variableName.special')).toBe(true);
+    expect(has(t, '$OPTS', 'variableName')).toBe(true);
+    expect(has(t, '\\', 'operator')).toBe(true);
+    expect(has(t, '--verbose', 'keyword')).toBe(false);
+    expect(has(t, '5s', 'number')).toBe(true);
+    expect(has(t, 'yes', 'atom')).toBe(true);
+    expect(has(t, 'network.target', 'typeName')).toBe(true);
+    expect(has(t, 'X-Custom', 'propertyName')).toBe(true);
+  });
+
+  it('desktop entry', () => {
+    const t = tokens(modes.desktopEntry, '[Desktop Entry]\nName[de]=Datei\\sManager\nExec=app %U\nTerminal=false\nCategories=Utility;System;\nX-KDE-Foo=1');
+    expect(has(t, '[Desktop Entry]', 'heading')).toBe(true);
+    expect(has(t, 'Name', 'keyword')).toBe(true);
+    expect(has(t, '[de]', 'meta')).toBe(true);
+    expect(has(t, '\\s', 'escape')).toBe(true);
+    expect(has(t, '%U', 'variableName.special')).toBe(true);
+    expect(has(t, 'false', 'atom')).toBe(true);
+    expect(has(t, ';', 'punctuation')).toBe(true);
+    expect(has(t, 'X-KDE-Foo', 'propertyName')).toBe(true);
+  });
+
+  it('kdl', () => {
+    const t = tokens(
+      modes.kdl,
+      '// niri\ninput {\n    keyboard repeat-rate=25 {\n        xkb layout="de"\n    }\n    /-touchpad { tap }\n}\nnode (u8)0x1F #true r#"raw"# /-skipped 1.5\n/* a /* nested */ comment */'
+    );
+    expect(has(t, '// niri', 'comment')).toBe(true);
+    expect(has(t, 'input', 'tagName')).toBe(true);
+    expect(has(t, 'keyboard', 'tagName')).toBe(true);
+    expect(has(t, 'repeat-rate', 'propertyName')).toBe(true);
+    expect(has(t, '25', 'number')).toBe(true);
+    expect(has(t, 'xkb', 'tagName')).toBe(true);
+    expect(has(t, '"de"', 'string')).toBe(true);
+    expect(has(t, 'touchpad', 'comment')).toBe(true);
+    expect(has(t, 'tap', 'tagName')).toBe(false);
+    expect(has(t, 'node', 'tagName')).toBe(true);
+    expect(has(t, '(u8)', 'typeName')).toBe(true);
+    expect(has(t, '0x1F', 'number')).toBe(true);
+    expect(has(t, '#true', 'atom')).toBe(true);
+    expect(has(t, 'r#"raw"#', 'string')).toBe(true);
+    expect(has(t, 'skipped', 'comment')).toBe(true);
+    expect(has(t, '1.5', 'number')).toBe(true);
+    expect(has(t, '/* a /* nested */ comment */', 'comment')).toBe(true);
   });
 });

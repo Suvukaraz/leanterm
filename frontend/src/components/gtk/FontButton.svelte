@@ -1,22 +1,18 @@
 <script lang="ts">
   // GtkFontButton look-alike. The value has the same shape as the Go FontConfig
-  // ({ Family, Size } with Size in points).
-  import Dialog from './Dialog.svelte';
-  import Button from './Button.svelte';
-
-  interface FontConfig {
-    Family: string;
-    Size: number;
-  }
+  // ({ Family, Size, Style, Features } with Size in points); clicking opens the
+  // KDE-style FontChooserDialog.
+  import FontChooserDialog from './FontChooserDialog.svelte';
+  import { fontFaceCss, fontLabel, type FontSetting } from '../../lib/fonts';
 
   interface Props {
-    font?: FontConfig | null;
+    font?: FontSetting | null;
     disabled?: boolean;
     tooltip?: string;
-    /** Restrict suggestions to monospace fonts (terminal fonts). */
+    /** Start the chooser with "Show only monospaced fonts" checked (terminal fonts). */
     monospace?: boolean;
     class?: string;
-    onchange?: (font: FontConfig) => void;
+    onchange?: (font: FontSetting) => void;
   }
 
   let {
@@ -28,33 +24,18 @@
     onchange,
   }: Props = $props();
 
-  const MONO = ['Monospace', 'DejaVu Sans Mono', 'Ubuntu Mono', 'Noto Sans Mono', 'Liberation Mono', 'Fira Code', 'JetBrains Mono', 'Hack', 'Source Code Pro', 'Cascadia Code', 'Courier New'];
-  const SANS = ['Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', 'Inter', 'Roboto'];
-  const suggestions = $derived(monospace ? MONO : [...MONO, ...SANS]);
-  const listId = `font-list-${Math.random().toString(36).slice(2)}`;
-
   let showDialog = $state(false);
-  let editFamily = $state('');
-  let editSize = $state(11);
 
-  const displayLabel = $derived(
-    font?.Family ? `${font.Family} ${font.Size || ''}`.trim() : '(Default system font)'
-  );
+  const displayLabel = $derived(fontLabel(font));
 
-  function previewFamily(f: string): string {
-    return !f || /^mono(space)?$/i.test(f) ? 'monospace' : `"${f}", monospace`;
+  function previewCss(f: FontSetting | null | undefined): string {
+    const family = !f?.Family || /^mono(space)?$/i.test(f.Family) ? 'monospace' : `"${f.Family.replace(/"/g, '')}", monospace`;
+    return `font-family: ${family}; ${fontFaceCss(f)}`;
   }
 
-  function openDialog() {
-    if (disabled) return;
-    editFamily = font?.Family || 'Monospace';
-    editSize = font?.Size || 11;
-    showDialog = true;
-  }
-
-  function applyFont() {
-    const size = Math.max(6, Math.min(72, Math.round(Number(editSize) || 11)));
-    font = { Family: editFamily.trim(), Size: size };
+  function applyFont(next: Required<FontSetting>) {
+    // Keep other keys of the bound object (it is the Go FontConfig model).
+    font = { ...(font ?? {}), ...next };
     showDialog = false;
     onchange?.(font);
   }
@@ -65,36 +46,13 @@
   class={`gtk-fontbutton ${className}`}
   title={tooltip || displayLabel}
   {disabled}
-  onclick={openDialog}
+  onclick={() => !disabled && (showDialog = true)}
 >
-  <span class="font-label" style={`font-family: ${previewFamily(font?.Family ?? '')};`}>{displayLabel}</span>
+  <span class="font-label" style={previewCss(font)}>{displayLabel}</span>
 </button>
 
 {#if showDialog}
-  <Dialog title="Select Font" width={420} open={true} onclose={() => (showDialog = false)}>
-    <div class="font-dialog-body">
-      <label class="font-row">
-        <span>Family</span>
-        <input type="text" list={listId} bind:value={editFamily} />
-        <datalist id={listId}>
-          {#each suggestions as f}
-            <option value={f}></option>
-          {/each}
-        </datalist>
-      </label>
-      <label class="font-row">
-        <span>Size (pt)</span>
-        <input type="number" min="6" max="72" bind:value={editSize} class="font-size-input" />
-      </label>
-      <div class="font-preview" style={`font-family: ${previewFamily(editFamily)}; font-size: ${editSize}pt;`}>
-        user@host:~$ ls -la /etc 0123456789
-      </div>
-    </div>
-    {#snippet actions()}
-      <Button label="Cancel" onclick={() => (showDialog = false)} />
-      <Button label="Select" isDefault={true} onclick={applyFont} />
-    {/snippet}
-  </Dialog>
+  <FontChooserDialog {font} {monospace} onselect={applyFont} oncancel={() => (showDialog = false)} />
 {/if}
 
 <style>
@@ -108,30 +66,5 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .font-dialog-body {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .font-row {
-    display: grid;
-    grid-template-columns: 90px 1fr;
-    align-items: center;
-    gap: 8px;
-  }
-  .font-size-input {
-    width: 80px;
-  }
-  .font-preview {
-    border: 1px solid var(--gtk-border-color);
-    background: var(--gtk-terminal-bg);
-    color: #e6e6e6;
-    padding: 10px;
-    border-radius: 3px;
-    min-height: 48px;
-    max-height: 120px;
-    overflow: auto;
-    user-select: text;
   }
 </style>

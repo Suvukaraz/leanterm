@@ -223,6 +223,7 @@
             <FontButton
               bind:font={conn.Terminal.Look.Font}
               disabled={!conn.Terminal?.UsePersonal || disabled}
+              monospace
             />
           </div>
 

@@ -424,6 +424,55 @@ export class EditorFile {
     }
 }
 
+/**
+ * FontFamily is an installed font family as listed by fontconfig.
+ */
+export class FontFamily {
+    /**
+     * Creates a new FontFamily instance.
+     * @param {Partial<FontFamily>} [$$source = {}] - The source object to create the FontFamily.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("styles" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["styles"] = [];
+        }
+        if (!("monospace" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["monospace"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FontFamily instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FontFamily}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("styles" in $$parsedSource) {
+            $$parsedSource["styles"] = $$createField1_0($$parsedSource["styles"]);
+        }
+        return new FontFamily(/** @type {Partial<FontFamily>} */($$parsedSource));
+    }
+}
+
 export class OpenRequest {
     /**
      * Creates a new OpenRequest instance.

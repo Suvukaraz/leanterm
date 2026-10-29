@@ -389,7 +389,7 @@
     color: var(--gtk-text-color);
     border: 1px solid var(--gtk-border-color);
     box-sizing: border-box;
-    font-size: 0.9em;
+    font-size: var(--tree-font-size, 0.9em);
     user-select: none;
     outline: none;
   }

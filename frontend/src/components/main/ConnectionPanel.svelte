@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fontFaceCss } from '../../lib/fonts';
   import {
     tree,
     selectedIds,
@@ -88,7 +89,7 @@
     const f: any = $settings?.appearance?.InfoFont;
     const family = f?.Family && !/^mono(space)?$/i.test(f.Family) ? `"${f.Family}", monospace` : 'monospace';
     const size = f?.Size > 0 ? `${f.Size}pt` : '10pt';
-    return `font-family: ${family}; font-size: ${size};`;
+    return `font-family: ${family}; font-size: ${size}; ${fontFaceCss(f)};`;
   });
 
   let connStats = $state({

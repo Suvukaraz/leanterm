@@ -49,6 +49,7 @@
       <CheckButton bind:checked={editor.IndentWithTabs} label="Indent with tabs instead of spaces" />
       <CheckButton bind:checked={editor.WordWrap} label="Wrap long lines" />
       <CheckButton bind:checked={editor.ShowWhitespace} label="Show spaces and tabs" />
+      <CheckButton bind:checked={editor.ShowMinimap} label="Show scrollbar minimap" />
     </div>
   </Frame>
 

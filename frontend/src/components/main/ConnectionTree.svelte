@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fontFaceCss } from '../../lib/fonts';
   import {
     tree,
     selectedIds,
@@ -73,6 +74,15 @@
     traverse(node);
     return ids;
   }
+
+  // Font for the connection list (empty family = system font, size 0 = default size).
+  let treeFontCss = $derived.by(() => {
+    const f: any = $settings?.appearance?.TreeFont;
+    if (!f?.Family && !(f?.Size > 0)) return '';
+    const family = !f?.Family ? '' : /^mono(space)?$/i.test(f.Family) ? 'font-family: monospace;' : `font-family: "${String(f.Family).replace(/"/g, '')}", sans-serif;`;
+    const size = f?.Size > 0 ? `--tree-font-size: ${f.Size}pt;` : '';
+    return `${family} ${size} ${fontFaceCss(f)};`;
+  });
 
   function handleContextMenu(item: TreeItem, e: MouseEvent) {
     e.preventDefault();
@@ -320,7 +330,7 @@
   }
 </script>
 
-<div class="connection-tree-container">
+<div class="connection-tree-container" style={treeFontCss}>
   {#if $tree}
     <TreeView
       bind:this={treeViewRef}

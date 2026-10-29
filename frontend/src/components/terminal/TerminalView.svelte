@@ -6,6 +6,7 @@
   import { settings } from '../../lib/stores/config';
   import { markNewData } from '../../lib/stores/sessions';
   import { mergeLook, ptToPx, DEFAULT_FONT_PT, type TerminalLook } from '../../lib/terminal/xtermOptions';
+  import { fontFeaturesCss, parseStyle } from '../../lib/fonts';
   import { createTerminal, normalizeEngine, type TermHandle } from '../../lib/terminal/engine';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
   import FindInTerminal from './FindInTerminal.svelte';
@@ -54,6 +55,12 @@
 
   let look = $derived(mergeLook($settings?.terminal?.Look as TerminalLook | undefined, personalLook));
   let basePt = $derived(look.Font?.Size && look.Font.Size > 0 ? look.Font.Size : DEFAULT_FONT_PT);
+  // Italic and OpenType features for xterm.js (DOM renderer; the weight is an xterm option).
+  // ghostty-web draws on a canvas and uses only family and size.
+  let fontVars = $derived(
+    `--term-font-style: ${parseStyle(look.Font?.Style).italic ? 'italic' : 'normal'}; ` +
+      `--term-font-features: ${fontFeaturesCss(look.Font?.Features)};`
+  );
 
   function fitNow() {
     if (!term || !terminalEl || terminalEl.offsetParent === null) return;
@@ -238,7 +245,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="terminal-wrapper"
-  style={`background: ${look.Background || '#000000'};`}
+  style={`background: ${look.Background || '#000000'}; ${fontVars}`}
   oncontextmenu={handleContextMenu}
   onauxclick={handleAuxClick}
   onwheel={handleWheel}
@@ -286,6 +293,11 @@
 
   :global(.terminal-wrapper .xterm) {
     height: 100%;
+  }
+
+  :global(.terminal-wrapper .xterm-rows) {
+    font-style: var(--term-font-style, normal);
+    font-feature-settings: var(--term-font-features, normal);
   }
 
   :global(.terminal-wrapper .xterm-viewport) {
