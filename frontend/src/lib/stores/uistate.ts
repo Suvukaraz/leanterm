@@ -1,5 +1,6 @@
 // Persists panel layout (tree width/visibility, SFTP panel width, active left tab,
-// expanded groups, cluster features and SFTP panels on/off) to state/ui.toml via the backend. The window geometry in the same
+// expanded groups, cluster features, SFTP panels on/off and the geometry of movable
+// dialogs) to state/ui.toml via the backend. The window geometry in the same
 // file is written by the Go side when the window closes.
 import { get } from 'svelte/store';
 import * as ConfigService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/configservice.js';
@@ -11,6 +12,7 @@ import {
   sftpPanelWidth,
   activeLeftTab,
   expandedGroups,
+  dialogGeometries,
   type LeftTab,
 } from './ui';
 
@@ -31,6 +33,7 @@ function scheduleSave(): void {
       current.sftpPanelWidth = get(sftpPanelWidth);
       current.activeLeftTab = get(activeLeftTab);
       current.expandedGroups = get(expandedGroups);
+      current.dialogs = get(dialogGeometries);
       await ConfigService.SaveUIState(current);
     } catch (err) {
       console.warn('Failed to save UI state:', err);
@@ -48,13 +51,23 @@ export async function loadUIState(): Promise<void> {
       sftpVisible.set(st.sftpVisible !== false);
       sftpPanelWidth.set(st.sftpPanelWidth || 0);
       expandedGroups.set(Array.isArray(st.expandedGroups) ? st.expandedGroups : []);
+      dialogGeometries.set(st.dialogs && typeof st.dialogs === 'object' ? st.dialogs : {});
     }
     loaded = st ?? {};
   } catch (err) {
     console.warn('Failed to load UI state:', err);
     loaded = {};
   }
-  for (const store of [commandPanelWidth, commandPanelVisible, clustersVisible, sftpVisible, sftpPanelWidth, activeLeftTab, expandedGroups]) {
+  for (const store of [
+    commandPanelWidth,
+    commandPanelVisible,
+    clustersVisible,
+    sftpVisible,
+    sftpPanelWidth,
+    activeLeftTab,
+    expandedGroups,
+    dialogGeometries,
+  ]) {
     let first = true;
     (store as any).subscribe(() => {
       if (first) {

@@ -168,6 +168,25 @@ func Validate(cfg *Config) ValidationResult {
 
 	validateLook(&res, "terminal.look", &cfg.Terminal.Look)
 
+	// Editor
+	switch cfg.Editor.OpenTextFilesIn {
+	case "editor", "default_app":
+	default:
+		res.AddError("editor.open_text_files_in", "must be 'editor' or 'default_app'")
+	}
+	if cfg.Editor.Font.Size < 6 || cfg.Editor.Font.Size > 72 {
+		res.AddError("editor.font.size", "font size must be between 6 and 72")
+	}
+	if cfg.Editor.TabWidth < 1 || cfg.Editor.TabWidth > 16 {
+		res.AddError("editor.tab_width", "tab width must be between 1 and 16")
+	}
+	if cfg.Editor.LargeFileMB < 1 {
+		res.AddError("editor.large_file_mb", "must be at least 1")
+	}
+	if cfg.Editor.HugeFileMB < cfg.Editor.LargeFileMB {
+		res.AddError("editor.huge_file_mb", "must not be smaller than large_file_mb")
+	}
+
 	// SFTP browser
 	if cfg.SFTPBrowser.Width < 200 {
 		res.AddError("sftp_browser.width", "width must be at least 200")

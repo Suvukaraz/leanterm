@@ -22,6 +22,7 @@ type Settings struct {
 	Prompts     config.PromptsConfig     `json:"prompts"`
 	Terminal    config.TerminalConfig    `json:"terminal"`
 	SFTPBrowser config.SFTPBrowserConfig `json:"sftpBrowser"`
+	Editor      config.EditorConfig      `json:"editor"`
 	LocalShell  config.LocalShellConfig  `json:"localShell"`
 	Network     config.NetworkConfig     `json:"network"`
 	Variables   []config.VariableConfig  `json:"variables"`
@@ -35,6 +36,23 @@ type ConfigService struct {
 	store       *config.Store
 	vault       *secrets.Vault
 	treeManager *config.TreeManager
+	emitter     settingsEmitter
+}
+
+type settingsEmitter interface {
+	Emit(event string, data any)
+}
+
+// SetEmitter lets the service announce changed settings ("settings:changed") to
+// all windows, e.g. the editor window, which keeps its own copy.
+func (cs *ConfigService) SetEmitter(e settingsEmitter) {
+	cs.emitter = e
+}
+
+func (cs *ConfigService) settingsChanged() {
+	if cs.emitter != nil {
+		cs.emitter.Emit("settings:changed", nil)
+	}
 }
 
 func NewConfigService(store *config.Store, vault *secrets.Vault, treeManager *config.TreeManager) *ConfigService {
@@ -173,6 +191,7 @@ func (cs *ConfigService) GetSettings() Settings {
 		Prompts:     cfg.Prompts,
 		Terminal:    cfg.Terminal,
 		SFTPBrowser: cfg.SFTPBrowser,
+		Editor:      cfg.Editor,
 		LocalShell:  cfg.LocalShell,
 		Network:     cfg.Network,
 		Variables:   cfg.Variables,
@@ -197,6 +216,7 @@ func (cs *ConfigService) SaveSettings(s Settings) error {
 	}
 
 	cs.store.MarkDirty()
+	cs.settingsChanged()
 	return nil
 }
 
@@ -206,6 +226,7 @@ func applySettings(cfg *config.Config, s Settings) {
 	cfg.Prompts = s.Prompts
 	cfg.Terminal = s.Terminal
 	cfg.SFTPBrowser = s.SFTPBrowser
+	cfg.Editor = s.Editor
 	cfg.LocalShell = s.LocalShell
 	cfg.Network = s.Network
 	cfg.Variables = s.Variables
@@ -235,6 +256,7 @@ func (cs *ConfigService) ResetSettings() error {
 	cfg.Prompts = def.Prompts
 	cfg.Terminal = def.Terminal
 	cfg.SFTPBrowser = def.SFTPBrowser
+	cfg.Editor = def.Editor
 	cfg.LocalShell = def.LocalShell
 	cfg.Network = def.Network
 	cfg.Variables = def.Variables
@@ -243,6 +265,7 @@ func (cs *ConfigService) ResetSettings() error {
 	cfg.Keybindings = def.Keybindings
 
 	cs.store.MarkDirty()
+	cs.settingsChanged()
 	return nil
 }
 

@@ -169,6 +169,8 @@ func main() {
 	systemSvc := services.NewSystemService(nil)
 	systemSvc.SetStore(cfgStore)
 	clusterSvc := services.NewClusterService(clusterMgr, sessionMgr, cfgStore)
+	editorSvc := services.NewEditorService(cfgStore, sftpSvc, emitter)
+	configSvc.SetEmitter(emitter)
 
 	var singleInstance *application.SingleInstanceOptions
 	if !cfgStore.Config().General.AllowMultipleInstances {
@@ -193,6 +195,7 @@ func main() {
 			application.NewService(dialogSvc),
 			application.NewService(systemSvc),
 			application.NewService(clusterSvc),
+			application.NewService(editorSvc),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -209,6 +212,7 @@ func main() {
 	})
 	emitter.app = wailsApp
 	systemSvc.SetApp(wailsApp)
+	editorSvc.SetApp(wailsApp, systemSvc.IsQuitting)
 
 	title := "LeanTerm"
 	if flags.ReadOnly {
@@ -218,6 +222,7 @@ func main() {
 	uiState := cfgStore.LoadUIState()
 	geom := uiState.MainWindow
 	winOpts := application.WebviewWindowOptions{
+		Name:             "main",
 		Title:            title,
 		Width:            geom.Width,
 		Height:           geom.Height,

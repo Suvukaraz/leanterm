@@ -5,6 +5,7 @@
 import * as ClusterService from "./clusterservice.js";
 import * as ConfigService from "./configservice.js";
 import * as DialogService from "./dialogservice.js";
+import * as EditorService from "./editorservice.js";
 import * as LocalFSService from "./localfsservice.js";
 import * as SFTPService from "./sftpservice.js";
 import * as SessionService from "./sessionservice.js";
@@ -13,6 +14,7 @@ export {
     ClusterService,
     ConfigService,
     DialogService,
+    EditorService,
     LocalFSService,
     SFTPService,
     SessionService,
@@ -22,6 +24,7 @@ export {
 export {
     AttachResult,
     ConnectionEdit,
+    EditorFile,
     OpenRequest,
     PCCOptions,
     SessionInfo,

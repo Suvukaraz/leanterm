@@ -114,6 +114,16 @@ func Default() *Config {
 				Timestamps:        false,
 			},
 		},
+		Editor: EditorConfig{
+			Font:            FontConfig{Family: "Monospace", Size: DefaultTerminalFontSize},
+			OpenTextFilesIn: "editor",
+			TabWidth:        4,
+			IndentWithTabs:  false,
+			WordWrap:        false,
+			ShowWhitespace:  false,
+			LargeFileMB:     10,
+			HugeFileMB:      100,
+		},
 		SFTPBrowser: SFTPBrowserConfig{
 			AutoOpen:             true,
 			Width:                340,

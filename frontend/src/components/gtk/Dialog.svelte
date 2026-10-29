@@ -6,6 +6,17 @@
 
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { get } from 'svelte/store';
+  import { dialogGeometries } from '../../lib/stores/ui';
+  import {
+    RESIZE_EDGES,
+    centerRect,
+    clampRect,
+    moveRect,
+    resizeRect,
+    type Rect,
+    type ResizeEdge,
+  } from '../../lib/dialogGeometry';
 
   interface Props {
     title?: string;
@@ -16,6 +27,14 @@
     class?: string;
     /** Whether Escape / the × button may close the dialog. */
     closable?: boolean;
+    /** Drag the title bar to move the dialog inside the main window. */
+    movable?: boolean;
+    /** Drag the edges/corners to resize the dialog. */
+    resizable?: boolean;
+    minWidth?: number;
+    minHeight?: number;
+    /** Remembers position and size under this name (state/ui.toml). */
+    geometryKey?: string;
     children?: Snippet;
     actions?: Snippet;
     onclose?: () => void;
@@ -29,6 +48,11 @@
     open = $bindable(true),
     class: className = '',
     closable = true,
+    movable = false,
+    resizable = false,
+    minWidth = 320,
+    minHeight = 200,
+    geometryKey = '',
     children,
     actions,
     onclose,
@@ -36,6 +60,88 @@
 
   const id = nextId++;
   let windowEl = $state<HTMLElement>();
+  let backdropEl = $state<HTMLElement>();
+
+  // Explicit geometry once the dialog is movable/resizable; null = CSS-centred.
+  let rect = $state<Rect | null>(null);
+  let free = $derived(movable || resizable);
+  let minSize = $derived({ w: minWidth, h: minHeight });
+
+  function viewport() {
+    return { w: backdropEl?.clientWidth || window.innerWidth, h: backdropEl?.clientHeight || window.innerHeight };
+  }
+
+  /** Takes the saved geometry, otherwise the size the dialog has when centred by CSS. */
+  function initGeometry() {
+    const saved = geometryKey ? get(dialogGeometries)[geometryKey] : undefined;
+    if (saved && saved.width > 0 && saved.height > 0) {
+      rect = clampRect({ x: saved.x, y: saved.y, w: saved.width, h: saved.height }, viewport(), minSize);
+      return;
+    }
+    const box = windowEl?.getBoundingClientRect();
+    if (!box) return;
+    rect = centerRect({ w: box.width, h: box.height }, viewport(), minSize);
+  }
+
+  function saveGeometry() {
+    if (!geometryKey || !rect) return;
+    const r = rect;
+    dialogGeometries.update((m) => ({ ...m, [geometryKey]: { x: r.x, y: r.y, width: r.w, height: r.h } }));
+  }
+
+  /** Double-click on the title bar: back to the default size, centred. */
+  function resetGeometry() {
+    if (!free) return;
+    if (geometryKey) {
+      dialogGeometries.update((m) => {
+        const { [geometryKey]: _removed, ...rest } = m;
+        return rest;
+      });
+    }
+    rect = null;
+    requestAnimationFrame(() => initGeometry());
+  }
+
+  $effect(() => {
+    if (!open || !free) return;
+    // After the first layout, so an auto-height dialog can be measured.
+    const frame = requestAnimationFrame(() => initGeometry());
+    return () => {
+      cancelAnimationFrame(frame);
+      rect = null;
+    };
+  });
+
+  // ---- Pointer drag (move and resize) ------------------------------------
+  let drag: { kind: 'move' | ResizeEdge; startX: number; startY: number; start: Rect } | null = null;
+
+  function startDrag(e: PointerEvent, kind: 'move' | ResizeEdge) {
+    if (e.button !== 0 || !rect) return;
+    if (kind === 'move' && (e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag = { kind, startX: e.clientX, startY: e.clientY, start: rect };
+  }
+
+  function onDrag(e: PointerEvent) {
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    rect =
+      drag.kind === 'move'
+        ? moveRect(drag.start, dx, dy, viewport(), minSize)
+        : resizeRect(drag.start, drag.kind, dx, dy, viewport(), minSize);
+  }
+
+  function endDrag() {
+    if (!drag) return;
+    drag = null;
+    saveGeometry();
+  }
+
+  function handleWindowResize() {
+    if (rect) rect = clampRect(rect, viewport(), minSize);
+  }
 
   $effect(() => {
     if (!open) return;
@@ -67,29 +173,52 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} onresize={handleWindowResize} />
 
 {#if open}
   <!-- Modal like a GTK dialog: clicks outside do nothing (they used to discard edits). -->
-  <div class="gtk-dialog-backdrop">
+  <div class="gtk-dialog-backdrop" bind:this={backdropEl}>
     <div
       bind:this={windowEl}
       class={`gtk-dialog-window ${className}`}
-      style={`width: min(${width}px, 96vw); ${height ? `height: min(${height}px, 94vh);` : ''}`}
+      class:is-free={rect !== null}
+      style={rect
+        ? `left: ${rect.x}px; top: ${rect.y}px; width: ${rect.w}px; height: ${rect.h}px;`
+        : `width: min(${width}px, 96vw); ${height ? `height: min(${height}px, 94vh);` : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label={bannerText || title}
       tabindex="-1"
     >
       {#if bannerText}
-        <div class="banner-fill">
+        <!-- Mouse-only drag handle (moving has no keyboard equivalent, like a window title bar). -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="banner-fill"
+          class:drag-handle={movable}
+          onpointerdown={movable ? (e) => startDrag(e, 'move') : undefined}
+          onpointermove={onDrag}
+          onpointerup={endDrag}
+          onpointercancel={endDrag}
+          ondblclick={movable ? resetGeometry : undefined}
+        >
           <span class="banner-text">{bannerText}</span>
           {#if closable}
             <button type="button" class="banner-close button-cp" title="Close" onclick={closeDialog}>×</button>
           {/if}
         </div>
       {:else if title}
-        <div class="gtk-dialog-titlebar">
+        <!-- Mouse-only drag handle (moving has no keyboard equivalent, like a window title bar). -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="gtk-dialog-titlebar"
+          class:drag-handle={movable}
+          onpointerdown={movable ? (e) => startDrag(e, 'move') : undefined}
+          onpointermove={onDrag}
+          onpointerup={endDrag}
+          onpointercancel={endDrag}
+          ondblclick={movable ? resetGeometry : undefined}
+        >
           <span class="dialog-title"><b>{title}</b></span>
           {#if closable}
             <button type="button" class="close-btn button-cp" title="Close" onclick={closeDialog}>×</button>
@@ -105,6 +234,19 @@
         <div class="gtk-dialog-actions">
           {@render actions()}
         </div>
+      {/if}
+
+      {#if resizable && rect}
+        {#each RESIZE_EDGES as edge (edge)}
+          <div
+            class={`resize-handle edge-${edge}`}
+            aria-hidden="true"
+            onpointerdown={(e) => startDrag(e, edge)}
+            onpointermove={onDrag}
+            onpointerup={endDrag}
+            onpointercancel={endDrag}
+          ></div>
+        {/each}
       {/if}
     </div>
   </div>
@@ -131,6 +273,73 @@
     max-height: 94vh;
     overflow: hidden;
     outline: none;
+    position: relative;
+  }
+  .gtk-dialog-window.is-free {
+    position: absolute;
+    max-height: none;
+  }
+  .drag-handle {
+    user-select: none;
+    touch-action: none;
+  }
+  .resize-handle {
+    position: absolute;
+    z-index: 2;
+    touch-action: none;
+  }
+  .edge-n,
+  .edge-s {
+    left: 8px;
+    right: 8px;
+    height: 5px;
+    cursor: ns-resize;
+  }
+  .edge-n {
+    top: 0;
+  }
+  .edge-s {
+    bottom: 0;
+  }
+  .edge-e,
+  .edge-w {
+    top: 8px;
+    bottom: 8px;
+    width: 5px;
+    cursor: ew-resize;
+  }
+  .edge-e {
+    right: 0;
+  }
+  .edge-w {
+    left: 0;
+  }
+  .edge-ne,
+  .edge-nw,
+  .edge-se,
+  .edge-sw {
+    width: 10px;
+    height: 10px;
+  }
+  .edge-ne {
+    top: 0;
+    right: 0;
+    cursor: nesw-resize;
+  }
+  .edge-sw {
+    bottom: 0;
+    left: 0;
+    cursor: nesw-resize;
+  }
+  .edge-nw {
+    top: 0;
+    left: 0;
+    cursor: nwse-resize;
+  }
+  .edge-se {
+    bottom: 0;
+    right: 0;
+    cursor: nwse-resize;
   }
   .banner-fill {
     position: relative;

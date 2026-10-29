@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${1:-0.8.4}"
+VERSION="${1:-0.9.0}"
 ARCH="amd64"
 PKG_NAME="leanterm"
 DEB_NAME="${PKG_NAME}_${VERSION}_${ARCH}.deb"
@@ -72,8 +72,9 @@ Homepage: https://github.com/Suvukaraz/leanterm
 Description: LeanTerm Connection Manager
  Complete rewrite of Ásbrú Connection Manager in Go and Svelte 5.
  Supports native SSH, native Telnet (RFC 854/855/1091/1073/1143), embedded
- MobaXterm-style SFTP browser, automated Expect sequences, variable
- substitutions, clusters & PCC, and KeePassXC integration.
+ MobaXterm-style SFTP browser, a built-in text editor (also for remote
+ files over SFTP), automated Expect sequences, variable substitutions,
+ clusters & PCC, and KeePassXC integration.
 EOF
 chmod 0644 "$DEB_ROOT/DEBIAN/control"
 

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/editor"
 	"github.com/Suvukaraz/leanterm/internal/session"
 	"github.com/Suvukaraz/leanterm/internal/sftpsvc"
 )
@@ -146,4 +147,38 @@ func (s *SFTPService) OpenWithDefaultApp(sftpID, remotePath string) (string, err
 
 func (s *SFTPService) UploadBack(sftpID, localPath, remotePath string) error {
 	return s.mgr.UploadBack(sftpID, localPath, remotePath)
+}
+
+// editorFS gives the editor direct access to the files of an SFTP session. When
+// that session is gone, a connected session of the same saved connection is
+// used instead (the user reconnected in a new tab).
+func (s *SFTPService) editorFS(sftpID, connID string) (editor.FS, error) {
+	if s.sessionAlive(sftpID) {
+		if client, err := s.mgr.Client(sftpID); err == nil {
+			return editor.SFTPFS{Client: client}, nil
+		}
+	}
+	if connID != "" && s.sessionMgr != nil {
+		for _, info := range s.sessionMgr.List() {
+			if info.ConnID != connID || info.State != "connected" || !info.HasSFTP {
+				continue
+			}
+			id, err := s.OpenForSession(info.TmpID)
+			if err != nil {
+				continue
+			}
+			if client, err := s.mgr.Client(id); err == nil {
+				return editor.SFTPFS{Client: client}, nil
+			}
+		}
+	}
+	return nil, editor.ErrConnectionClosed
+}
+
+func (s *SFTPService) sessionAlive(tmpID string) bool {
+	if s.sessionMgr == nil {
+		return true
+	}
+	info := s.sessionMgr.GetInfo(tmpID)
+	return info != nil && info.State == "connected"
 }

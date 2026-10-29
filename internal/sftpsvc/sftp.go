@@ -132,6 +132,11 @@ func (m *SFTPManager) getClient(sftpID string) (*sftp.Client, error) {
 	return inst.client, nil
 }
 
+// Client returns the SFTP client of sftpID (an error once the session is gone).
+func (m *SFTPManager) Client(sftpID string) (*sftp.Client, error) {
+	return m.getClient(sftpID)
+}
+
 func (m *SFTPManager) Getwd(sftpID string) (string, error) {
 	client, err := m.getClient(sftpID)
 	if err != nil {

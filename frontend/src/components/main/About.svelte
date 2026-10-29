@@ -13,6 +13,11 @@
   open={$aboutDialogOpen}
   title="About LeanTerm"
   width={460}
+  movable
+  resizable
+  minWidth={360}
+  minHeight={220}
+  geometryKey="about"
   onclose={close}
 >
   <div class="about-container">
@@ -21,7 +26,7 @@
     </div>
     <div class="about-info">
       <h2 class="app-title">LeanTerm</h2>
-      <div class="app-version">Version 0.8.4</div>
+      <div class="app-version">Version 0.9.0</div>
       <p class="app-desc">
         Next-generation Connection Manager, modern rewrite of Ásbrú Connection Manager
         built with Go, Wails v3, and Svelte 5.

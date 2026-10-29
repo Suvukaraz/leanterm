@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { prefsDialogOpen } from '../../lib/stores/ui';
+  import { prefsDialogOpen, prefsStartPage } from '../../lib/stores/ui';
   import { settings, loadSettings, checkUnsaved } from '../../lib/stores/config';
   import * as ConfigService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/configservice.js';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
@@ -13,6 +13,7 @@
 
   import MainOptionsPage from './MainOptionsPage.svelte';
   import TerminalOptionsPage from './TerminalOptionsPage.svelte';
+  import EditorOptionsPage from './EditorOptionsPage.svelte';
   import LocalShellPage from './LocalShellPage.svelte';
   import NetworkPage from './NetworkPage.svelte';
   import GlobalVariablesPage from './GlobalVariablesPage.svelte';
@@ -37,6 +38,7 @@
     { id: 'main', label: 'Main Options', icon: 'gtk-preferences' },
     { id: 'terminal', label: 'Terminal Options', icon: 'asbru-shell' },
     { id: 'local_shell', label: 'Local Shell Options', icon: 'gtk-execute' },
+    { id: 'editor', label: 'Editor', icon: 'gtk-file' },
     { id: 'network', label: 'Network Settings', icon: 'asbru-wol' },
     { id: 'variables', label: 'Global Variables', icon: 'gtk-edit' },
     { id: 'local_commands', label: 'Local Commands', icon: 'gtk-execute' },
@@ -51,6 +53,11 @@
   $effect.pre(() => {
     if (open && !wasOpen) {
       wasOpen = true;
+      const startPage = untrack(() => $prefsStartPage);
+      if (startPage) {
+        activePage = startPage;
+        prefsStartPage.set('');
+      }
       const current = untrack(() => $settings);
       if (current) {
         localSettings = JSON.parse(JSON.stringify(current));
@@ -176,6 +183,11 @@
     bannerText="Preferences"
     width={880}
     height={660}
+    movable
+    resizable
+    minWidth={640}
+    minHeight={520}
+    geometryKey="preferences"
     {open}
     onclose={handleClose}
   >
@@ -201,6 +213,8 @@
                     <TerminalOptionsPage bind:settings={localSettings} />
                   {:else if tabId === 'local_shell'}
                     <LocalShellPage bind:settings={localSettings} />
+                  {:else if tabId === 'editor'}
+                    <EditorOptionsPage bind:settings={localSettings} />
                   {:else if tabId === 'network'}
                     <NetworkPage bind:settings={localSettings} />
                   {:else if tabId === 'variables'}
@@ -316,7 +330,7 @@
 <style>
   .preferences-window-body {
     height: 100%;
-    min-height: 520px;
+    min-height: 380px;
     display: flex;
     flex-direction: column;
     overflow: hidden;

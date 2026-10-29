@@ -81,6 +81,8 @@ export const editConnDialog = writable<EditConnDialogState>({
 
 export const aboutDialogOpen = writable<boolean>(false);
 export const prefsDialogOpen = writable<boolean>(false);
+/** Page Preferences opens on next time ('' = the last one). */
+export const prefsStartPage = writable<string>('');
 export const wolDialog = writable<WolDialogState>({
   open: false,
   mac: '',
@@ -98,3 +100,13 @@ export const editVariablesDialog = writable<{ open: boolean; connId: string }>({
   open: false,
   connId: '',
 });
+
+export interface DialogGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Remembered position/size of movable dialogs, keyed by Dialog geometryKey. */
+export const dialogGeometries = writable<Record<string, DialogGeometry>>({});

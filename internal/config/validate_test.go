@@ -73,3 +73,15 @@ func TestValidateTerminalEngine(t *testing.T) {
 	assert.True(t, res.HasErrors())
 	assert.Len(t, res.Errors, 1)
 }
+
+func TestValidateEditor(t *testing.T) {
+	cfg := Default()
+	assert.Equal(t, "editor", cfg.Editor.OpenTextFilesIn)
+	assert.False(t, Validate(cfg).HasErrors())
+
+	cfg.Editor.OpenTextFilesIn = "vim"
+	cfg.Editor.TabWidth = 0
+	cfg.Editor.HugeFileMB = 5 // below large_file_mb (10)
+	res := Validate(cfg)
+	assert.Len(t, res.Errors, 3)
+}

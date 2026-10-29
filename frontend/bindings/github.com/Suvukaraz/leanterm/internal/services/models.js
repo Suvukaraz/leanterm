@@ -360,6 +360,70 @@ export class ConnectionEdit {
     }
 }
 
+/**
+ * EditorFile identifies a file opened in the editor window.
+ */
+export class EditorFile {
+    /**
+     * Creates a new EditorFile instance.
+     * @param {Partial<EditorFile>} [$$source = {}] - The source object to create the EditorFile.
+     */
+    constructor($$source = {}) {
+        if (!("kind" in $$source)) {
+            /**
+             * Kind is "local" or "sftp".
+             * @member
+             * @type {string}
+             */
+            this["kind"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * SFTPID is the SFTP session of a remote file (SFTPService.OpenForSession).
+             * @member
+             * @type {string | undefined}
+             */
+            this["sftpId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * ConnID is the saved connection of a remote file: after a reconnect (new
+             * session) the editor continues with the new session of the same connection.
+             * @member
+             * @type {string | undefined}
+             */
+            this["connId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Host labels remote files (tab tooltip, status bar).
+             * @member
+             * @type {string | undefined}
+             */
+            this["host"] = undefined;
+        }
+        if (!("path" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EditorFile instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {EditorFile}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new EditorFile(/** @type {Partial<EditorFile>} */($$parsedSource));
+    }
+}
+
 export class OpenRequest {
     /**
      * Creates a new OpenRequest instance.
@@ -601,6 +665,13 @@ export class Settings {
              */
             this["sftpBrowser"] = (new config$0.SFTPBrowserConfig());
         }
+        if (!("editor" in $$source)) {
+            /**
+             * @member
+             * @type {config$0.EditorConfig}
+             */
+            this["editor"] = (new config$0.EditorConfig());
+        }
         if (!("localShell" in $$source)) {
             /**
              * @member
@@ -660,10 +731,11 @@ export class Settings {
         const $$createField4_0 = $$createType19;
         const $$createField5_0 = $$createType20;
         const $$createField6_0 = $$createType21;
-        const $$createField7_0 = $$createType23;
-        const $$createField8_0 = $$createType11;
-        const $$createField9_0 = $$createType24;
+        const $$createField7_0 = $$createType22;
+        const $$createField8_0 = $$createType24;
+        const $$createField9_0 = $$createType11;
         const $$createField10_0 = $$createType25;
+        const $$createField11_0 = $$createType26;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("general" in $$parsedSource) {
             $$parsedSource["general"] = $$createField0_0($$parsedSource["general"]);
@@ -680,27 +752,34 @@ export class Settings {
         if ("sftpBrowser" in $$parsedSource) {
             $$parsedSource["sftpBrowser"] = $$createField4_0($$parsedSource["sftpBrowser"]);
         }
+        if ("editor" in $$parsedSource) {
+            $$parsedSource["editor"] = $$createField5_0($$parsedSource["editor"]);
+        }
         if ("localShell" in $$parsedSource) {
-            $$parsedSource["localShell"] = $$createField5_0($$parsedSource["localShell"]);
+            $$parsedSource["localShell"] = $$createField6_0($$parsedSource["localShell"]);
         }
         if ("network" in $$parsedSource) {
-            $$parsedSource["network"] = $$createField6_0($$parsedSource["network"]);
+            $$parsedSource["network"] = $$createField7_0($$parsedSource["network"]);
         }
         if ("variables" in $$parsedSource) {
-            $$parsedSource["variables"] = $$createField7_0($$parsedSource["variables"]);
+            $$parsedSource["variables"] = $$createField8_0($$parsedSource["variables"]);
         }
         if ("macros" in $$parsedSource) {
-            $$parsedSource["macros"] = $$createField8_0($$parsedSource["macros"]);
+            $$parsedSource["macros"] = $$createField9_0($$parsedSource["macros"]);
         }
         if ("keepass" in $$parsedSource) {
-            $$parsedSource["keepass"] = $$createField9_0($$parsedSource["keepass"]);
+            $$parsedSource["keepass"] = $$createField10_0($$parsedSource["keepass"]);
         }
         if ("keybindings" in $$parsedSource) {
-            $$parsedSource["keybindings"] = $$createField10_0($$parsedSource["keybindings"]);
+            $$parsedSource["keybindings"] = $$createField11_0($$parsedSource["keybindings"]);
         }
         return new Settings(/** @type {Partial<Settings>} */($$parsedSource));
     }
 }
+
+/**
+ * @typedef {any} settingsEmitter
+ */
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
@@ -723,9 +802,10 @@ const $$createType16 = config$0.AppearanceConfig.createFrom;
 const $$createType17 = config$0.PromptsConfig.createFrom;
 const $$createType18 = config$0.TerminalConfig.createFrom;
 const $$createType19 = config$0.SFTPBrowserConfig.createFrom;
-const $$createType20 = config$0.LocalShellConfig.createFrom;
-const $$createType21 = config$0.NetworkConfig.createFrom;
-const $$createType22 = config$0.VariableConfig.createFrom;
-const $$createType23 = $Create.Array($$createType22);
-const $$createType24 = config$0.KeePassConfig.createFrom;
-const $$createType25 = config$0.KeybindingsConfig.createFrom;
+const $$createType20 = config$0.EditorConfig.createFrom;
+const $$createType21 = config$0.LocalShellConfig.createFrom;
+const $$createType22 = config$0.NetworkConfig.createFrom;
+const $$createType23 = config$0.VariableConfig.createFrom;
+const $$createType24 = $Create.Array($$createType23);
+const $$createType25 = config$0.KeePassConfig.createFrom;
+const $$createType26 = config$0.KeybindingsConfig.createFrom;
