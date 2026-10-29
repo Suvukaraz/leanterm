@@ -13,6 +13,11 @@
   open={$aboutDialogOpen}
   title="About LeanTerm"
   width={460}
+  movable
+  resizable
+  minWidth={360}
+  minHeight={220}
+  geometryKey="about"
   onclose={close}
 >
   <div class="about-container">

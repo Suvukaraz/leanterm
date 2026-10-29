@@ -18,6 +18,17 @@ type UIState struct {
 	SFTPPanelWidth      int            `toml:"sftp_panel_width" json:"sftpPanelWidth"`
 	ActiveLeftTab       string         `toml:"active_left_tab" json:"activeLeftTab"`
 	ExpandedGroups      []string       `toml:"expanded_groups" json:"expandedGroups"`
+	// Position and size of movable dialogs (Preferences, Edit Connection, About),
+	// keyed by dialog name, in CSS pixels of the main window.
+	Dialogs map[string]DialogGeometry `toml:"dialogs,omitempty" json:"dialogs"`
+}
+
+// DialogGeometry is the remembered position and size of an in-window dialog.
+type DialogGeometry struct {
+	X      int `toml:"x" json:"x"`
+	Y      int `toml:"y" json:"y"`
+	Width  int `toml:"width" json:"width"`
+	Height int `toml:"height" json:"height"`
 }
 
 // WindowGeometry is the size/position of a top-level window.

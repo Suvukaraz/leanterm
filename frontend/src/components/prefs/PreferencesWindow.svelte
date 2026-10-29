@@ -176,6 +176,11 @@
     bannerText="Preferences"
     width={880}
     height={660}
+    movable
+    resizable
+    minWidth={640}
+    minHeight={520}
+    geometryKey="preferences"
     {open}
     onclose={handleClose}
   >
@@ -316,7 +321,7 @@
 <style>
   .preferences-window-body {
     height: 100%;
-    min-height: 520px;
+    min-height: 380px;
     display: flex;
     flex-direction: column;
     overflow: hidden;

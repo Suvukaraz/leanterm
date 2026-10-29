@@ -98,3 +98,13 @@ export const editVariablesDialog = writable<{ open: boolean; connId: string }>({
   open: false,
   connId: '',
 });
+
+export interface DialogGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Remembered position/size of movable dialogs, keyed by Dialog geometryKey. */
+export const dialogGeometries = writable<Record<string, DialogGeometry>>({});

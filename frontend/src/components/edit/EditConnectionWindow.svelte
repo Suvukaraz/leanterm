@@ -368,6 +368,11 @@
     bannerText="Edit Connection"
     width={760}
     height={620}
+    movable
+    resizable
+    minWidth={600}
+    minHeight={520}
+    geometryKey="edit-connection"
     {open}
     onclose={handleClose}
   >
@@ -518,7 +523,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 480px;
+    min-height: 380px;
     position: relative;
     overflow: hidden;
   }

@@ -12,6 +12,7 @@ export {
     ConnectionAuth,
     ConnectionNetwork,
     ConnectionTerminal,
+    DialogGeometry,
     DynamicForward,
     ExpectEntry,
     FontConfig,

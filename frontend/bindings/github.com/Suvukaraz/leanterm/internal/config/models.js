@@ -917,6 +917,58 @@ export class ConnectionTerminal {
 }
 
 /**
+ * DialogGeometry is the remembered position and size of an in-window dialog.
+ */
+export class DialogGeometry {
+    /**
+     * Creates a new DialogGeometry instance.
+     * @param {Partial<DialogGeometry>} [$$source = {}] - The source object to create the DialogGeometry.
+     */
+    constructor($$source = {}) {
+        if (!("x" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["x"] = 0;
+        }
+        if (!("y" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["y"] = 0;
+        }
+        if (!("width" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["width"] = 0;
+        }
+        if (!("height" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["height"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DialogGeometry instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DialogGeometry}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new DialogGeometry(/** @type {Partial<DialogGeometry>} */($$parsedSource));
+    }
+}
+
+/**
  * DynamicForward represents a dynamic (-D) SOCKS port forward
  */
 export class DynamicForward {
@@ -2607,18 +2659,18 @@ export class TerminalConfig {
      * @returns {TerminalConfig}
      */
     static createFrom($$source = {}) {
-        const $$createField21_0 = $$createType28;
-        const $$createField22_0 = $$createType19;
-        const $$createField23_0 = $$createType7;
+        const $$createField22_0 = $$createType28;
+        const $$createField23_0 = $$createType19;
+        const $$createField24_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("Colors" in $$parsedSource) {
-            $$parsedSource["Colors"] = $$createField21_0($$parsedSource["Colors"]);
+            $$parsedSource["Colors"] = $$createField22_0($$parsedSource["Colors"]);
         }
         if ("Look" in $$parsedSource) {
-            $$parsedSource["Look"] = $$createField22_0($$parsedSource["Look"]);
+            $$parsedSource["Look"] = $$createField23_0($$parsedSource["Look"]);
         }
         if ("SessionLogs" in $$parsedSource) {
-            $$parsedSource["SessionLogs"] = $$createField23_0($$parsedSource["SessionLogs"]);
+            $$parsedSource["SessionLogs"] = $$createField24_0($$parsedSource["SessionLogs"]);
         }
         return new TerminalConfig(/** @type {Partial<TerminalConfig>} */($$parsedSource));
     }
@@ -2928,6 +2980,15 @@ export class UIState {
              */
             this["expandedGroups"] = [];
         }
+        if (!("dialogs" in $$source)) {
+            /**
+             * Position and size of movable dialogs (Preferences, Edit Connection, About),
+             * keyed by dialog name, in CSS pixels of the main window.
+             * @member
+             * @type {{ [_ in string]?: DialogGeometry }}
+             */
+            this["dialogs"] = {};
+        }
 
         Object.assign(this, $$source);
     }
@@ -2940,12 +3001,16 @@ export class UIState {
     static createFrom($$source = {}) {
         const $$createField0_0 = $$createType32;
         const $$createField7_0 = $$createType1;
+        const $$createField8_0 = $$createType34;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("mainWindow" in $$parsedSource) {
             $$parsedSource["mainWindow"] = $$createField0_0($$parsedSource["mainWindow"]);
         }
         if ("expandedGroups" in $$parsedSource) {
             $$parsedSource["expandedGroups"] = $$createField7_0($$parsedSource["expandedGroups"]);
+        }
+        if ("dialogs" in $$parsedSource) {
+            $$parsedSource["dialogs"] = $$createField8_0($$parsedSource["dialogs"]);
         }
         return new UIState(/** @type {Partial<UIState>} */($$parsedSource));
     }
@@ -3134,3 +3199,5 @@ const $$createType29 = TreeNode.createFrom;
 const $$createType30 = $Create.Nullable($$createType29);
 const $$createType31 = $Create.Array($$createType30);
 const $$createType32 = WindowGeometry.createFrom;
+const $$createType33 = DialogGeometry.createFrom;
+const $$createType34 = $Create.Map($Create.Any, $$createType33);
