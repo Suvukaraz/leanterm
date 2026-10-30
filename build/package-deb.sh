@@ -64,7 +64,7 @@ Section: net
 Priority: optional
 Architecture: ${ARCH}
 Maintainer: LeanTerm Project <info@leanterm.org>
-Depends: libc6 (>= 2.34), libgtk-4-1, libwebkitgtk-6.0-4
+Depends: libc6 (>= 2.34), libgtk-4-1 (>= 4.10), libwebkitgtk-6.0-4
 Conflicts: linxterm
 Replaces: linxterm
 Recommends: xdg-utils, openssh-client, keepassxc

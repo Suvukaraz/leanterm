@@ -41,7 +41,7 @@ jobs:
           mkdir dist
           cp bin/*.deb bin/*.tar.gz install.sh dist/
           (cd dist && sha256sum *.deb *.tar.gz > SHA256SUMS)
-          # The binary must not need a newer glibc than 2.34 (Debian 12, Fedora 39).
+          # The binary must not need a newer glibc than 2.34.
           objdump -T bin/leanterm | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
 
       - uses: actions/upload-artifact@v4
@@ -56,8 +56,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: debian:12
-            prep: apt-get update -qq && apt-get install -y curl
           - image: debian:13
             prep: apt-get update -qq && apt-get install -y curl
           - image: ubuntu:24.04
@@ -68,7 +66,10 @@ jobs:
             prep: zypper -n install curl tar gzip
           - image: archlinux:latest
             prep: pacman -Sy --noconfirm curl tar gzip
-          # No WebKitGTK 6.0: the installer has to stop with a clear message.
+          # GTK older than 4.10 (4.8 / 4.6): the installer has to stop with a clear message.
+          - image: debian:12
+            prep: apt-get update -qq && apt-get install -y curl
+            unsupported: true
           - image: ubuntu:22.04
             prep: apt-get update -qq && apt-get install -y curl
             unsupported: true
@@ -107,4 +108,4 @@ jobs:
             cat out.txt; echo "the installer should have failed"; exit 1
           fi
           cat out.txt
-          grep -q "WebKitGTK 6.0" out.txt
+          grep -q "GTK 4.10" out.txt

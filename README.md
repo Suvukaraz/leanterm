@@ -133,9 +133,9 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh
 ```
 The script installs the latest release (x86_64) and asks for your password via `sudo` where needed:
-- **Debian 12+, Ubuntu 24.04+ and derivatives** (Mint 22, Pop!_OS, Zorin, …): the `.deb` package via `apt`, including all dependencies.
+- **Debian 13+, Ubuntu 24.04+ and derivatives** (Mint 22, Pop!_OS, Zorin, …): the `.deb` package via `apt`, including all dependencies.
 - **Fedora 39+, RHEL/Alma/Rocky 10, openSUSE Tumbleweed/Leap 16, Arch/Manjaro/EndeavourOS**: GTK 4 and WebKitGTK 6.0 from the distribution, LeanTerm itself in `/usr/local`.
-- Other distributions work when GTK 4 and WebKitGTK 6.0 are installed. Not supported: Ubuntu 22.04 and older (no WebKitGTK 6.0), musl based systems such as Alpine.
+- Other distributions work when GTK 4.10+ and WebKitGTK 6.0 are installed. Not supported: Debian 12, Ubuntu 22.04 and older (GTK older than 4.10), musl based systems such as Alpine.
 
 Running the command again updates LeanTerm. Options go after `sh -s --`, e.g. `… | sh -s -- --version 1.0.0` or `… | sh -s -- --uninstall` (your configuration in `~/.config/leanterm` is kept).
 

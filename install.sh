@@ -145,14 +145,35 @@ distro_name() {
 	(. /etc/os-release 2>/dev/null && echo "${PRETTY_NAME:-${NAME:-Linux}}") || echo Linux
 }
 
+# Lists the shared library cache; ldconfig is in /sbin on Debian (not in a user's PATH).
+ldconfig_p() {
+	for c in ldconfig /sbin/ldconfig /usr/sbin/ldconfig; do
+		if has "$c"; then
+			LC_ALL=C "$c" -p 2>/dev/null
+			return
+		fi
+	done
+}
+
 missing_libraries() {
+	cache=$(ldconfig_p)
 	for lib in libgtk-4.so.1 libwebkitgtk-6.0.so.4 libjavascriptcoregtk-6.0.so.1 libsoup-3.0.so.0; do
-		if has ldconfig; then
-			ldconfig -p 2>/dev/null | grep -q "$lib" || echo "$lib"
+		if [ -n "$cache" ]; then
+			echo "$cache" | grep -q "$lib" || echo "$lib"
 		elif ! ls /usr/lib*/"$lib" /usr/lib/*/"$lib" >/dev/null 2>&1; then
 			echo "$lib"
 		fi
 	done
+}
+
+# LeanTerm uses the file dialogs of GTK 4.10 (gtk_file_dialog_*); older GTK 4
+# versions load, but the program would crash at the first file dialog.
+check_gtk() {
+	lib=$(ldconfig_p | sed -n 's/.*libgtk-4\.so\.1 .*=> //p' | head -n 1)
+	[ -n "$lib" ] || return 0 # missing libraries are reported by verify
+	# -a and LC_ALL=C: search the binary file byte-wise in any locale.
+	LC_ALL=C grep -a -q gtk_file_dialog_new "$lib" ||
+		die "the GTK 4 of $(distro_name) is older than 4.10, which LeanTerm needs"
 }
 
 # ---- Installation -------------------------------------------------------------------
@@ -161,7 +182,11 @@ install_deb() {
 	say "Updating the package lists"
 	as_root apt-get update -qq
 	if ! apt-cache show libwebkitgtk-6.0-4 >/dev/null 2>&1; then
-		die "$(distro_name) has no WebKitGTK 6.0 (libwebkitgtk-6.0-4); Debian 12+, Ubuntu 24.04+ or a derivative of them is required"
+		die "$(distro_name) has no WebKitGTK 6.0 (libwebkitgtk-6.0-4); Debian 13, Ubuntu 24.04 or a newer derivative is required"
+	fi
+	gtk=$(LC_ALL=C apt-cache policy libgtk-4-1 | sed -n 's/^ *Candidate: *//p')
+	if [ -z "$gtk" ] || [ "$gtk" = "(none)" ] || ! dpkg --compare-versions "$gtk" ge 4.10; then
+		die "$(distro_name) has GTK ${gtk:-(none)}, but LeanTerm needs GTK 4.10 or newer; Debian 13, Ubuntu 24.04 or a newer derivative is required"
 	fi
 	file="leanterm_${VERSION}_amd64.deb"
 	download "$file"
@@ -235,7 +260,7 @@ refresh_caches() {
 # The binary must find all libraries; --help loads them without opening a window.
 verify() {
 	if has ldd; then
-		missing=$(ldd "$BIN" 2>/dev/null | sed -n 's/^[[:space:]]*\([^ ]*\) => not found.*/\1/p')
+		missing=$(LC_ALL=C ldd "$BIN" 2>/dev/null | sed -n 's/^[[:space:]]*\([^ ]*\) => not found.*/\1/p')
 		[ -z "$missing" ] || die "LeanTerm is installed, but these libraries are missing: $(echo $missing)"
 	fi
 	"$BIN" --help >/dev/null 2>&1 || die "LeanTerm is installed, but $BIN does not start"
@@ -313,6 +338,7 @@ main() {
 		install_deb
 	else
 		install_dependencies "$family"
+		check_gtk
 		install_tarball
 	fi
 	verify
