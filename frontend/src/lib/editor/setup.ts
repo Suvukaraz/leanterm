@@ -1,11 +1,13 @@
 // CodeMirror configuration of the editor window. Settings that change at runtime
 // (language, tab width, wrapping, whitespace, theme) sit in compartments.
-import { Compartment, EditorSelection, EditorState, StateEffect, StateField, type Extension, type StateCommand } from '@codemirror/state';
+import { Compartment, EditorState, StateEffect, StateField, type Extension } from '@codemirror/state';
 import {
   EditorView,
+  ViewPlugin,
   crosshairCursor,
   drawSelection,
   dropCursor,
+  gutters,
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
@@ -13,12 +15,47 @@ import {
   keymap,
   lineNumbers,
   rectangularSelection,
+  type PluginValue,
+  type ViewUpdate,
 } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  addCursorAbove,
+  addCursorBelow,
+  cursorMatchingBracket,
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  selectMatchingBracket,
+} from '@codemirror/commands';
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from '@codemirror/language';
-import { gotoLine, highlightSelectionMatches, openSearchPanel, search, searchKeymap } from '@codemirror/search';
+import {
+  gotoLine,
+  highlightSelectionMatches,
+  openSearchPanel,
+  search,
+  searchKeymap,
+  selectNextOccurrence,
+  selectSelectionMatches,
+} from '@codemirror/search';
 import { editorTheme, leanHighlighting } from './theme';
 import { minimap } from './minimap';
+import {
+  addCursorsToLineEnds,
+  blockMouseFilter,
+  capitalize,
+  deselect,
+  extendBlock,
+  gotoBookmark,
+  joinLines,
+  lowerCase,
+  navigationExtensions,
+  toggleBlockMode,
+  toggleBookmark,
+  upperCase,
+} from './commands';
+
+export { lowerCase, upperCase } from './commands';
 
 export interface ViewPrefs {
   tabWidth: number;
@@ -63,26 +100,36 @@ const overwriteInput = EditorView.inputHandler.of((view, from, to, text) => {
   return true;
 });
 
-function changeCase(upper: boolean): StateCommand {
-  return ({ state, dispatch }) => {
-    if (state.selection.ranges.every((r) => r.empty)) return false;
-    dispatch(
-      state.update(
-        state.changeByRange((r) => {
-          const text = state.sliceDoc(r.from, r.to);
-          const insert = upper ? text.toUpperCase() : text.toLowerCase();
-          return { changes: { from: r.from, to: r.to, insert }, range: EditorSelection.range(r.from, r.from + insert.length) };
-        }),
-        { userEvent: 'input' }
-      )
-    );
-    return true;
-  };
-}
-
-/** KWrite's Ctrl+U / Ctrl+Shift+U on the selection. */
-export const upperCase = changeCase(true);
-export const lowerCase = changeCase(false);
+/**
+ * The gutters scroll with the content instead of using position: sticky. WebKitGTK
+ * moves a sticky layer a frame after the scrolled text, so the line numbers
+ * flickered while scrolling. Horizontally they are kept in place by this plugin.
+ */
+const gutterStayLeft = ViewPlugin.fromClass(
+  class implements PluginValue {
+    x = 0;
+    constructor(readonly view: EditorView) {
+      view.scrollDOM.addEventListener('scroll', this.onScroll, { passive: true });
+    }
+    onScroll = () => {
+      const x = this.view.scrollDOM.scrollLeft;
+      if (x === this.x) return;
+      this.x = x;
+      const el = this.view.dom.querySelector<HTMLElement>('.cm-gutters');
+      if (el) el.style.transform = x ? `translateX(${x}px)` : '';
+    };
+    update(u: ViewUpdate) {
+      // The gutter element is rebuilt on reconfiguration.
+      if (u.transactions.some((tr) => tr.reconfigured)) {
+        this.x = -1;
+        this.onScroll();
+      }
+    }
+    destroy() {
+      this.view.scrollDOM.removeEventListener('scroll', this.onScroll);
+    }
+  }
+);
 
 export function indentExtension(p: Pick<ViewPrefs, 'tabWidth' | 'indentWithTabs'>): Extension {
   return [EditorState.tabSize.of(p.tabWidth), indentUnit.of(p.indentWithTabs ? '\t' : ' '.repeat(p.tabWidth))];
@@ -98,6 +145,8 @@ export const minimapExtension = (on: boolean): Extension => (on ? minimap() : []
  */
 export function editorExtensions(prefs: ViewPrefs, onUpdate: (u: import('@codemirror/view').ViewUpdate) => void, highlight = true): Extension {
   return [
+    gutters({ fixed: false }),
+    gutterStayLeft,
     lineNumbers(),
     highlightActiveLineGutter(),
     highlightSpecialChars(),
@@ -108,20 +157,50 @@ export function editorExtensions(prefs: ViewPrefs, onUpdate: (u: import('@codemi
     EditorState.allowMultipleSelections.of(true),
     indentOnInput(),
     bracketMatching(),
-    rectangularSelection(),
+    rectangularSelection({ eventFilter: blockMouseFilter }),
     crosshairCursor(),
     highlightActiveLine(),
     highlightSelectionMatches(),
     search({ top: true }),
     overwriteField,
     overwriteInput,
+    navigationExtensions(),
     keymap.of([
       // KWrite-like keys that differ from CodeMirror's defaults.
       { key: 'Mod-g', run: gotoLine, preventDefault: true },
       { key: 'Mod-r', run: openSearchPanel, preventDefault: true },
       { key: 'Mod-h', run: openSearchPanel, preventDefault: true },
+      // Selection menu
+      { key: 'Mod-Shift-a', run: deselect, preventDefault: true },
+      {
+        key: 'Mod-Shift-b',
+        run: (view) => {
+          view.dispatch({ effects: toggleBlockMode.of() });
+          return true;
+        },
+        preventDefault: true,
+      },
+      { key: 'Shift-ArrowUp', run: extendBlock('up') },
+      { key: 'Shift-ArrowDown', run: extendBlock('down') },
+      { key: 'Shift-ArrowLeft', run: extendBlock('left') },
+      { key: 'Shift-ArrowRight', run: extendBlock('right') },
+      { key: 'Shift-Home', run: extendBlock('home') },
+      { key: 'Shift-End', run: extendBlock('end') },
+      { key: 'Mod-j', run: joinLines, preventDefault: true },
       { key: 'Mod-u', run: upperCase, preventDefault: true },
       { key: 'Mod-Shift-u', run: lowerCase, preventDefault: true },
+      { key: 'Mod-Alt-u', run: capitalize, preventDefault: true },
+      { key: 'Mod-Alt-ArrowUp', run: addCursorAbove, preventDefault: true },
+      { key: 'Mod-Alt-ArrowDown', run: addCursorBelow, preventDefault: true },
+      { key: 'Alt-Shift-i', run: addCursorsToLineEnds, preventDefault: true },
+      { key: 'Alt-j', run: selectNextOccurrence, preventDefault: true },
+      { key: 'Mod-Alt-Shift-j', run: selectSelectionMatches, preventDefault: true },
+      // Go menu (tab and location navigation lives in the editor window)
+      { key: 'Mod-6', run: cursorMatchingBracket, preventDefault: true },
+      { key: 'Mod-Shift-6', run: selectMatchingBracket, preventDefault: true },
+      { key: 'Mod-b', run: toggleBookmark, preventDefault: true },
+      { key: 'Alt-PageDown', run: gotoBookmark(1), preventDefault: true },
+      { key: 'Alt-PageUp', run: gotoBookmark(-1), preventDefault: true },
       {
         key: 'Insert',
         run: (view) => {

@@ -30,11 +30,17 @@ export function editorTheme(dark: boolean): Extension {
       '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
         { backgroundColor: v('editor-selection') },
       '.cm-gutters': {
+        // Not sticky (see gutterStayLeft in setup.ts); relative keeps it above the text.
+        position: 'relative',
         backgroundColor: v('header-bg'),
         color: v('muted-fg'),
         borderRight: `1px solid ${v('border-color')}`,
       },
       '.cm-activeLine': { backgroundColor: v('editor-active-line') },
+      '.cm-bookmark-line': { backgroundColor: v('editor-bookmark') },
+      '.cm-gutterElement.cm-bookmarked': { backgroundColor: v('editor-bookmark'), color: v('fg-color') },
+      '.cm-lineNumbers .cm-gutterElement.cm-modified-line': { boxShadow: `inset 3px 0 0 ${v('editor-modified')}` },
+      '&.cm-block-mode .cm-content': { cursor: 'crosshair' },
       '.cm-activeLineGutter': { backgroundColor: v('editor-active-line'), color: v('fg-color') },
       '.cm-foldPlaceholder': {
         backgroundColor: v('btn-bg'),

@@ -65,6 +65,8 @@
   --gtk-editor-selection: rgba(74, 144, 217, 0.38);
   --gtk-editor-active-line: rgba(255, 255, 255, 0.045);
   --gtk-editor-minimap-slider: rgba(255, 255, 255, 0.13);
+  --gtk-editor-bookmark: rgba(74, 144, 217, 0.22);
+  --gtk-editor-modified: #e5a50a;
   --gtk-editor-search-match: rgba(243, 223, 138, 0.28);
 }
 
@@ -125,6 +127,8 @@
   --gtk-editor-selection: rgba(53, 132, 228, 0.25);
   --gtk-editor-active-line: rgba(0, 0, 0, 0.04);
   --gtk-editor-minimap-slider: rgba(0, 0, 0, 0.11);
+  --gtk-editor-bookmark: rgba(53, 132, 228, 0.16);
+  --gtk-editor-modified: #c88800;
   --gtk-editor-search-match: rgba(255, 200, 0, 0.35);
 }
 
