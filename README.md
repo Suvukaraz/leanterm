@@ -28,18 +28,28 @@ More options (packages, updates, uninstalling) are described [below](#installati
 
 ## Screenshots
 
-![Main window with connection tree, SFTP browser and SSH terminal](docs/screenshots/main-window-ssh.png)
+<p align="center">
+  <img src="docs/screenshots/main-window-ssh.png" alt="Main window with connection tree, SFTP browser and SSH terminal"><br>
+  <em>Connection tree, SFTP browser and SSH terminal</em>
+</p>
 
-![Built-in editor with syntax highlighting, KWrite-style menus and minimap](docs/screenshots/editor.png)
+<p align="center">
+  <img src="docs/screenshots/local-file-browser.png" alt="Local shell with the local file browser"><br>
+  <em>Local shell with the local file browser following the shell's folder</em>
+</p>
 
-![Local shell with the local file browser](docs/screenshots/local-file-browser.png)
+<p align="center">
+  <img src="docs/screenshots/editor.png" alt="Built-in editor with syntax highlighting, KWrite-style menus and minimap"><br>
+  <em>Built-in editor: syntax highlighting, KWrite-style menus, tabs and minimap</em>
+</p>
 
-<sub>The screenshots show demo data only.</sub>
+<p align="center"><sub>The screenshots show demo data only.</sub></p>
 
 ## Features
 
 - **Native protocols** – SSH (jump hosts, SOCKS5 proxies, local/remote/dynamic port forwarding, agent forwarding, X11, keyboard-interactive/OTP), Telnet and SFTP implemented in Go; no external `ssh`, `sftp` or `expect` required.
-- **Terminals** – tabs and split tabs, find bar, tab colours, xterm.js or the Ghostty engine; local shell via PTY (Linux) or ConPTY (Windows).
+- **Terminals** – tabs and split tabs, find bar, tab colours; local shell via PTY (Linux) or ConPTY (Windows).
+- **Two terminal engines** – [xterm.js](https://xtermjs.org) (default) or [Ghostty](https://ghostty.org)'s terminal core via [ghostty-web](https://github.com/coder/ghostty-web), selectable in *Preferences → Terminal Options*. The Ghostty engine runs inside LeanTerm, so Ghostty's terminal emulation is available on Windows as well.
 - **File browser** – SFTP and local files next to the terminal: drag and drop, parallel transfers with queue, follows the shell's folder, open with the default application and upload changes back.
 - **Editor** – edits local and remote files directly over SSH; syntax highlighting for 50+ languages and configuration formats, KWrite-style *Selection* and *Go* menus, bookmarks, block selection and minimap.
 - **Automation** – variables and prompts, Expect sequences, connection chains, clusters with broadcast input, pipe/tee of terminal output.
@@ -106,4 +116,4 @@ Tests: `go test ./internal/...`, `npm --prefix frontend test -- --run` and `npm 
 
 LeanTerm is licensed under the [GNU General Public License v3.0](LICENSE).
 
-<sub>LeanTerm was originally inspired by Ásbrú Connection Manager.</sub>
+<sub>LeanTerm is inspired by Ásbrú Connection Manager and MobaXterm.</sub>
