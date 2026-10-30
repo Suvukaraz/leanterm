@@ -128,6 +128,17 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 
 ## 🛠️ Installation & Building
 
+### Linux: one command for all common distributions
+```bash
+curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh
+```
+The script installs the latest release (x86_64) and asks for your password via `sudo` where needed:
+- **Debian 13+, Ubuntu 24.04+ and derivatives** (Mint 22, Pop!_OS, Zorin, …): the `.deb` package via `apt`, including all dependencies.
+- **Fedora 39+, RHEL/Alma/Rocky 10, openSUSE Tumbleweed/Leap 16, Arch/Manjaro/EndeavourOS**: GTK 4 and WebKitGTK 6.0 from the distribution, LeanTerm itself in `/usr/local`.
+- Other distributions work when GTK 4.10+ and WebKitGTK 6.0 are installed. Not supported: Debian 12, Ubuntu 22.04 and older (GTK older than 4.10), musl based systems such as Alpine.
+
+Running the command again updates LeanTerm. Options go after `sh -s --`, e.g. `… | sh -s -- --version 1.0.0` or `… | sh -s -- --uninstall` (your configuration in `~/.config/leanterm` is kept).
+
 ### Debian / Ubuntu Package (.deb)
 Download `leanterm_1.0.0_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
@@ -143,6 +154,8 @@ To build the `.deb` package from source (builds the frontend and the binary, the
 npm --prefix frontend install
 ./build/package-deb.sh 1.0.0
 ```
+
+The generic archive used by `install.sh` on non-Debian distributions is built with `./build/package-tarball.sh 1.0.0`.
 
 ### Windows 10/11 (installer)
 Download `leanterm_1.0.0_windows_amd64_setup.exe` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and run it. It installs LeanTerm to `C:\Program Files\LeanTerm` with Start menu and desktop shortcuts and an uninstaller, and installs the WebView2 runtime if it is missing. Windows 10 version 1809 or newer is required (pseudo console for the local shell). The installer is not code-signed, so SmartScreen asks for confirmation on the first start.
