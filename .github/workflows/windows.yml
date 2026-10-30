@@ -52,11 +52,13 @@ jobs:
           # NSIS is not on the PATH of the runner (install it when missing).
           export PATH="$PATH:/c/Program Files (x86)/NSIS"
           command -v makensis >/dev/null || { choco install nsis -y --no-progress && export PATH="$PATH:/c/Program Files (x86)/NSIS"; }
+          ls -la bin
+          # makensis needs native Windows paths (no mixed / and \).
+          BINARY=$(cygpath -w "$PWD/bin/LeanTerm.exe")
+          SETUP=$(cygpath -w "$PWD/bin/leanterm_${VERSION}_windows_amd64_setup.exe")
           cd build/windows/nsis
           makensis -V2 -DINFO_PRODUCTVERSION="$VERSION" \
-            -DARG_WAILS_AMD64_BINARY="$GITHUB_WORKSPACE/bin/LeanTerm.exe" \
-            -DOUTFILE="$GITHUB_WORKSPACE/bin/leanterm_${VERSION}_windows_amd64_setup.exe" \
-            project.nsi
+            -DARG_WAILS_AMD64_BINARY="$BINARY" -DOUTFILE="$SETUP" project.nsi
 
       - uses: actions/upload-artifact@v4
         with:
