@@ -99,7 +99,8 @@
       save();
     }
     // Ctrl+Alt+L: local shell
-    else if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'l') {
+    // (AltGr arrives as Ctrl+Alt on Windows and types characters.)
+    else if (e.ctrlKey && e.altKey && !e.getModifierState?.('AltGraph') && e.key.toLowerCase() === 'l') {
       e.preventDefault();
       openLocalShell('tab');
     }

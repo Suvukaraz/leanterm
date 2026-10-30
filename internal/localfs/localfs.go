@@ -9,11 +9,11 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 
+	"github.com/Suvukaraz/leanterm/internal/platform"
 	"github.com/Suvukaraz/leanterm/internal/sftpsvc"
 )
 
@@ -120,7 +120,7 @@ func entryFor(p string, fi fs.FileInfo) FileEntry {
 	return e
 }
 
-// List returns the entries of dir (dot files only when showHidden is set).
+// List returns the entries of dir (hidden files only when showHidden is set).
 func List(dir string, showHidden bool) ([]FileEntry, error) {
 	dir, err := cleanAbs(dir)
 	if err != nil {
@@ -132,12 +132,12 @@ func List(dir string, showHidden bool) ([]FileEntry, error) {
 	}
 	result := make([]FileEntry, 0, len(des))
 	for _, de := range des {
-		if !showHidden && strings.HasPrefix(de.Name(), ".") {
-			continue
-		}
 		fi, err := de.Info()
 		if err != nil {
 			continue // removed while listing
+		}
+		if !showHidden && isHidden(de.Name(), fi) {
+			continue
 		}
 		result = append(result, entryFor(filepath.Join(dir, de.Name()), fi))
 	}
@@ -201,6 +201,12 @@ func Rename(from, to string) error {
 	return friendly(os.Rename(from, to))
 }
 
+// isRoot reports whether p is a file system root: "/" or a drive like `C:\`.
+func isRoot(p string) bool {
+	vol := filepath.VolumeName(p)
+	return p == "/" || (vol != "" && strings.TrimRight(p[len(vol):], `\/`) == "")
+}
+
 // Remove deletes the given files and folders (folders recursively). Symlinks are
 // removed themselves, never their targets.
 func Remove(paths []string) error {
@@ -211,8 +217,8 @@ func Remove(paths []string) error {
 			errs = append(errs, err)
 			continue
 		}
-		if p == "/" {
-			errs = append(errs, errors.New("refusing to delete /"))
+		if isRoot(p) {
+			errs = append(errs, fmt.Errorf("refusing to delete %s", p))
 			continue
 		}
 		if err := os.RemoveAll(p); err != nil {
@@ -493,12 +499,8 @@ func OpenDefault(p string) error {
 	if fi.IsDir() {
 		return fmt.Errorf("is a folder: %s", p)
 	}
-	if out, err := exec.Command("xdg-open", p).CombinedOutput(); err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return fmt.Errorf("no application could open '%s': %s", filepath.Base(p), msg)
+	if err := platform.OpenFile(p); err != nil {
+		return fmt.Errorf("no application could open '%s': %v", filepath.Base(p), err)
 	}
 	return nil
 }

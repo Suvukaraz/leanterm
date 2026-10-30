@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../../lib/fspath';
   import { getIcon } from '../../lib/theme/icons';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
 
@@ -27,7 +28,7 @@
   }: Props = $props();
 
   const iconName = $derived(mode === 'folder' ? 'gtk-directory' : 'gtk-file');
-  const displayPath = $derived(path ? path.split('/').pop() || path : '(None)');
+  const displayPath = $derived(path ? baseName(path) || path : '(None)');
 
   let busy = false;
 

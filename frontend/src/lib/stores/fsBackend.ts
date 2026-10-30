@@ -4,6 +4,7 @@
 import * as SFTPService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/sftpservice.js';
 import * as LocalFSService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/localfsservice.js';
 import type { FileEntry } from '../../../bindings/github.com/Suvukaraz/leanterm/internal/sftpsvc/models.js';
+import { DRIVES } from '../fspath';
 
 export type BrowserKind = 'sftp' | 'local';
 
@@ -57,7 +58,7 @@ const localBackend: FsBackend = {
   open: async (tmpID) => tmpID,
   getwd: (id) => LocalFSService.Getwd(id),
   home: (id) => LocalFSService.Home(id),
-  list: async (id, p, hidden) => (await LocalFSService.List(id, p, hidden)) || [],
+  list: async (id, p, hidden) => (p === DRIVES ? await LocalFSService.Drives(id) : await LocalFSService.List(id, p, hidden)) || [],
   statVFS: (id, p) => LocalFSService.StatVFS(id, p),
   mkdir: (id, p) => LocalFSService.Mkdir(id, p, false),
   createFile: (id, p) => LocalFSService.CreateFile(id, p),

@@ -1,11 +1,8 @@
 package services
 
 import (
-	"context"
-	"os/exec"
 	"sort"
 	"strings"
-	"time"
 )
 
 // FontFamily is an installed font family as listed by fontconfig.
@@ -15,44 +12,30 @@ type FontFamily struct {
 	Monospace bool     `json:"monospace"`
 }
 
-// fcListFormat prints one line per font face: family, style and spacing
-// (100 = mono, 90 = dual width, 110 = charcell; empty = proportional).
-const fcListFormat = "%{family[0]}\t%{style[0]}\t%{spacing}\n"
-
-// ListFonts returns the installed font families (via fc-list), sorted by name.
-// An empty list means fontconfig is not available; the font dialog then falls
-// back to a built-in list.
+// ListFonts returns the installed font families, sorted by name: from fc-list on
+// Unix, from the font registry and the font files on Windows. An empty list
+// means no font source is available; the font dialog then uses a built-in list.
 func (ss *SystemService) ListFonts() ([]FontFamily, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "fc-list", "--format", fcListFormat).Output()
+	faces, err := listFontFaces()
 	if err != nil {
-		if _, lookErr := exec.LookPath("fc-list"); lookErr != nil {
-			return []FontFamily{}, nil
-		}
 		return nil, err
 	}
-	return parseFcList(string(out)), nil
+	return groupFaces(faces), nil
 }
 
-func parseFcList(out string) []FontFamily {
+// groupFaces merges faces into families with their distinct styles.
+func groupFaces(faces []fontFace) []FontFamily {
 	byName := map[string]*FontFamily{}
 	seenStyle := map[string]map[string]bool{}
-	for _, line := range strings.Split(out, "\n") {
-		parts := strings.Split(line, "\t")
-		name := strings.TrimSpace(parts[0])
+	for _, face := range faces {
+		name := strings.TrimSpace(face.Family)
 		if name == "" || strings.HasPrefix(name, ".") {
 			continue
 		}
-		style := ""
-		if len(parts) > 1 {
-			style = strings.TrimSpace(parts[1])
-		}
+		style := strings.TrimSpace(face.Style)
 		if style == "" {
 			style = "Regular"
 		}
-		mono := len(parts) > 2 && isMonoSpacing(strings.TrimSpace(parts[2]))
-
 		f := byName[name]
 		if f == nil {
 			f = &FontFamily{Name: name, Styles: []string{}}
@@ -61,7 +44,7 @@ func parseFcList(out string) []FontFamily {
 		}
 		// A family counts as monospace when its faces are (some list no spacing for
 		// single faces, e.g. emoji fallbacks inside a mono family).
-		f.Monospace = f.Monospace || mono
+		f.Monospace = f.Monospace || face.Mono
 		if !seenStyle[name][style] {
 			seenStyle[name][style] = true
 			f.Styles = append(f.Styles, style)
@@ -80,12 +63,4 @@ func parseFcList(out string) []FontFamily {
 		return families[i].Name < families[j].Name
 	})
 	return families
-}
-
-func isMonoSpacing(spacing string) bool {
-	switch spacing {
-	case "90", "100", "110":
-		return true
-	}
-	return false
 }

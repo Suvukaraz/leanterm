@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/google/uuid"
 	"github.com/Suvukaraz/leanterm/internal/config"
 )
@@ -28,8 +26,9 @@ type LocalSession struct {
 	stream    *Stream
 	cfg       config.LocalShellConfig
 	emitter   EventEmitter
-	cmd       *exec.Cmd
-	ptyFile   *os.File
+	proc      shellProcess
+	// cwd is the last folder the shell reported (OSC 7 / OSC 9;9).
+	cwd string
 	ctx       context.Context
 	cancel    context.CancelFunc
 	startedAt time.Time
@@ -79,10 +78,10 @@ func (ls *LocalSession) TmpID() string { return ls.tmpID }
 func (ls *LocalSession) ShellPID() int {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
-	if ls.cmd == nil || ls.cmd.Process == nil || ls.state != "connected" {
+	if ls.proc == nil || ls.state != "connected" {
 		return 0
 	}
-	return ls.cmd.Process.Pid
+	return ls.proc.Pid()
 }
 func (ls *LocalSession) Title() string { return ls.title }
 func (ls *LocalSession) Kind() string  { return "local" }
@@ -113,38 +112,33 @@ func (ls *LocalSession) startLocked() error {
 	// Resolve shell binary
 	shell := ls.cfg.Binary
 	if shell == "" {
-		shell = os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/bash"
-		}
+		shell = defaultShell()
 	}
 
-	// Prepare command
 	var args []string
 	if ls.cfg.Options != "" {
 		args = strings.Fields(ls.cfg.Options)
 	}
 
-	cmd := exec.CommandContext(ls.ctx, shell, args...)
-
 	// Working directory
 	dir := ls.cfg.Directory
 	if dir == "" {
-		dir = os.Getenv("HOME")
-		if dir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			dir = home
+		} else {
 			dir = "."
 		}
 	}
-	cmd.Dir = dir
-	cmd.Env = localShellEnv(os.Environ())
 
-	// Initial winsize
-	ws := &pty.Winsize{
-		Rows: uint16(ls.rows),
-		Cols: uint16(ls.cols),
-	}
-
-	ptyFile, err := pty.StartWithSize(cmd, ws)
+	args, env := withCwdReporting(shell, args, localShellEnv(os.Environ()))
+	proc, err := startShell(ls.ctx, shellSpec{
+		Path: shell,
+		Args: args,
+		Dir:  dir,
+		Env:  env,
+		Cols: ls.cols,
+		Rows: ls.rows,
+	})
 	if err != nil {
 		ls.state = "disconnected"
 		ls.notifyStateLocked("disconnected")
@@ -153,16 +147,15 @@ func (ls *LocalSession) startLocked() error {
 		return err
 	}
 
-	ls.cmd = cmd
-	ls.ptyFile = ptyFile
+	ls.proc = proc
 	ls.state = "connected"
 	ls.notifyStateLocked("connected")
 
 	// Goroutine to read from PTY into Stream
-	go ls.readLoop(ptyFile)
+	go ls.readLoop(proc)
 
 	// Goroutine to wait for process exit
-	go ls.waitLoop(cmd)
+	go ls.waitLoop(proc)
 
 	return nil
 }
@@ -182,11 +175,15 @@ func localShellEnv(base []string) []string {
 	return append(env, "TERM=xterm-256color", "COLORTERM=truecolor")
 }
 
-func (ls *LocalSession) readLoop(ptyFile *os.File) {
+func (ls *LocalSession) readLoop(proc shellProcess) {
 	buf := make([]byte, 32*1024)
+	var scanner cwdScanner
 	for {
-		n, err := ptyFile.Read(buf)
+		n, err := proc.Read(buf)
 		if n > 0 {
+			if cwd := scanner.Scan(buf[:n]); cwd != "" {
+				ls.reportCwd(cwd)
+			}
 			_, _ = ls.stream.Write(buf[:n])
 		}
 		if err != nil {
@@ -198,8 +195,27 @@ func (ls *LocalSession) readLoop(ptyFile *os.File) {
 	}
 }
 
-func (ls *LocalSession) waitLoop(cmd *exec.Cmd) {
-	_ = cmd.Wait()
+// reportCwd remembers a folder the shell reported and tells the file browser
+// ("session:cwd:<tmpID>", the event SSH sessions send for OSC 7).
+func (ls *LocalSession) reportCwd(cwd string) {
+	ls.mu.Lock()
+	changed := cwd != ls.cwd
+	ls.cwd = cwd
+	ls.mu.Unlock()
+	if changed && ls.emitter != nil {
+		ls.emitter.Emit("session:cwd:"+ls.tmpID, cwd)
+	}
+}
+
+// ReportedCwd is the last folder the shell reported, "" if it reports none.
+func (ls *LocalSession) ReportedCwd() string {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	return ls.cwd
+}
+
+func (ls *LocalSession) waitLoop(proc shellProcess) {
+	_ = proc.Wait()
 
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
@@ -208,11 +224,13 @@ func (ls *LocalSession) waitLoop(cmd *exec.Cmd) {
 		return
 	}
 
-	ls.state = "disconnected"
-	if ls.ptyFile != nil {
-		_ = ls.ptyFile.Close()
-		ls.ptyFile = nil
+	// A restarted shell already replaced this one.
+	if ls.proc != proc {
+		return
 	}
+	ls.state = "disconnected"
+	_ = proc.Close()
+	ls.proc = nil
 
 	// Greeting line on disconnect (ANSI red): DISCONNECTED (PRESS <ENTER> TO RECONNECT) (<time>)
 	timeStr := time.Now().Format("15:04:05 02-01-2006")
@@ -246,8 +264,8 @@ func (ls *LocalSession) Write(data []byte) error {
 		return nil
 	}
 
-	if ls.ptyFile != nil {
-		_, err := ls.ptyFile.Write(data)
+	if ls.proc != nil {
+		_, err := ls.proc.Write(data)
 		return err
 	}
 	return nil
@@ -264,11 +282,8 @@ func (ls *LocalSession) Resize(cols, rows int) error {
 		ls.rows = rows
 	}
 
-	if ls.ptyFile != nil {
-		return pty.Setsize(ls.ptyFile, &pty.Winsize{
-			Rows: uint16(ls.rows),
-			Cols: uint16(ls.cols),
-		})
+	if ls.proc != nil {
+		return ls.proc.Resize(ls.cols, ls.rows)
 	}
 	return nil
 }
@@ -284,9 +299,9 @@ func (ls *LocalSession) Disconnect() error {
 	if ls.cancel != nil {
 		ls.cancel()
 	}
-	if ls.ptyFile != nil {
-		_ = ls.ptyFile.Close()
-		ls.ptyFile = nil
+	if ls.proc != nil {
+		_ = ls.proc.Close()
+		ls.proc = nil
 	}
 	ls.state = "disconnected"
 	ls.notifyStateLocked("disconnected")
@@ -301,9 +316,9 @@ func (ls *LocalSession) Close() error {
 	if ls.cancel != nil {
 		ls.cancel()
 	}
-	if ls.ptyFile != nil {
-		_ = ls.ptyFile.Close()
-		ls.ptyFile = nil
+	if ls.proc != nil {
+		_ = ls.proc.Close()
+		ls.proc = nil
 	}
 	ls.stream.Close()
 	ls.notifyStateLocked("closed")

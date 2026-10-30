@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/pkg/sftp"
+
+	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
 // TransferOptions mirror the [sftp_browser] transfer preferences.
@@ -339,7 +341,8 @@ func joinErrors(errs []string) error {
 }
 
 // DefaultDownloadDir resolves the configured download folder: explicit setting,
-// else the XDG download dir, else ~/Downloads, else the home directory.
+// else the system download folder (Windows) or the XDG download dir, else
+// ~/Downloads, else the home directory.
 func DefaultDownloadDir(configured string) string {
 	home, _ := os.UserHomeDir()
 	if configured != "" {
@@ -347,6 +350,9 @@ func DefaultDownloadDir(configured string) string {
 			return filepath.Join(home, configured[2:])
 		}
 		return configured
+	}
+	if dir := platform.DownloadsDir(); dir != "" {
+		return dir
 	}
 	if xdg := xdgDownloadDir(home); xdg != "" {
 		return xdg

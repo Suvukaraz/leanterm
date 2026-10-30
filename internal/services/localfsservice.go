@@ -16,6 +16,8 @@ type LocalFSService struct {
 	mu      sync.Mutex
 	tracker *localfs.Tracker
 	store   *config.Store
+	// cwdOf returns the folder a shell reported itself (OSC 7 / 9;9).
+	cwdOf func(tmpID string) string
 }
 
 func NewLocalFSService(sessionMgr *session.SessionManager, emitter localfs.EventEmitter) *LocalFSService {
@@ -25,7 +27,13 @@ func NewLocalFSService(sessionMgr *session.SessionManager, emitter localfs.Event
 		}
 		return sessionMgr.LocalShellPID(tmpID)
 	}
-	return &LocalFSService{tracker: localfs.NewTracker(pidOf, emitter)}
+	cwdOf := func(tmpID string) string {
+		if sessionMgr == nil {
+			return ""
+		}
+		return sessionMgr.LocalShellCwd(tmpID)
+	}
+	return &LocalFSService{tracker: localfs.NewTracker(pidOf, emitter), cwdOf: cwdOf}
 }
 
 // SetStore gives the service access to the [sftp_browser] preferences.
@@ -49,6 +57,9 @@ func (s *LocalFSService) copyOptions(overwrite bool) localfs.CopyOptions {
 
 // Getwd returns the working directory of the shell in tmpID (home if unknown).
 func (s *LocalFSService) Getwd(tmpID string) (string, error) {
+	if cwd := s.cwdOf(tmpID); cwd != "" {
+		return cwd, nil
+	}
 	return s.tracker.Getwd(tmpID)
 }
 
@@ -66,6 +77,11 @@ func (s *LocalFSService) SetFollow(tmpID string, on bool) {
 // Close stops following when the browser of tmpID goes away.
 func (s *LocalFSService) Close(tmpID string) {
 	s.tracker.Stop(tmpID)
+}
+
+// Drives lists the drives for the browser's "This PC" level (Windows; "/" elsewhere).
+func (s *LocalFSService) Drives(tmpID string) ([]sftpsvc.FileEntry, error) {
+	return localfs.Drives()
 }
 
 func (s *LocalFSService) List(tmpID, path string, showHidden bool) ([]sftpsvc.FileEntry, error) {

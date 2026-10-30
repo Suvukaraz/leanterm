@@ -3,6 +3,7 @@ package editor
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -101,6 +102,9 @@ func TestSaveNewFileAndExistingWithoutExpectation(t *testing.T) {
 }
 
 func TestSaveThroughSymlinkKeepsLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links need developer mode on Windows")
+	}
 	dir := t.TempDir()
 	real := filepath.Join(dir, "real.txt")
 	link := filepath.Join(dir, "link.txt")

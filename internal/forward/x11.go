@@ -9,11 +9,12 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/Suvukaraz/leanterm/internal/platform"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -80,6 +81,8 @@ func ParseDisplay(d string) (*DisplayInfo, error) {
 		if host == "" || isExplicitUnix {
 			info.IsUnix = true
 			info.SocketPath = socketPath
+			// X servers without a socket file (Windows: VcXsrv, X410, Xming) listen on TCP.
+			info.TCPAddr = net.JoinHostPort("127.0.0.1", strconv.Itoa(6000+displayNum))
 			return info, nil
 		}
 	}
@@ -103,8 +106,9 @@ func GetX11Cookie(display string) (protocol string, cookieHex string, err error)
 		}
 	}
 
-	cmd := exec.Command("xauth", "list", display)
-	out, err := cmd.Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := platform.Command(ctx, "xauth", "list", display).Output()
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		for _, line := range lines {

@@ -124,7 +124,8 @@ Usage: leanterm [OPTIONS]
 
 Options:
   --help, -h                  Show this help message and exit
-  --config-dir=<path>         Path to configuration directory (default: ~/.config/leanterm)
+  --config-dir=<path>         Path to configuration directory
+                              (default: ~/.config/leanterm, Windows: %APPDATA%\LeanTerm)
   --temp-dir=<path>           Path to temporary directory
   --no-backup                 Do not create configuration backups on startup
   --start-shell               Open a local shell connection on startup

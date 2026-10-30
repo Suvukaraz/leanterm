@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/platform"
 	"github.com/Suvukaraz/leanterm/internal/secrets"
 	"github.com/Suvukaraz/leanterm/internal/stats"
 	"github.com/Suvukaraz/leanterm/internal/telnet"
@@ -175,6 +175,14 @@ func (sm *SessionManager) LocalShellPID(tmpID string) int {
 		return ls.ShellPID()
 	}
 	return 0
+}
+
+// LocalShellCwd is the folder the local shell in tmpID last reported ("" if none).
+func (sm *SessionManager) LocalShellCwd(tmpID string) string {
+	if ls, ok := sm.Get(tmpID).(*LocalSession); ok {
+		return ls.ReportedCwd()
+	}
+	return ""
 }
 
 func (sm *SessionManager) Open(req OpenRequest) ([]string, error) {
@@ -563,7 +571,7 @@ func (sm *SessionManager) RunLocalMacro(tmpID string, cmd string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		c := exec.CommandContext(ctx, "/bin/sh", "-c", cmdStr)
+		c := platform.ShellCommand(ctx, cmdStr)
 		var out bytes.Buffer
 		c.Stdout = &out
 		c.Stderr = &out

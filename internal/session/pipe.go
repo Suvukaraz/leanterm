@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+
+	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
 // ActiveTee holds state for an active file tee on a session stream.
@@ -118,7 +120,7 @@ func (m *PipeTeeManager) StartPipe(ctx context.Context, tmpID string, stream *St
 	}
 
 	pipeCtx, cancel := context.WithCancel(ctx)
-	cmd := exec.CommandContext(pipeCtx, "/bin/sh", "-c", command)
+	cmd := platform.ShellCommand(pipeCtx, command)
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

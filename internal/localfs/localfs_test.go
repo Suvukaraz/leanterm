@@ -3,6 +3,7 @@ package localfs
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -35,6 +36,9 @@ func TestRelativePathsRejected(t *testing.T) {
 }
 
 func TestListHiddenAndSymlinks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links need developer mode on Windows")
+	}
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "a.txt"), "a")
 	write(t, filepath.Join(dir, ".hidden"), "h")
@@ -104,6 +108,9 @@ func TestCreateRenameRemove(t *testing.T) {
 }
 
 func TestCopyAndConflicts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links need developer mode on Windows")
+	}
 	src := t.TempDir()
 	dst := t.TempDir()
 	write(t, filepath.Join(src, "f.txt"), "new")
@@ -176,6 +183,9 @@ func TestMove(t *testing.T) {
 }
 
 func TestChmodRecursiveScope(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "sub")
 	_ = os.Mkdir(sub, 0o755)
@@ -200,6 +210,9 @@ func TestChmodRecursiveScope(t *testing.T) {
 }
 
 func TestPermissionDeniedMessage(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix permission bits")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores permissions")
 	}
@@ -214,6 +227,9 @@ func TestPermissionDeniedMessage(t *testing.T) {
 }
 
 func TestProcessCwd(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("reads /proc")
+	}
 	want, _ := os.Getwd()
 	got, err := ProcessCwd(os.Getpid())
 	if err != nil || got != want {
@@ -225,6 +241,9 @@ func TestProcessCwd(t *testing.T) {
 }
 
 func TestStatVFSAndHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses $HOME and Unix paths")
+	}
 	info, err := StatVFS(t.TempDir())
 	if err != nil || info.TotalSpace == 0 || info.FreeSpace > info.TotalSpace {
 		t.Fatalf("StatVFS = %+v, %v", info, err)

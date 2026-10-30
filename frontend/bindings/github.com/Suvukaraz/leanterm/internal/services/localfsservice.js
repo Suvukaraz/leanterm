@@ -76,6 +76,17 @@ export function CreateFile(tmpID, path) {
 }
 
 /**
+ * Drives lists the drives for the browser's "This PC" level (Windows; "/" elsewhere).
+ * @param {string} tmpID
+ * @returns {$CancellablePromise<sftpsvc$0.FileEntry[]>}
+ */
+export function Drives(tmpID) {
+    return $Call.ByID(4193537634, tmpID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType2($result);
+    }));
+}
+
+/**
  * Getwd returns the working directory of the shell in tmpID (home if unknown).
  * @param {string} tmpID
  * @returns {$CancellablePromise<string>}

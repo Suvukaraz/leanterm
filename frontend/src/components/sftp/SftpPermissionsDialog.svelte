@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { baseName } from '../../lib/fspath';
   import Dialog from '../gtk/Dialog.svelte';
   import Button from '../gtk/Button.svelte';
 
@@ -88,7 +89,7 @@
 
   let title = $derived(
     paths.length === 1
-      ? `Change Permissions: ${paths[0].split('/').pop() || paths[0]}`
+      ? `Change Permissions: ${baseName(paths[0]) || paths[0]}`
       : `Change Permissions for ${paths.length} items`
   );
 </script>

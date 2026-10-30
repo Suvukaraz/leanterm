@@ -18,7 +18,9 @@ export interface TerminalLook {
 }
 
 export const DEFAULT_FONT_PT = 11;
-const MONO_FALLBACK = '"DejaVu Sans Mono", "Ubuntu Mono", "Noto Sans Mono", "Liberation Mono", "Courier New", monospace';
+// Linux fonts first, then the Windows ones (Cascadia Mono since Windows 11, Consolas before).
+const MONO_FALLBACK =
+  '"DejaVu Sans Mono", "Ubuntu Mono", "Noto Sans Mono", "Liberation Mono", "Cascadia Mono", Consolas, "Courier New", monospace';
 
 const DEFAULT_PALETTE = [
   '#000000', '#cc0000', '#4e9a06', '#c4a000', '#3465a4', '#75507b', '#06989a', '#d3d7cf',
