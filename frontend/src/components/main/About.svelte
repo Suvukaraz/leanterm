@@ -28,8 +28,8 @@
       <h2 class="app-title">LeanTerm</h2>
       <div class="app-version">Version 1.0.0</div>
       <p class="app-desc">
-        Next-generation Connection Manager, modern rewrite of Ásbrú Connection Manager
-        built with Go, Wails v3, and Svelte 5.
+        SSH, Telnet and SFTP connection manager for Linux and Windows,
+        built with Go, Wails v3 and Svelte 5.
       </p>
       <div class="app-license">
         Licensed under the <b>GNU General Public License v3 (GPLv3)</b>

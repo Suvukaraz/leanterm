@@ -105,7 +105,7 @@ func (ss *SystemService) AppInfo() map[string]string {
 		"name":        "LeanTerm",
 		"version":     "1.0.0",
 		"license":     "GPLv3",
-		"description": "LeanTerm Connection Manager (rewrite of Ásbrú Connection Manager in Go + Wails + Svelte)",
+		"description": "SSH, Telnet and SFTP connection manager for Linux and Windows (Go + Wails + Svelte)",
 	}
 }
 

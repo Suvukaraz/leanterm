@@ -73,3 +73,9 @@ func TestDumpAndListUUIDs(t *testing.T) {
 	// Test ListUUIDs
 	ListUUIDs(cfg)
 }
+
+func TestParseEditFiles(t *testing.T) {
+	flags := ParseCLI([]string{"--edit=/etc/hosts", "--edit", "notes.txt", "--start-shell"})
+	assert.Equal(t, []string{"/etc/hosts", "notes.txt"}, flags.EditFiles)
+	assert.True(t, flags.StartShell)
+}

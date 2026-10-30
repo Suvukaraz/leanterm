@@ -10,14 +10,16 @@ import (
 )
 
 type CLIFlags struct {
-	Help        bool
-	ConfigDir   string
-	TempDir     string
-	NoBackup    bool
-	StartShell  bool
-	Password    string
-	StartUUIDs  []string // id or id:cluster
-	EditUUID    string
+	Help       bool
+	ConfigDir  string
+	TempDir    string
+	NoBackup   bool
+	StartShell bool
+	Password   string
+	StartUUIDs []string // id or id:cluster
+	EditUUID   string
+	// EditFiles are local files to open in the built-in editor (--edit).
+	EditFiles   []string
 	DumpUUID    string
 	ListUUIDs   bool
 	Preferences bool
@@ -97,6 +99,13 @@ func ParseCLI(args []string) *CLIFlags {
 				i++
 				flags.DumpUUID = args[i]
 			}
+		case "edit":
+			if hasVal {
+				flags.EditFiles = append(flags.EditFiles, val)
+			} else if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				i++
+				flags.EditFiles = append(flags.EditFiles, args[i])
+			}
 		case "list-uuids":
 			flags.ListUUIDs = true
 		case "preferences":
@@ -132,6 +141,7 @@ Options:
   --password=<pwd>            Master / GUI password to unlock stored credentials
   --start-uuid=<id>[:<clust>] Start the connection with the given UUID (can be repeated)
   --edit-uuid=<id>            Open the edit window for the connection with UUID <id>
+  --edit=<file>               Open a local file in the built-in editor (can be repeated)
   --dump-uuid=<id>            Print configuration for UUID <id> as TOML and exit
   --list-uuids                Print table of all connections and groups (UUID/Type/Method/Name)
   --preferences               Open the Preferences window on startup
