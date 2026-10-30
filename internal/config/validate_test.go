@@ -63,10 +63,13 @@ func TestValidateSSHForwardDuplicates(t *testing.T) {
 
 func TestValidateTerminalEngine(t *testing.T) {
 	cfg := Default()
-	assert.Equal(t, "xterm", cfg.Terminal.Engine)
+	assert.Equal(t, "rio", cfg.Terminal.Engine)
 
 	cfg.Terminal.Engine = "ghostty"
 	assert.False(t, Validate(cfg).HasErrors())
+
+	cfg.Terminal.Engine = "xterm"
+	assert.True(t, Validate(cfg).HasErrors())
 
 	cfg.Terminal.Engine = "vte"
 	res := Validate(cfg)

@@ -49,7 +49,7 @@ More options (packages, updates, uninstalling) are described [below](#installati
 
 - **Native protocols** – SSH (jump hosts, SOCKS5 proxies, local/remote/dynamic port forwarding, agent forwarding, X11, keyboard-interactive/OTP), Telnet and SFTP implemented in Go; no external `ssh`, `sftp` or `expect` required.
 - **Terminals** – tabs and split tabs, find bar, tab colours; local shell via PTY (Linux) or ConPTY (Windows).
-- **Two terminal engines** – [xterm.js](https://xtermjs.org) (default) or [Ghostty](https://ghostty.org)'s terminal core via [ghostty-web](https://github.com/coder/ghostty-web), selectable in *Preferences → Terminal Options*. The Ghostty engine runs inside LeanTerm, so Ghostty's terminal emulation is available on Windows as well.
+- **Two terminal engines** – [Rio](https://github.com/raphamorim/rio)'s terminal core via [rioterm](https://github.com/raphamorim/riotermjs) (default) or [Ghostty](https://ghostty.org)'s terminal core via [ghostty-web](https://github.com/coder/ghostty-web), selectable in *Preferences → Terminal Options*. Both run as WebAssembly inside LeanTerm, so Rio's and Ghostty's terminal emulation is available on Linux and Windows alike.
 - **File browser** – SFTP and local files next to the terminal: drag and drop, parallel transfers with queue, follows the shell's folder, open with the default application and upload changes back.
 - **Editor** – edits local and remote files directly over SSH; syntax highlighting for 50+ languages and configuration formats, KWrite-style *Selection* and *Go* menus, bookmarks, block selection and minimap.
 - **Automation** – variables and prompts, Expect sequences, connection chains, clusters with broadcast input, pipe/tee of terminal output.

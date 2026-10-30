@@ -151,9 +151,9 @@ func Validate(cfg *Config) ValidationResult {
 	}
 
 	switch cfg.Terminal.Engine {
-	case "xterm", "ghostty":
+	case "rio", "ghostty":
 	default:
-		res.AddError("terminal.engine", "must be 'xterm' or 'ghostty'")
+		res.AddError("terminal.engine", "must be 'rio' or 'ghostty'")
 	}
 
 	switch cfg.Terminal.TabsPosition {

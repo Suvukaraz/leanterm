@@ -25,7 +25,7 @@
   import { settings, loadSettings } from '../../lib/stores/config';
   import { readClipboardText } from '../../lib/bridge/clipboard';
   import { setIconTheme } from '../../lib/theme/icons';
-  import { fontFamilyCss, ptToPx } from '../../lib/terminal/xtermOptions';
+  import { fontFamilyCss, ptToPx } from '../../lib/terminal/look';
   import { fontFeaturesCss, parseStyle } from '../../lib/fonts';
   import { LANGUAGES, detectLanguage, languageById, type LanguageGroup } from '../../lib/editor/languages';
   import {

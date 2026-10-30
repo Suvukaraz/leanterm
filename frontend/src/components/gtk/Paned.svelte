@@ -170,7 +170,7 @@
   .paned-handle {
     touch-action: none;
   }
-  /* While dragging, keep the resize cursor everywhere and stop xterm/iframes from eating events. */
+  /* While dragging, keep the resize cursor everywhere and stop terminals/iframes from eating events. */
   :global(body.paned-dragging-col),
   :global(body.paned-dragging-col *) {
     cursor: col-resize !important;

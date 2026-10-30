@@ -31,7 +31,7 @@ const INPUT_BATCH_MS = 4;
 const PASTE_CHUNK = 4096;
 
 /**
- * Connects one terminal (xterm.js or ghostty-web) to a backend session.
+ * Connects one terminal (rioterm or ghostty-web) to a backend session.
  *
  * Output: subscribes to `term:data:<tmpID>` *before* requesting the replay, buffers
  * packets until the replay is written and then drops everything already contained

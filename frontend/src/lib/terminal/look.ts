@@ -1,7 +1,6 @@
 // Maps LeanTerm terminal look settings ([terminal.look], optionally overridden per
-// connection) to xterm.js options.
-import type { FontWeight, ITerminalOptions, ITheme } from '@xterm/xterm';
-import { parseStyle, type FontSetting } from '../fonts';
+// connection) to engine-neutral terminal options (Rio and ghostty-web).
+import type { FontSetting } from '../fonts';
 
 export interface TerminalLook {
   Font?: FontSetting;
@@ -27,7 +26,7 @@ const DEFAULT_PALETTE = [
   '#555753', '#ef2929', '#8ae234', '#fce94f', '#729fcf', '#ad7fa8', '#34e2e2', '#eeeeec',
 ];
 
-/** Font sizes are stored in points (like GTK/Pango); xterm.js wants CSS pixels. */
+/** Font sizes are stored in points (like GTK/Pango); the engines want CSS pixels. */
 export function ptToPx(pt: number): number {
   return Math.round(pt * (96 / 72) * 10) / 10;
 }
@@ -67,26 +66,71 @@ export function mergeLook(global: TerminalLook | undefined, personal: TerminalLo
   return out;
 }
 
-function withAlpha(hex: string, alpha: number): string {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!m || alpha >= 1) return hex;
-  const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255)
-    .toString(16)
-    .padStart(2, '0');
-  return `#${m[1]}${a}`;
+/** Colours shared by the engines (xterm.js-style names, as used by Rio and ghostty-web). */
+export interface TerminalTheme {
+  foreground: string;
+  background: string;
+  cursor: string;
+  cursorAccent: string;
+  selectionForeground: string;
+  selectionBackground: string;
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
 }
 
-export function buildTheme(look: TerminalLook): ITheme {
+export type CursorStyle = 'block' | 'bar' | 'underline';
+
+// Selection highlight, blended over the background: both engines paint on an
+// opaque canvas, where a translucent fill would pile up frame after frame.
+const SELECTION_TINT = { r: 120, g: 160, b: 220, a: 0.45 };
+
+function parseHex(color: string): [number, number, number] | undefined {
+  const m = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return undefined;
+  const v = parseInt(m[1], 16);
+  return [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff];
+}
+
+function hex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('');
+}
+
+/** The selection colour over `background` as an opaque #rrggbb. */
+export function selectionColor(background: string): string {
+  const [r, g, b] = parseHex(background) ?? [0, 0, 0];
+  const { a } = SELECTION_TINT;
+  return hex(
+    SELECTION_TINT.r * a + r * (1 - a),
+    SELECTION_TINT.g * a + g * (1 - a),
+    SELECTION_TINT.b * a + b * (1 - a)
+  );
+}
+
+export function buildTheme(look: TerminalLook): TerminalTheme {
   const p = look.Palette && look.Palette.length === 16 ? look.Palette : DEFAULT_PALETTE;
   const fg = look.Foreground || '#cccccc';
   const bg = look.Background || '#000000';
-  const transparency = look.Transparency ?? 0;
   return {
     foreground: fg,
-    background: withAlpha(bg, 1 - transparency),
+    background: bg,
     cursor: fg,
     cursorAccent: bg,
-    selectionBackground: 'rgba(120, 160, 220, 0.45)',
+    selectionForeground: fg,
+    selectionBackground: selectionColor(bg),
     black: p[0], red: p[1], green: p[2], yellow: p[3],
     blue: p[4], magenta: p[5], cyan: p[6], white: p[7],
     brightBlack: p[8], brightRed: p[9], brightGreen: p[10], brightYellow: p[11],
@@ -94,40 +138,23 @@ export function buildTheme(look: TerminalLook): ITheme {
   };
 }
 
-/** xterm wants separator characters; the setting lists characters that belong to words. */
-export function wordSeparator(wordChars: string | undefined): string {
-  const keep = new Set((wordChars ?? '-.:_/').split(''));
-  const candidates = ' ()[]{}\'"`,;<>|=&!?*@#$%^+~\\\t';
-  return candidates.split('').filter((c) => !keep.has(c)).join('');
+export function cursorStyle(look: TerminalLook): CursorStyle {
+  return look.CursorShape === 'ibeam' ? 'bar' : look.CursorShape === 'underline' ? 'underline' : 'block';
 }
 
-/** Normal and bold weight for xterm.js from the font style (xterm has no italic/stretch option). */
-export function fontWeights(font: FontSetting | undefined): { fontWeight: FontWeight; fontWeightBold: FontWeight } {
-  const { weight } = parseStyle(font?.Style);
-  return { fontWeight: weight as FontWeight, fontWeightBold: Math.min(900, Math.max(700, weight + 300)) as FontWeight };
-}
-
-export function buildTerminalOptions(look: TerminalLook): ITerminalOptions {
+/** Font, size, cursor and scrollback for a new terminal. */
+export function buildTerminalOptions(look: TerminalLook): {
+  fontFamily: string;
+  fontSize: number;
+  cursorStyle: CursorStyle;
+  scrollback: number;
+} {
   const pt = look.Font?.Size && look.Font.Size > 0 ? look.Font.Size : DEFAULT_FONT_PT;
-  const cursor = look.CursorShape === 'ibeam' ? 'bar' : look.CursorShape === 'underline' ? 'underline' : 'block';
   const scrollback = look.ScrollbackLines ?? 5000;
   return {
     fontFamily: fontFamilyCss(look.Font?.Family),
     fontSize: ptToPx(pt),
-    ...fontWeights(look.Font),
-    lineHeight: 1.0,
-    cursorBlink: true,
-    cursorStyle: cursor,
+    cursorStyle: cursorStyle(look),
     scrollback: scrollback < 0 ? 100000 : scrollback,
-    drawBoldTextInBrightColors: !!look.BoldIsBright,
-    allowTransparency: (look.Transparency ?? 0) > 0,
-    wordSeparator: wordSeparator(look.WordChars),
-    theme: buildTheme(look),
-    allowProposedApi: true,
-    macOptionIsMeta: true,
-    smoothScrollDuration: 0,
-    // Right click opens LeanTerm's own menu; selecting a word there only causes
-    // an extra repaint (visible as flicker) and differs from the GTK original.
-    rightClickSelectsWord: false,
   };
 }

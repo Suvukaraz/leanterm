@@ -51,7 +51,7 @@
   ];
 
   const engineOptions = [
-    { value: 'xterm', label: 'xterm.js (default)' },
+    { value: 'rio', label: 'Rio (rioterm, default)' },
     { value: 'ghostty', label: 'Ghostty (ghostty-web, experimental)' },
   ];
 

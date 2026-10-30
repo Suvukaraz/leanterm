@@ -1,8 +1,8 @@
 // ghostty-web implementation of the terminal handle: Ghostty's VT parser (WASM)
 // with a canvas renderer and an xterm.js-like API.
 //
-// Differences to xterm.js handled here:
-// - attachCustomKeyEventHandler: returning true means "consumed" (inverse of xterm).
+// Notes on its API:
+// - attachCustomKeyEventHandler: returning true means "consumed" (inverse of xterm.js).
 // - Wheel events are swallowed (stopPropagation), so zoom uses the wheel hook.
 // - No search addon: the find bar uses textSearch.ts and sets the selection directly
 //   (Terminal.select() maps rows to the wrong place while scrolled back).
@@ -16,7 +16,7 @@ import { Ghostty, FitAddon, Terminal, type ILink, type ILinkProvider } from 'gho
 
 import type { SearchOptions, TermHandle, TerminalHooks } from './engine';
 import { buildMatcher, findMatch, type SearchMatch, type SearchRow } from './textSearch';
-import { buildTerminalOptions, buildTheme, fontFamilyCss, type TerminalLook } from './xtermOptions';
+import { buildTerminalOptions, buildTheme, cursorStyle, fontFamilyCss, type TerminalLook } from './look';
 
 interface SelectionPoint {
   col: number;
@@ -39,10 +39,6 @@ interface GhosttyInternals {
   };
 }
 
-function cursorStyle(look: TerminalLook): 'block' | 'underline' | 'bar' {
-  return look.CursorShape === 'ibeam' ? 'bar' : look.CursorShape === 'underline' ? 'underline' : 'block';
-}
-
 export async function createGhosttyTerminal(
   container: HTMLElement,
   look: TerminalLook,
@@ -56,9 +52,10 @@ export async function createGhosttyTerminal(
     fontFamily: base.fontFamily,
     fontSize: base.fontSize,
     cursorBlink: true,
-    cursorStyle: cursorStyle(look),
+    cursorStyle: base.cursorStyle,
     scrollback: base.scrollback,
-    theme: buildTheme({ ...look, Transparency: 0 }),
+    // ghostty-web blends a translucent selection itself and keeps the text colours.
+    theme: { ...buildTheme(look), selectionBackground: 'rgba(120, 160, 220, 0.45)', selectionForeground: undefined },
     smoothScrollDuration: 0,
   });
   const fitAddon = new FitAddon();
@@ -69,7 +66,7 @@ export async function createGhosttyTerminal(
   t.attachCustomWheelEventHandler((e) => {
     if (hooks.onWheel(e)) return true;
     // ghostty-web turns the wheel into arrow keys on the alternate screen and never
-    // reports it to applications. Like xterm.js, send wheel reports when the
+    // reports it to applications. Like other terminals, send wheel reports when the
     // application enabled mouse tracking (mc, htop, tmux, vim mouse=a, ...).
     if (!t.hasMouseTracking()) return false;
 
