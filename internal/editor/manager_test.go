@@ -55,8 +55,10 @@ func TestLoadAndSaveRoundTrip(t *testing.T) {
 	assert.False(t, out.Conflict)
 	data, _ := os.ReadFile(path)
 	assert.Equal(t, "key=2\r\n", string(data))
-	fi, _ := os.Stat(path)
-	assert.Equal(t, os.FileMode(0o640), fi.Mode().Perm(), "permissions are kept")
+	if runtime.GOOS != "windows" { // Windows has no Unix permission bits
+		fi, _ := os.Stat(path)
+		assert.Equal(t, os.FileMode(0o640), fi.Mode().Perm(), "permissions are kept")
+	}
 
 	entries, _ := os.ReadDir(dir)
 	assert.Len(t, entries, 1, "no temporary file is left behind")
