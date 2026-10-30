@@ -1,0 +1,110 @@
+# Builds the Linux packages and checks install.sh on the supported distributions:
+# install, start (--help loads all libraries), uninstall.
+name: Linux install
+
+on:
+  push:
+    branches: [main]
+    paths: [install.sh, build/package-deb.sh, build/package-tarball.sh, .github/workflows/linux-install.yml]
+  pull_request:
+    paths: [install.sh, build/package-deb.sh, build/package-tarball.sh, .github/workflows/linux-install.yml]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - id: version
+        run: echo "version=$(node -p "require('./frontend/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Build packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+          npm --prefix frontend ci
+          bash build/package-deb.sh "${{ steps.version.outputs.version }}"
+          bash build/package-tarball.sh "${{ steps.version.outputs.version }}"
+          mkdir dist
+          cp bin/*.deb bin/*.tar.gz install.sh dist/
+          (cd dist && sha256sum *.deb *.tar.gz > SHA256SUMS)
+          # The binary must not need a newer glibc than 2.34 (Debian 12, Fedora 39).
+          objdump -T bin/leanterm | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/
+
+  install:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:12
+            prep: apt-get update -qq && apt-get install -y curl
+          - image: debian:13
+            prep: apt-get update -qq && apt-get install -y curl
+          - image: ubuntu:24.04
+            prep: apt-get update -qq && apt-get install -y curl
+          - image: fedora:41
+            prep: dnf install -y curl tar gzip
+          - image: opensuse/tumbleweed
+            prep: zypper -n install curl tar gzip
+          - image: archlinux:latest
+            prep: pacman -Sy --noconfirm curl tar gzip
+          # No WebKitGTK 6.0: the installer has to stop with a clear message.
+          - image: ubuntu:22.04
+            prep: apt-get update -qq && apt-get install -y curl
+            unsupported: true
+    container: ${{ matrix.image }}
+    env:
+      LEANTERM_VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Prepare
+        run: ${{ matrix.prep }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: dist
+
+      - name: Install
+        if: ${{ !matrix.unsupported }}
+        run: LEANTERM_BASE_URL="file://$PWD/dist" sh dist/install.sh
+
+      - name: Check installation
+        if: ${{ !matrix.unsupported }}
+        run: |
+          leanterm --help | head -n 1
+          ls /usr/share/applications/org.leanterm.LeanTerm.desktop /usr/local/share/applications/org.leanterm.LeanTerm.desktop 2>/dev/null | grep -q .
+
+      - name: Uninstall
+        if: ${{ !matrix.unsupported }}
+        run: |
+          sh dist/install.sh --uninstall
+          if command -v leanterm; then echo "leanterm is still installed"; exit 1; fi
+
+      - name: Refuses unsupported system
+        if: ${{ matrix.unsupported }}
+        run: |
+          if LEANTERM_BASE_URL="file://$PWD/dist" sh dist/install.sh > out.txt 2>&1; then
+            cat out.txt; echo "the installer should have failed"; exit 1
+          fi
+          cat out.txt
+          grep -q "WebKitGTK 6.0" out.txt
