@@ -80,7 +80,7 @@
     // Keys typed into a terminal, an input field or a dialog belong to that element
     // (Ctrl+S in nano, F2 in mc, Delete in an entry, ...).
     const target = e.target as HTMLElement | null;
-    if (e.defaultPrevented || target?.closest?.('.xterm, input, textarea, select, [role="dialog"], [contenteditable="true"]')) {
+    if (e.defaultPrevented || target?.closest?.('.terminal-wrapper, input, textarea, select, [role="dialog"], [contenteditable="true"]')) {
       return;
     }
     // F9: toggle command panel

@@ -325,7 +325,7 @@
         </div>
       {/if}
       <!-- Terminal tabs stay mounted while hidden: switching tabs must not
-           recreate xterm.js, the SFTP browser state or replay the output. -->
+           recreate the terminal, the SFTP browser state or replay the output. -->
       {#each sessionTabIds as id (id)}
         <div class="session-page" class:hidden-page={id !== tabId}>
           {#if id in $splits}

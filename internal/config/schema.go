@@ -3,7 +3,7 @@
 package config
 
 // SchemaVersion defines the configuration version.
-const CurrentSchemaVersion = 2
+const CurrentSchemaVersion = 3
 
 // Built-in prompt defaults from lib/PACUtils.pm:234-239
 const (
@@ -128,7 +128,7 @@ type TerminalConfig struct {
 	WindowHeight           int                  `toml:"window_height" comment:"Default terminal window height"`
 	StartMaximized         bool                 `toml:"start_maximized" comment:"Start Terminals maximized"`
 	ShowStatusBar          bool                 `toml:"show_status_bar" comment:"Show status bar on every terminal"`
-	Engine                 string               `toml:"engine" comment:"Terminal engine: xterm | ghostty (applies to new terminals)"`
+	Engine                 string               `toml:"engine" comment:"Terminal engine: rio | ghostty (applies to new terminals)"`
 	ChangeMainTitle        bool                 `toml:"change_main_title" comment:"Change main window title with terminal title"`
 	MacrosBar              string               `toml:"macros_bar" comment:"Show MACROS: never | combo | buttons"`
 	ShowGlobalMacros       bool                 `toml:"show_global_macros" comment:"Show GLOBAL commands in terminals"`

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ptToPx, fontFamilyCss, mergeLook, wordSeparator, buildTerminalOptions } from './xtermOptions';
+import { ptToPx, fontFamilyCss, mergeLook, buildTerminalOptions, buildTheme, selectionColor } from './look';
 
-describe('xtermOptions', () => {
+describe('look', () => {
   it('converts points to CSS pixels', () => {
     expect(ptToPx(9)).toBe(12);
     expect(ptToPx(11)).toBeCloseTo(14.7, 1);
@@ -32,18 +32,16 @@ describe('xtermOptions', () => {
     });
   });
 
-  it('maps the font style to xterm weights', () => {
-    const opts = buildTerminalOptions({ Font: { Family: 'Hack', Size: 11, Style: 'Light' } });
-    expect(opts.fontWeight).toBe(300);
-    expect(opts.fontWeightBold).toBe(700);
-    expect(buildTerminalOptions({ Font: { Style: 'Bold' } }).fontWeightBold).toBe(900);
+  it('blends the selection colour into an opaque one', () => {
+    expect(selectionColor('#000000')).toBe('#364863');
+    expect(selectionColor('#ffffff')).toMatch(/^#[0-9a-f]{6}$/);
+    expect(buildTheme({ Background: '#101010' }).selectionBackground).toBe(selectionColor('#101010'));
   });
 
-  it('treats configured word characters as part of words', () => {
-    const sep = wordSeparator('-.:_/');
-    expect(sep).not.toContain('-');
-    expect(sep).not.toContain('/');
-    expect(sep).toContain(' ');
+  it('maps the cursor shape', () => {
+    expect(buildTerminalOptions({ CursorShape: 'ibeam' }).cursorStyle).toBe('bar');
+    expect(buildTerminalOptions({ CursorShape: 'underline' }).cursorStyle).toBe('underline');
+    expect(buildTerminalOptions({}).cursorStyle).toBe('block');
   });
 
   it('builds options with the configured font size in pixels', () => {

@@ -1,10 +1,9 @@
 // Engine-neutral terminal handle. TerminalView, TerminalStream, the find bar and
-// the context menu only talk to this interface, so xterm.js and ghostty-web can be
+// the context menu only talk to this interface, so rioterm and ghostty-web can be
 // swapped per terminal ([terminal] engine).
-import type { TerminalLook } from './xtermOptions';
-import { createXtermTerminal } from './xtermEngine';
+import type { TerminalLook } from './look';
 
-export type TerminalEngine = 'xterm' | 'ghostty';
+export type TerminalEngine = 'rio' | 'ghostty';
 
 export interface SearchOptions {
   caseSensitive: boolean;
@@ -53,8 +52,9 @@ export interface TermHandle {
   dispose(): void;
 }
 
+/** Rio is the default; unknown values (and the former "xterm") fall back to it. */
 export function normalizeEngine(value: string | undefined | null): TerminalEngine {
-  return value === 'ghostty' ? 'ghostty' : 'xterm';
+  return value === 'ghostty' ? 'ghostty' : 'rio';
 }
 
 /** Creates a terminal of the given engine inside `container`. */
@@ -64,10 +64,11 @@ export async function createTerminal(
   look: TerminalLook,
   hooks: TerminalHooks
 ): Promise<TermHandle> {
+  // Loaded on demand: each engine brings its own WASM core.
   if (engine === 'ghostty') {
-    // Loaded on demand: the module embeds the ~400 KB Ghostty WASM.
     const { createGhosttyTerminal } = await import('./ghosttyEngine');
     return createGhosttyTerminal(container, look, hooks);
   }
-  return createXtermTerminal(container, look, hooks);
+  const { createRioTerminal } = await import('./rioEngine');
+  return createRioTerminal(container, look, hooks);
 }

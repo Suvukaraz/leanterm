@@ -15,6 +15,7 @@ type MigrationStep struct {
 // migrations contains ordered upgrade steps for LeanTerm's configuration.
 var migrations = []MigrationStep{
 	{FromVersion: 1, ToVersion: 2, Migrate: migrateV1toV2},
+	{FromVersion: 2, ToVersion: 3, Migrate: migrateV2toV3},
 }
 
 // migrateV1toV2 switches configs that still carry the old v1 defaults to the
@@ -28,6 +29,15 @@ func migrateV1toV2(cfg *Config) error {
 	}
 	if cfg.Terminal.Look.Font.Size <= 9 && strings.EqualFold(cfg.Terminal.Look.Font.Family, "Monospace") {
 		cfg.Terminal.Look.Font.Size = DefaultTerminalFontSize
+	}
+	return nil
+}
+
+// migrateV2toV3 replaces the removed xterm.js engine with Rio, the new default.
+// A chosen Ghostty engine is kept.
+func migrateV2toV3(cfg *Config) error {
+	if cfg.Terminal.Engine != "ghostty" {
+		cfg.Terminal.Engine = "rio"
 	}
 	return nil
 }

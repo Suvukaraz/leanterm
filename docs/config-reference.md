@@ -7,7 +7,7 @@
 
 ```toml
 # Configuration schema version
-schema_version = 2
+schema_version = 3
 
 # Preferences > Main Options > Behaviour
 [general]
@@ -149,8 +149,8 @@ window_height = 600
 start_maximized = false
 # Show status bar on every terminal
 show_status_bar = true
-# Terminal engine: xterm | ghostty (applies to new terminals)
-engine = 'xterm'
+# Terminal engine: rio | ghostty (applies to new terminals)
+engine = 'rio'
 # Change main window title with terminal title
 change_main_title = false
 # Show MACROS: never | combo | buttons

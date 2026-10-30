@@ -1,7 +1,7 @@
 <script lang="ts" module>
   // Keyboard handlers of the open menu levels (deepest last). The root menu owns a
   // single window listener and forwards keys to the deepest level, so menus never
-  // take focus away from the terminal (which would make xterm.js repaint).
+  // take focus away from the terminal (which would make it repaint).
   const keyHandlers: ((e: KeyboardEvent) => void)[] = [];
 </script>
 
