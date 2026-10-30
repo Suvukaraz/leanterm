@@ -70,11 +70,10 @@ Replaces: linxterm
 Recommends: xdg-utils, openssh-client, keepassxc
 Homepage: https://github.com/Suvukaraz/leanterm
 Description: LeanTerm Connection Manager
- Complete rewrite of Ásbrú Connection Manager in Go and Svelte 5.
- Supports native SSH, native Telnet (RFC 854/855/1091/1073/1143), embedded
- MobaXterm-style SFTP browser, a built-in text editor (also for remote
- files over SFTP), automated Expect sequences, variable substitutions,
- clusters & PCC, and KeePassXC integration.
+ SSH, Telnet and SFTP connection manager for Linux and Windows. Native SSH
+ (jump hosts, port forwarding, agent, X11) and Telnet, tabbed terminals, an
+ SFTP and local file browser, a built-in text editor that edits remote files
+ directly, Expect automation, variables, clusters and KeePassXC integration.
 EOF
 chmod 0644 "$DEB_ROOT/DEBIAN/control"
 

@@ -39,7 +39,9 @@ func (we *wailsEmitter) Emit(event string, data any) {
 	}
 }
 
-func handleCLICommands(flags *app.CLIFlags, sessionMgr *session.SessionManager, cfgStore *config.Store, emitter *wailsEmitter) {
+// handleCLICommands runs the start options of this or of a second instance;
+// workDir resolves relative --edit paths (the second instance's folder).
+func handleCLICommands(flags *app.CLIFlags, workDir string, sessionMgr *session.SessionManager, cfgStore *config.Store, emitter *wailsEmitter, editorSvc *services.EditorService) {
 	if flags == nil {
 		return
 	}
@@ -77,6 +79,16 @@ func handleCLICommands(flags *app.CLIFlags, sessionMgr *session.SessionManager, 
 	// 5. Preferences
 	if flags.Preferences {
 		emitter.Emit("ui:open:preferences", nil)
+	}
+
+	// 6. Files for the editor
+	for _, f := range flags.EditFiles {
+		if !filepath.IsAbs(f) && workDir != "" {
+			f = filepath.Join(workDir, f)
+		}
+		if err := editorSvc.Open(services.EditorFile{Kind: "local", Path: f}); err != nil {
+			fmt.Fprintf(os.Stderr, "cannot open %s in the editor: %v\n", f, err)
+		}
 	}
 }
 
@@ -178,7 +190,7 @@ func main() {
 			UniqueID: "org.leanterm.LeanTerm.Instance",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				secondFlags := app.ParseCLI(data.Args)
-				handleCLICommands(secondFlags, sessionMgr, cfgStore, emitter)
+				handleCLICommands(secondFlags, data.WorkingDir, sessionMgr, cfgStore, emitter, editorSvc)
 			},
 		}
 	}
@@ -290,7 +302,8 @@ func main() {
 		}
 
 		// 2. CLI commands
-		handleCLICommands(flags, sessionMgr, cfgStore, emitter)
+		workDir, _ := os.Getwd()
+		handleCLICommands(flags, workDir, sessionMgr, cfgStore, emitter, editorSvc)
 
 		// 3. Local shell autostart
 		if cfgStore.Config().LocalShell.Autostart && !flags.StartShell {
