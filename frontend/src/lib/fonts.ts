@@ -124,8 +124,8 @@ export function fontLabel(font: FontSetting | null | undefined): string {
 // Used when fontconfig is not available (e.g. browser preview).
 const FALLBACK: FontFamily[] = [
   ...['Monospace', 'DejaVu Sans Mono', 'Ubuntu Mono', 'Noto Sans Mono', 'Liberation Mono', 'Fira Code', 'JetBrains Mono',
-    'Hack', 'Source Code Pro', 'Cascadia Code', 'Courier New'].map((name) => ({ name, styles: ['Regular', 'Bold', 'Italic', 'Bold Italic'], monospace: true })),
-  ...['Sans', 'Serif', 'Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', 'Inter', 'Roboto'].map((name) => ({
+    'Hack', 'Source Code Pro', 'Cascadia Code', 'Cascadia Mono', 'Consolas', 'Courier New'].map((name) => ({ name, styles: ['Regular', 'Bold', 'Italic', 'Bold Italic'], monospace: true })),
+  ...['Sans', 'Serif', 'Cantarell', 'Ubuntu', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', 'Inter', 'Roboto', 'Segoe UI'].map((name) => ({
     name,
     styles: ['Regular', 'Bold', 'Italic', 'Bold Italic'],
     monospace: false,

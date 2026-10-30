@@ -29,6 +29,7 @@
     copyOrMoveLocal,
   } from '../../lib/stores/sftp';
   import { fsBackend, type BrowserKind } from '../../lib/stores/fsBackend';
+  import { baseName, isRootPath, rootPath } from '../../lib/fspath';
   import { settings } from '../../lib/stores/config';
   import { sftpPanelWidth } from '../../lib/stores/ui';
   import * as SystemService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/systemservice.js';
@@ -59,6 +60,8 @@
   let isLocal = $derived(kind === 'local');
 
   let view = $derived($sftpViews[tmpID]);
+  let win = $derived(view?.win ?? false);
+  let atRoot = $derived(isRootPath(view?.currentPath ?? '', win));
   let sessionInfo = $derived($sessions.find((s) => s.tmpID === tmpID));
   let isConnected = $derived(sessionInfo?.state === 'connected');
 
@@ -214,7 +217,7 @@
   let openError = $state('');
   async function handleOpenFile(p: string) {
     if (openingFile) return;
-    openingFile = p.split('/').pop() || p;
+    openingFile = baseName(p) || p;
     try {
       await openWithDefaultApp(tmpID, p);
     } catch (err: any) {
@@ -236,7 +239,7 @@
     try {
       await EditorService.Open(file as any);
     } catch (err: any) {
-      openError = `Could not open '${p.split('/').pop() || p}' in the editor:\n${err?.message || err}`;
+      openError = `Could not open '${baseName(p) || p}' in the editor:\n${err?.message || err}`;
     }
   }
 
@@ -271,7 +274,7 @@
   }
 
   function handleOpenStartFolder() {
-    loadDir(tmpID, view?.startPath || '/');
+    loadDir(tmpID, view?.startPath || rootPath(win));
   }
 
   function handleCopyCurrentPath() {
@@ -284,14 +287,18 @@
     navigator.clipboard.writeText(p);
   }
 
+  // POSIX shells get single quotes. Windows shells (cmd, PowerShell) take double
+  // quotes, which file names cannot contain; pushd also switches the drive in cmd.
+  function quotePath(p: string): string {
+    return win ? `"${p}"` : `'${p.replace(/'/g, "'\\''")}'`;
+  }
+
   function handleCopyPathToTerminal(p: string) {
-    const quoted = `'${p.replace(/'/g, "'\\''")}' `;
-    sendSessionInput(tmpID, quoted);
+    sendSessionInput(tmpID, `${quotePath(p)} `);
   }
 
   function handleCdInTerminal(p: string) {
-    const cmd = `cd '${p.replace(/'/g, "'\\''")}'\n`;
-    sendSessionInput(tmpID, cmd);
+    sendSessionInput(tmpID, win ? `pushd ${quotePath(p)}\r` : `cd ${quotePath(p)}\n`);
   }
 
   function handleGoToTerminalFolder() {
@@ -346,7 +353,7 @@
   async function handleTriggerUploadDialog() {
     try {
       const path = await SystemService.ChooseFile('Upload file', '', false);
-      if (path) await transfer('upload', [path], view?.currentPath || '/');
+      if (path) await transfer('upload', [path], view?.currentPath || rootPath(win));
     } catch (err) {
       console.warn('Upload dialog failed:', err);
     }
@@ -409,7 +416,7 @@
 
   function openRenameDialog(fromPath: string) {
     renameFromPath = fromPath;
-    renameNewName = fromPath.split('/').pop() || '';
+    renameNewName = baseName(fromPath) || '';
     renameOpen = true;
   }
 
@@ -475,7 +482,7 @@
   <SftpToolbar
     canBack={(view?.historyIndex ?? 0) > 0}
     canForward={(view?.historyIndex ?? 0) < (view?.history?.length ?? 0) - 1}
-    canUp={(view?.currentPath ?? '/') !== '/' && (view?.currentPath ?? '') !== ''}
+    canUp={!atRoot}
     hasSelection={(view?.selectedPaths?.length ?? 0) > 0}
     showHidden={view?.showHidden ?? false}
     followTerminal={view?.followTerminal ?? false}
@@ -498,7 +505,7 @@
 
   <!-- Path Bar -->
   <SftpPathBar
-    currentPath={view?.currentPath || '/'}
+    currentPath={view?.currentPath || rootPath(win)}
     history={view?.history || []}
     followTerminal={view?.followTerminal ?? false}
     local={kind === 'local'}
@@ -517,7 +524,9 @@
       oncopyTo={(paths) => handleCopyOrMoveTo('copy', paths)}
       onmoveTo={(paths) => handleCopyOrMoveTo('move', paths)}
       entries={view?.entries || []}
-      currentPath={view?.currentPath || '/'}
+      currentPath={view?.currentPath || rootPath(win)}
+      {atRoot}
+      {win}
       selectedPaths={view?.selectedPaths || []}
       loading={view?.loading ?? false}
       onselect={(paths) => setSelectedPaths(tmpID, paths)}
@@ -637,7 +646,7 @@
   type="warning"
   title="Confirm Delete"
   primaryText={deletePaths.length === 1
-    ? `Delete '${deletePaths[0].split('/').pop()}'? This cannot be undone.`
+    ? `Delete '${baseName(deletePaths[0])}'? This cannot be undone.`
     : `Delete ${deletePaths.length} items? This cannot be undone.`}
   buttons="yes_no"
   onresponse={(resp) => {

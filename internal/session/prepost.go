@@ -6,11 +6,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/platform"
 	"github.com/Suvukaraz/leanterm/internal/vars"
 )
 
@@ -91,7 +91,7 @@ func ExecutePrePost(ctx context.Context, opts PrePostOptions) error {
 
 		// Execute with 60s timeout per command
 		cmdCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
-		cmd := exec.CommandContext(cmdCtx, "/bin/sh", "-c", cmdStr)
+		cmd := platform.ShellCommand(cmdCtx, cmdStr)
 
 		var outBuf bytes.Buffer
 		cmd.Stdout = &outBuf

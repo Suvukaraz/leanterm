@@ -452,7 +452,7 @@
                   />
                   <Entry
                     bind:value={sftp.DownloadDir}
-                    placeholder="(empty = XDG Downloads)"
+                    placeholder="(empty = system Downloads folder)"
                   />
                 </div>
               </div>

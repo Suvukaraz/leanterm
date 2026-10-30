@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/platform"
 	"github.com/Suvukaraz/leanterm/internal/wol"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -94,18 +93,7 @@ func (ss *SystemService) SaveScreenshot(connID string, base64PNG string) (string
 }
 
 func (ss *SystemService) OpenURL(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "linux":
-		cmd = exec.Command("xdg-open", url)
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return errors.New("unsupported platform")
-	}
-	return cmd.Start()
+	return platform.OpenURL(url)
 }
 
 func (ss *SystemService) OpenPath(path string) error {
@@ -115,7 +103,7 @@ func (ss *SystemService) OpenPath(path string) error {
 func (ss *SystemService) AppInfo() map[string]string {
 	return map[string]string{
 		"name":        "LeanTerm",
-		"version":     "0.9.0",
+		"version":     "1.0.0",
 		"license":     "GPLv3",
 		"description": "LeanTerm Connection Manager (rewrite of Ásbrú Connection Manager in Go + Wails + Svelte)",
 	}

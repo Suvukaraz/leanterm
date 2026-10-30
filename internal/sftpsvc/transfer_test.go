@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -68,6 +69,9 @@ func TestSlotLimiterHonoursLimit(t *testing.T) {
 }
 
 func TestParallelUploadDownloadRoundTrip(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("checks Unix permission bits")
+	}
 	mgr := NewSFTPManager()
 	id := newLocalSFTP(t, mgr)
 

@@ -6,7 +6,9 @@
 
   interface Props {
     open: boolean;
+    title?: string;
     prompt?: string;
+    placeholder?: string;
     options?: string[];
     masked?: boolean;
     onsubmit?: (val: string) => void;
@@ -15,7 +17,9 @@
 
   let {
     open = false,
+    title = 'Variable Substitution',
     prompt = 'Please enter a value:',
+    placeholder = 'Value...',
     options = [],
     masked = false,
     onsubmit,
@@ -47,7 +51,7 @@
 </script>
 
 {#if open}
-  <Dialog title="Variable Substitution" width={420} onclose={handleCancel}>
+  <Dialog {title} width={420} onclose={handleCancel}>
     <div class="ask-body">
       <div class="prompt-text">{prompt}</div>
 
@@ -57,7 +61,7 @@
         <Entry
           bind:value={enteredValue}
           type={masked ? 'password' : 'text'}
-          placeholder="Value..."
+          {placeholder}
           onkeydown={(e) => {
             if (e.key === 'Enter') handleSubmit();
           }}

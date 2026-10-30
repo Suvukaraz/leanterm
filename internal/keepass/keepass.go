@@ -5,13 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
 var (
@@ -31,7 +31,7 @@ type cacheItem struct {
 type CmdRunner func(ctx context.Context, stdin string, name string, args ...string) ([]byte, error)
 
 func defaultCmdRunner(ctx context.Context, stdin string, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := platform.Command(ctx, name, args...)
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}
@@ -157,7 +157,7 @@ func (c *Client) GetField(ctx context.Context, entry, field string) (string, err
 		stdin = c.masterPassword + "\n"
 	}
 
-	outBytes, err := c.runner(ctx, stdin, "keepassxc-cli", args...)
+	outBytes, err := c.runner(ctx, stdin, cliPath(), args...)
 	if err != nil {
 		return "", fmt.Errorf("keepassxc-cli failed for '%s|%s': %w", field, entry, err)
 	}

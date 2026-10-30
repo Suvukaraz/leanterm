@@ -6,7 +6,7 @@ LeanTerm is a connection and terminal manager for Linux, built with **Go** and *
 
 It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a local file browser next to the terminal, a built-in text editor that edits remote files directly over SSH, uses a reworked button bar, and hides rarely used functions (clusters) by default. SSH, SFTP and Telnet are implemented natively in Go, so there are no `ssh`/`sftp`/`expect` wrappers and no shell calls for file operations.
 
-> **Status:** 0.9.0 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
+> **Status:** 1.0.0 – usable day to day on Linux (tested on Debian 13 / KDE Plasma, Wayland). Windows and macOS build files exist but are untested.
 
 ## 📸 Screenshots
 
@@ -82,6 +82,7 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 - No size limit: files above 10 MB ask once, files above 100 MB ask twice and open without syntax highlighting (both limits are configurable).
 - Line endings: Unix (LF) / Windows (CRLF) switch in the status bar; encodings UTF-8, UTF-8 with BOM, Windows-1252, ISO-8859-1 and ISO-8859-15 (detected on open, changeable for saving or *Reload with Encoding*).
 - Syntax highlighting (CodeMirror 6) for C, C++, Arduino, C#, Java, Kotlin, Dart/Flutter, Go, Rust, Python, Mojo, Nim, Clojure, Lua, Bash, PowerShell, Windows Batch, HTML, CSS/SCSS/Less, JavaScript, TypeScript, React (JSX/TSX), Svelte, Markdown, SQL and the common configuration formats: JSON/JSONC, YAML, TOML, XML, INI/.env, systemd units (all unit types plus networkd, nspawn and Quadlet files, drop-ins and `/etc/systemd/*.conf`), desktop entries (.desktop/.directory), KDL, nginx, Apache, SSH config, crontab, hosts/fstab, Dockerfile, Makefile, CMake, .gitignore, Windows registry (.reg), Protocol Buffers, Jinja2, RPM spec and diff/patch. Detection uses the file name, the extension and the `#!` line.
+- KWrite's *Selection* menu (deselect, block selection mode, join lines, capitalisation, clean/convert/format indentation, align on, apply word wrap, extra carets, select next/all occurrences) and *Go* menu (quick open, next/previous tab, previous/next location and editing location, previous/next modified line, matching bracket, bookmarks).
 - KWrite-style scrollbar minimap: the right edge shows the document as text graphics in the syntax colours; click to jump, drag the marked area to scroll (View → Show Scrollbar Minimap).
 - Search and replace (regular expressions), go to line, folding, multiple cursors, overwrite mode (Insert), toggle comment, upper/lower case, word wrap and visible whitespace.
 
@@ -128,9 +129,9 @@ It is **not** a 1:1 copy, though. LeanTerm adds an embedded SFTP browser and a l
 ## 🛠️ Installation & Building
 
 ### Debian / Ubuntu Package (.deb)
-Download `leanterm_0.9.0_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
+Download `leanterm_1.0.0_amd64.deb` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and install it:
 ```bash
-sudo apt install ./leanterm_0.9.0_amd64.deb
+sudo apt install ./leanterm_1.0.0_amd64.deb
 ```
 
 Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`, e.g. Debian 13 / Ubuntu 24.04 or newer); `apt` installs them automatically.
@@ -140,7 +141,23 @@ Runtime dependencies: GTK4 and WebKitGTK 6.0 (`libgtk-4-1`, `libwebkitgtk-6.0-4`
 To build the `.deb` package from source (builds the frontend and the binary, then packages them into `bin/`):
 ```bash
 npm --prefix frontend install
-./build/package-deb.sh 0.9.0
+./build/package-deb.sh 1.0.0
+```
+
+### Windows 10/11 (installer)
+Download `leanterm_1.0.0_windows_amd64_setup.exe` from the [Releases](https://github.com/Suvukaraz/leanterm/releases) page and run it. It installs LeanTerm to `C:\Program Files\LeanTerm` with Start menu and desktop shortcuts and an uninstaller, and installs the WebView2 runtime if it is missing. Windows 10 version 1809 or newer is required (pseudo console for the local shell). The installer is not code-signed, so SmartScreen asks for confirmation on the first start.
+
+Differences to Linux:
+- The configuration is stored in `%APPDATA%\LeanTerm`, downloads go to the Windows *Downloads* folder.
+- The local shell is PowerShell (7 if installed, else Windows PowerShell), otherwise `cmd.exe`; it reports its folder to the file browser (*Follow terminal folder*) when started without own options.
+- Pre/post commands, pipes and `<CMD:…>` run through `cmd.exe`.
+- The local file browser starts at *This PC* (drive list) above the drive roots; Unix permissions are not available.
+- SSH agent: the Windows OpenSSH agent (`ssh-agent` service) or a named pipe in `SSH_AUTH_SOCK` (e.g. Pageant). X11 forwarding needs an X server such as VcXsrv or X410 (TCP display, `localhost:0`).
+- KeePassXC: `keepassxc-cli.exe` is found in `PATH` or the KeePassXC install folder.
+
+To build the installer on Linux (needs `nsis` and `wails3`):
+```bash
+./build/package-windows.sh 1.0.0
 ```
 
 ### Building from Source

@@ -138,6 +138,7 @@ func waitFor(t *testing.T, cond func() bool) {
 func TestSSHSessionAsksForPasswordAndHostKey(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir on Windows
 	t.Setenv("SSH_AUTH_SOCK", "")
 
 	addr, _ := testSSHServer(t, "s3cret")
@@ -204,7 +205,9 @@ func TestSSHSessionAsksForPasswordAndHostKey(t *testing.T) {
 }
 
 func TestSSHSessionStateStaysResponsiveWhileConnecting(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir on Windows
 	t.Setenv("SSH_AUTH_SOCK", "")
 
 	// A server that accepts TCP but never speaks SSH keeps the handshake pending.

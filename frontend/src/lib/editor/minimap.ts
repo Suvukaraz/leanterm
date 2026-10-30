@@ -33,6 +33,8 @@ class Minimap implements PluginValue {
   colors = new Map<string, string>();
   geo: Geometry = { height: 0, lines: 1, top: 0, visible: 0, offset: 0 };
   drag: { y: number; top: number } | null = null;
+  /** The text graphics must be redrawn (document, colours or selection changed). */
+  dirty = true;
   measureReq: { key: Minimap; read: () => Geometry & { mapTop: number }; write: (m: Geometry & { mapTop: number }) => void };
 
   constructor(readonly view: EditorView) {
@@ -57,17 +59,9 @@ class Minimap implements PluginValue {
   update(u: ViewUpdate) {
     const reconfigured = u.transactions.some((tr) => tr.reconfigured);
     if (reconfigured) this.colors.clear();
-    if (
-      reconfigured ||
-      u.docChanged ||
-      u.viewportChanged ||
-      u.geometryChanged ||
-      u.heightChanged ||
-      u.selectionSet ||
-      syntaxTree(u.startState) !== syntaxTree(u.state)
-    ) {
-      this.schedule();
-    }
+    const content = reconfigured || u.docChanged || u.selectionSet || syntaxTree(u.startState) !== syntaxTree(u.state);
+    if (content) this.dirty = true;
+    if (content || u.viewportChanged || u.geometryChanged || u.heightChanged) this.schedule();
   }
 
   destroy() {
@@ -121,13 +115,21 @@ class Minimap implements PluginValue {
   }
 
   write(m: Geometry & { mapTop: number }) {
+    const prev = this.geo;
     this.geo = m;
     if (m.height <= 0) return; // hidden tab
-    this.dom.style.top = `${m.mapTop}px`;
-    this.dom.style.height = `${m.height}px`;
-    this.slider.style.top = `${m.top * LINE - m.offset}px`;
-    this.slider.style.height = `${Math.max(LINE * 2, m.visible * LINE)}px`;
-    this.draw();
+    // Only touch what changed: style writes during scrolling cost layout work.
+    const top = `${m.mapTop}px`;
+    const height = `${m.height}px`;
+    if (this.dom.style.top !== top) this.dom.style.top = top;
+    if (this.dom.style.height !== height) this.dom.style.height = height;
+    this.slider.style.transform = `translateY(${m.top * LINE - m.offset}px)`;
+    const sliderHeight = `${Math.max(LINE * 2, m.visible * LINE)}px`;
+    if (this.slider.style.height !== sliderHeight) this.slider.style.height = sliderHeight;
+    if (this.dirty || prev.offset !== m.offset || prev.height !== m.height || prev.lines !== m.lines) {
+      this.dirty = false;
+      this.draw();
+    }
   }
 
   // ---- Drawing --------------------------------------------------------------------------------
@@ -295,8 +297,10 @@ const minimapTheme = EditorView.theme({
   '.cm-minimap canvas': { display: 'block' },
   '.cm-minimap-slider': {
     position: 'absolute',
+    top: '0',
     left: '0',
     right: '0',
+    willChange: 'transform',
     backgroundColor: v('editor-minimap-slider'),
     borderTop: `1px solid ${v('scrollbar')}`,
     borderBottom: `1px solid ${v('scrollbar')}`,

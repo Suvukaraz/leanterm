@@ -287,7 +287,7 @@ size = 11
 [local_shell]
 # Start a shell upon startup
 autostart = false
-# Shell Binary (empty = $SHELL)
+# Shell Binary (empty = $SHELL; Windows: PowerShell, else cmd.exe)
 binary = ''
 # Shell Options
 options = ''

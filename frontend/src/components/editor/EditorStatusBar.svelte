@@ -6,6 +6,8 @@
     column: number;
     selected: number;
     overwrite: boolean;
+    /** Block selection mode (KWrite shows BLOCK / LINE). */
+    block?: boolean;
     indent: string;
     encoding: string;
     lineEnding: 'lf' | 'crlf';
@@ -15,6 +17,7 @@
     message?: string;
     ontoggleLineEnding: () => void;
     ontoggleOverwrite: () => void;
+    ontoggleBlock?: () => void;
     onencoding: (anchor: DOMRect) => void;
     onlanguage: (anchor: DOMRect) => void;
   }
@@ -24,6 +27,7 @@
     column,
     selected,
     overwrite,
+    block = false,
     indent,
     encoding,
     lineEnding,
@@ -33,6 +37,7 @@
     message = '',
     ontoggleLineEnding,
     ontoggleOverwrite,
+    ontoggleBlock,
     onencoding,
     onlanguage,
   }: Props = $props();
@@ -48,6 +53,9 @@
   {/if}
   <button type="button" class="sb-item sb-button" title="Toggle insert/overwrite (Insert)" onclick={ontoggleOverwrite}>
     {overwrite ? 'OVR' : 'INS'}
+  </button>
+  <button type="button" class="sb-item sb-button" title="Toggle block selection mode (Ctrl+Shift+B)" onclick={() => ontoggleBlock?.()}>
+    {block ? 'BLOCK' : 'LINE'}
   </button>
   <span class="sb-item">{indent}</span>
   <button type="button" class="sb-item sb-button" title="Encoding" onclick={(e) => onencoding(rect(e))}>

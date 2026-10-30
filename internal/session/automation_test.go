@@ -19,6 +19,7 @@ func (nopEmitter) Emit(string, any) {}
 func TestAutomationRunsExpectAndWritesSessionLog(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir on Windows
 	t.Setenv("SSH_AUTH_SOCK", "")
 
 	addr, _ := testSSHServer(t, "pw")

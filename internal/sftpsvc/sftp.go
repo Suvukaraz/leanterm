@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
 // EventEmitter defines the interface for event delivery to the frontend.
@@ -442,14 +443,10 @@ func (m *SFTPManager) OpenWithDefaultApp(sftpID string, remotePath string, emitt
 
 	_ = os.Chtimes(localPath, stat.ModTime(), stat.ModTime())
 
-	// Launch the default desktop application. xdg-open returns quickly; a non-zero
-	// exit means no application is associated with the file type.
-	if out, err := exec.Command("xdg-open", localPath).CombinedOutput(); err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return localPath, fmt.Errorf("no application could open '%s': %s", baseName, msg)
+	// Launch the default desktop application; it fails when none is associated
+	// with the file type.
+	if err := platform.OpenFile(localPath); err != nil {
+		return localPath, fmt.Errorf("no application could open '%s': %v", baseName, err)
 	}
 
 	watchForEdits(tempDir, localPath, func() {

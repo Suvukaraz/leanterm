@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,11 +111,9 @@ func BuildAuthMethods(opts AuthOptions) ([]ssh.AuthMethod, error) {
 
 	if !opts.Exclusive {
 		// 1. SSH agent
-		if agentSock := os.Getenv("SSH_AUTH_SOCK"); agentSock != "" {
-			if conn, err := net.Dial("unix", agentSock); err == nil {
-				agClient := agent.NewClient(conn)
-				methods = append(methods, ssh.PublicKeysCallback(agClient.Signers))
-			}
+		if conn, err := dialAgent(); err == nil {
+			agClient := agent.NewClient(conn)
+			methods = append(methods, ssh.PublicKeysCallback(agClient.Signers))
 		}
 
 		// 2. Default unencrypted keys in ~/.ssh

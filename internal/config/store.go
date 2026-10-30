@@ -13,6 +13,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	toml "github.com/pelletier/go-toml/v2"
+
+	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
 var (
@@ -52,12 +54,12 @@ func GetDefaultConfigDir() string {
 	if env := os.Getenv("LEANTERM_CONFIG_DIR"); env != "" {
 		return env
 	}
-	home, err := os.UserHomeDir()
+	base, err := platform.ConfigBaseDir()
 	if err != nil {
-		return filepath.Join(".config", "leanterm")
+		return filepath.Join(".config", platform.AppDirName)
 	}
-	dir := filepath.Join(home, ".config", "leanterm")
-	migrateLegacyConfigDir(filepath.Join(home, ".config", "linxterm"), dir)
+	dir := filepath.Join(base, platform.AppDirName)
+	migrateLegacyConfigDir(filepath.Join(base, "linxterm"), dir)
 	return dir
 }
 
@@ -80,11 +82,11 @@ func ResolveConfigDir(customDir string) string {
 	if filepath.IsAbs(customDir) {
 		return customDir
 	}
-	home, err := os.UserHomeDir()
+	base, err := platform.ConfigBaseDir()
 	if err != nil {
 		return customDir
 	}
-	return filepath.Join(home, ".config", customDir)
+	return filepath.Join(base, customDir)
 }
 
 func NewStore(opts StoreOptions) (*Store, error) {

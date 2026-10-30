@@ -129,7 +129,8 @@
       findOpen = true;
       return true;
     }
-    if (e.ctrlKey && e.altKey && k === 's' && hasSFTP) {
+    // AltGr arrives as Ctrl+Alt on Windows; AltGr combinations type characters.
+    if (e.ctrlKey && e.altKey && !e.getModifierState?.('AltGraph') && k === 's' && hasSFTP) {
       ontoggleSftp?.();
       return true;
     }

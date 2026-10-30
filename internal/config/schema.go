@@ -176,7 +176,7 @@ type SFTPBrowserConfig struct {
 // LocalShellConfig represents local shell preferences
 type LocalShellConfig struct {
 	Autostart bool                `toml:"autostart" comment:"Start a shell upon startup"`
-	Binary    string              `toml:"binary" comment:"Shell Binary (empty = $SHELL)"`
+	Binary    string              `toml:"binary" comment:"Shell Binary (empty = $SHELL; Windows: PowerShell, else cmd.exe)"`
 	Options   string              `toml:"options" comment:"Shell Options"`
 	Directory string              `toml:"directory" comment:"Initial Directory (empty = $HOME)"`
 	Look      *TerminalLookConfig `toml:"look,omitempty" comment:"Optional look override for local shell"`

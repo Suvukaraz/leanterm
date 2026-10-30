@@ -5,6 +5,7 @@ import * as SFTPService from '../../../bindings/github.com/Suvukaraz/leanterm/in
 import * as LocalFSService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/localfsservice.js';
 import type { FileEntry } from '../../../bindings/github.com/Suvukaraz/leanterm/internal/sftpsvc/models.js';
 import { fsBackend, type BrowserKind } from './fsBackend';
+import { DRIVES, baseName, isWindowsPath, joinPath, normalizePath, parentPath, rootPath } from '../fspath';
 
 export interface TransferItem {
   id: string;
@@ -20,6 +21,8 @@ export interface TransferItem {
 export interface SftpViewState {
   kind: BrowserKind;
   sftpID: string;
+  /** Windows paths (local browser on Windows): drive letters, "\\" and the drive list. */
+  win: boolean;
   /** Folder the browser started in ("Open start folder"). */
   startPath: string;
   currentPath: string;
@@ -43,16 +46,19 @@ export async function openSftp(tmpID: string, kind: BrowserKind = 'sftp'): Promi
     const sftpID = await backend.open(tmpID);
     if (!sftpID) return null;
 
-    let initialPath = '/';
+    let initialPath = '';
     try {
-      initialPath = (await backend.getwd(sftpID)) || '/';
+      initialPath = (await backend.getwd(sftpID)) || '';
     } catch {}
+    const win = kind === 'local' && isWindowsPath(initialPath);
+    initialPath = normalizePath(initialPath || rootPath(win), win);
 
     sftpViews.update((views) => ({
       ...views,
       [tmpID]: {
         kind,
         sftpID,
+        win,
         startPath: initialPath,
         currentPath: initialPath,
         history: [initialPath],
@@ -76,6 +82,7 @@ export async function openSftp(tmpID: string, kind: BrowserKind = 'sftp'): Promi
       [tmpID]: {
         kind,
         sftpID: '',
+        win: false,
         startPath: '',
         currentPath: '',
         history: [],
@@ -97,15 +104,7 @@ export async function loadDir(tmpID: string, targetPath: string): Promise<void> 
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID) return;
 
-  // Normalize path
-  let norm = targetPath.trim();
-  if (!norm.startsWith('/')) {
-    norm = '/' + norm;
-  }
-  // Strip trailing slashes unless root
-  if (norm.length > 1 && norm.endsWith('/')) {
-    norm = norm.replace(/\/+$/, '');
-  }
+  const norm = normalizePath(targetPath, view.win);
 
   sftpViews.update((views) => ({
     ...views,
@@ -143,8 +142,8 @@ export async function loadDir(tmpID: string, targetPath: string): Promise<void> 
       };
     });
 
-    // Asynchronously fetch VFS Info
-    fetchVFSInfo(tmpID, norm);
+    // Asynchronously fetch VFS Info (the drive list has none)
+    if (norm !== DRIVES) fetchVFSInfo(tmpID, norm);
   } catch (err: any) {
     sftpViews.update((views) => ({
       ...views,
@@ -202,21 +201,18 @@ export function navigateForward(tmpID: string): void {
 
 export function navigateUp(tmpID: string): void {
   const view = get(sftpViews)[tmpID];
-  if (!view || view.currentPath === '/' || view.currentPath === '') return;
-
-  const parts = view.currentPath.split('/').filter(Boolean);
-  parts.pop();
-  const parentPath = '/' + parts.join('/');
-  loadDir(tmpID, parentPath);
+  if (!view) return;
+  const parent = parentPath(view.currentPath, view.win);
+  if (parent !== null) loadDir(tmpID, parent);
 }
 
 /** Navigates to the home folder (Home button). */
 export async function goHome(tmpID: string): Promise<void> {
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID) return;
-  let target = '/';
+  let target = rootPath(view.win);
   try {
-    target = (await fsBackend(view.kind).home(view.sftpID)) || '/';
+    target = (await fsBackend(view.kind).home(view.sftpID)) || target;
   } catch {}
   await loadDir(tmpID, target);
 }
@@ -286,7 +282,7 @@ export async function createFolder(tmpID: string, folderName: string): Promise<v
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID || !folderName.trim()) return;
 
-  const p = view.currentPath === '/' ? `/${folderName.trim()}` : `${view.currentPath}/${folderName.trim()}`;
+  const p = joinPath(view.currentPath, folderName.trim(), view.win);
   await fsBackend(view.kind).mkdir(view.sftpID, p);
   await refresh(tmpID);
 }
@@ -295,7 +291,7 @@ export async function createEmptyFile(tmpID: string, fileName: string): Promise<
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID || !fileName.trim()) return;
 
-  const p = view.currentPath === '/' ? `/${fileName.trim()}` : `${view.currentPath}/${fileName.trim()}`;
+  const p = joinPath(view.currentPath, fileName.trim(), view.win);
   await fsBackend(view.kind).createFile(view.sftpID, p);
   await refresh(tmpID);
 }
@@ -312,9 +308,8 @@ export async function renameItem(tmpID: string, fromPath: string, newName: strin
   const view = get(sftpViews)[tmpID];
   if (!view || !view.sftpID || !newName.trim()) return;
 
-  const parts = fromPath.split('/');
-  parts.pop();
-  const toPath = (parts.join('/') || '') + '/' + newName.trim();
+  const dir = parentPath(fromPath, view.win) ?? rootPath(view.win);
+  const toPath = joinPath(dir, newName.trim(), view.win);
   await fsBackend(view.kind).rename(view.sftpID, fromPath, toPath);
   await refresh(tmpID);
 }
@@ -338,7 +333,7 @@ export async function downloadFiles(tmpID: string, remotePaths: string[], localD
   if (!view || !view.sftpID || remotePaths.length === 0) return;
 
   const transferId = 'dl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-  const name = remotePaths.length === 1 ? remotePaths[0].split('/').pop() || 'file' : `${remotePaths.length} files`;
+  const name = remotePaths.length === 1 ? baseName(remotePaths[0]) || 'file' : `${remotePaths.length} files`;
 
   const item: TransferItem = {
     id: transferId,
@@ -571,7 +566,7 @@ export async function copyOrMoveLocal(
   const transferId = op + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const item: TransferItem = {
     id: transferId,
-    name: paths.length === 1 ? paths[0].split('/').pop() || 'file' : `${paths.length} items`,
+    name: paths.length === 1 ? baseName(paths[0]) || 'file' : `${paths.length} items`,
     direction: op,
     progress: 10,
     speed: op === 'copy' ? 'Copying...' : 'Moving...',

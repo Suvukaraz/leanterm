@@ -31,6 +31,10 @@
     ontoggleshowhidden: () => void;
     /** Local file browser: "Copy to…"/"Move to…" instead of download/upload. */
     local?: boolean;
+    /** At the top of the tree (no ".." row). */
+    atRoot?: boolean;
+    /** Windows paths: no Unix permissions. */
+    win?: boolean;
     oncopyTo?: (paths: string[]) => void;
     onmoveTo?: (paths: string[]) => void;
   }
@@ -60,6 +64,8 @@
     onuploadDialog,
     ontoggleshowhidden,
     local = false,
+    atRoot = false,
+    win = false,
     oncopyTo,
     onmoveTo,
   }: Props = $props();
@@ -319,7 +325,7 @@
   </div>
 
   <div class="sftp-table-body" role="rowgroup">
-    {#if currentPath !== '/' && currentPath !== ''}
+    {#if !atRoot}
       <!-- Parent directory row -->
       <div
         class="sftp-row parent-row"
@@ -519,16 +525,18 @@
           New empty file
         </button>
 
-        <button
-          type="button"
-          class="context-item"
-          onclick={() => {
-            onpermissions(selectedPaths);
-            closeContextMenu();
-          }}
-        >
-          Permissions...
-        </button>
+        {#if !win}
+          <button
+            type="button"
+            class="context-item"
+            onclick={() => {
+              onpermissions(selectedPaths);
+              closeContextMenu();
+            }}
+          >
+            Permissions...
+          </button>
+        {/if}
 
         <div class="context-divider"></div>
 

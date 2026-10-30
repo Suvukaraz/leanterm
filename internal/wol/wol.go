@@ -5,10 +5,8 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // BuildMagicPacket constructs a 102-byte Wake-on-LAN magic packet:
@@ -71,45 +69,18 @@ func SendMagicPacket(macStr, host string, port int, broadcast bool) error {
 	return nil
 }
 
-// LookupArpMAC queries /proc/net/arp after a quick TCP ping to populate the local ARP cache.
+// LookupArpMAC finds the MAC address of ip on the local network: from the ARP
+// cache after a quick TCP ping (Linux), or with an ARP request (Windows).
 func LookupArpMAC(ip string) (string, error) {
 	cleanIP := strings.TrimSpace(ip)
 	if cleanIP == "" {
 		return "", fmt.Errorf("ip address cannot be empty")
 	}
-
-	// 1. Quick TCP connection attempt on port 7 (echo) with 400ms timeout to trigger ARP resolution
-	d := net.Dialer{Timeout: 400 * time.Millisecond}
-	conn, _ := d.Dial("tcp", net.JoinHostPort(cleanIP, "7"))
-	if conn != nil {
-		_ = conn.Close()
+	if mac, err := arpLookup(cleanIP); err == nil && mac != "" {
+		return mac, nil
+	} else if err != nil {
+		return "", err
 	}
-
-	// 2. Read /proc/net/arp
-	f, err := os.Open("/proc/net/arp")
-	if err != nil {
-		return "", fmt.Errorf("cannot open /proc/net/arp: %w", err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	// Skip header line: IP address HW type Flags HW address Mask Device
-	if scanner.Scan() {
-		_ = scanner.Text()
-	}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) >= 4 {
-			entryIP := fields[0]
-			hwAddr := fields[3]
-			if entryIP == cleanIP && hwAddr != "00:00:00:00:00:00" {
-				return hwAddr, nil
-			}
-		}
-	}
-
 	return "", fmt.Errorf("MAC address not found in ARP cache for IP '%s'", cleanIP)
 }
 

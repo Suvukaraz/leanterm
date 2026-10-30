@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -55,6 +56,9 @@ func TestPipeTeeManager_Tee(t *testing.T) {
 }
 
 func TestPipeTeeManager_Pipe(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses cat")
+	}
 	emitter := &mockPipeEmitter{}
 	mgr := NewPipeTeeManager(emitter)
 	stream := NewStream("session-1", emitter)

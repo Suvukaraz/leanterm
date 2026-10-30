@@ -65,9 +65,9 @@ export function IsQuitting() {
 }
 
 /**
- * ListFonts returns the installed font families (via fc-list), sorted by name.
- * An empty list means fontconfig is not available; the font dialog then falls
- * back to a built-in list.
+ * ListFonts returns the installed font families, sorted by name: from fc-list on
+ * Unix, from the font registry and the font files on Windows. An empty list
+ * means no font source is available; the font dialog then uses a built-in list.
  * @returns {$CancellablePromise<$models.FontFamily[]>}
  */
 export function ListFonts() {

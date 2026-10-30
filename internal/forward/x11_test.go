@@ -83,3 +83,13 @@ func TestPipeStreams_ContextDone(t *testing.T) {
 		t.Fatal("expected context to be cancelled")
 	}
 }
+
+func TestParseDisplayTCPFallback(t *testing.T) {
+	info, err := ParseDisplay(":3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.TCPAddr != "127.0.0.1:6003" {
+		t.Fatalf("TCP fallback of :3 = %q", info.TCPAddr)
+	}
+}

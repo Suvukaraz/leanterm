@@ -287,11 +287,9 @@ func (s *SSHSession) connect(ctx context.Context, gen, cols, rows int) error {
 	}
 
 	if s.conn.SSH.ForwardAgent {
-		if authSock := os.Getenv("SSH_AUTH_SOCK"); authSock != "" {
-			if agentConn, err := net.Dial("unix", authSock); err == nil {
-				if err := agent.ForwardToAgent(client, agent.NewClient(agentConn)); err == nil {
-					_ = agent.RequestAgentForwarding(sess)
-				}
+		if agentConn, err := dialAgent(); err == nil {
+			if err := agent.ForwardToAgent(client, agent.NewClient(agentConn)); err == nil {
+				_ = agent.RequestAgentForwarding(sess)
 			}
 		}
 	}

@@ -3,10 +3,22 @@
   // built on CodeMirror. Files come from the file browsers via EditorService.Open.
   import { onMount, untrack } from 'svelte';
   import { Clipboard, Events, Window as WailsWindow } from '@wailsio/runtime';
-  import { EditorState, type Extension, type Text } from '@codemirror/state';
-  import type { EditorView, ViewUpdate } from '@codemirror/view';
-  import { indentLess, indentMore, redo, selectAll, toggleComment, undo } from '@codemirror/commands';
-  import { findNext, findPrevious, gotoLine, openSearchPanel } from '@codemirror/search';
+  import { EditorState, Transaction, type Extension, type Text } from '@codemirror/state';
+  import { EditorView as CMView, type EditorView, type ViewUpdate } from '@codemirror/view';
+  import {
+    addCursorAbove,
+    addCursorBelow,
+    cursorMatchingBracket,
+    indentLess,
+    indentMore,
+    indentSelection,
+    redo,
+    selectAll,
+    selectMatchingBracket,
+    toggleComment,
+    undo,
+  } from '@codemirror/commands';
+  import { findNext, findPrevious, gotoLine, openSearchPanel, selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
   import { foldAll, unfoldAll } from '@codemirror/language';
 
   import * as EditorService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/editorservice.js';
@@ -38,6 +50,27 @@
     upperCase,
     type ViewPrefs,
   } from '../../lib/editor/setup';
+  import {
+    addCursorsToLineEnds,
+    alignOn,
+    applyWordWrap,
+    blockModeField,
+    bookmarkLines,
+    capitalize,
+    cleanIndentation,
+    clearAllBookmarks,
+    clearModifiedLines,
+    convertIndentationToSpaces,
+    convertIndentationToTabs,
+    deselect,
+    gotoBookmark,
+    goToLineNumber,
+    gotoModifiedLine,
+    joinLines,
+    toggleBlockMode,
+    toggleBookmark,
+  } from '../../lib/editor/commands';
+  import { LocationHistory, type EditorLocation } from '../../lib/editor/navigation';
   import type { MenuItem } from '../gtk/ContextMenu.svelte';
   import ContextMenu from '../gtk/ContextMenu.svelte';
   import Button from '../gtk/Button.svelte';
@@ -45,6 +78,8 @@
   import EditorPane from './EditorPane.svelte';
   import EditorStatusBar from './EditorStatusBar.svelte';
   import ChoiceDialog, { type Choice } from './ChoiceDialog.svelte';
+  import QuickOpen from './QuickOpen.svelte';
+  import EnterValueDialog from '../dialogs/EnterValueDialog.svelte';
   import '../../lib/theme/gtk.css';
 
   type LineEnding = 'lf' | 'crlf';
@@ -90,7 +125,73 @@
   let showToolbar = $state(true);
   let statusMessage = $state('');
 
-  let cursor = $state({ line: 1, column: 1, selected: 0, overwrite: false });
+  let cursor = $state({ line: 1, column: 1, selected: 0, overwrite: false, block: false });
+  /** Bumped when bookmarks change, so the Go → Bookmarks menu lists them. */
+  let bookmarkVersion = $state(0);
+  let quickOpen = $state(false);
+  let alignPrompt = $state(false);
+
+  // ---- Location histories (Go menu) ------------------------------------------------------------
+
+  /** Lines a selection change must move to count as a jump (Go to Previous Location). */
+  const JUMP_LINES = 10;
+  const sameLine = (a: EditorLocation, b: EditorLocation) => {
+    if (a.tab !== b.tab) return false;
+    const doc = views.get(a.tab)?.state.doc;
+    if (!doc) return a.pos === b.pos;
+    const clamp = (p: number) => Math.max(0, Math.min(doc.length, p));
+    return doc.lineAt(clamp(a.pos)).number === doc.lineAt(clamp(b.pos)).number;
+  };
+  const jumpHistory = new LocationHistory(sameLine);
+  const editHistory = new LocationHistory(sameLine);
+  /** Set while the Go menu moves the cursor, so the move is not recorded as a new jump. */
+  let navigating = false;
+
+  function currentLocation(): EditorLocation | undefined {
+    const view = activeView();
+    return view && activeId !== null ? { tab: activeId, pos: view.state.selection.main.head } : undefined;
+  }
+
+  function goToLocation(loc: EditorLocation | undefined) {
+    if (!loc || !getTab(loc.tab)) return;
+    navigating = true;
+    try {
+      activate(loc.tab);
+      const view = views.get(loc.tab);
+      if (view) {
+        const pos = Math.max(0, Math.min(view.state.doc.length, loc.pos));
+        view.dispatch({
+          selection: { anchor: pos },
+          effects: CMView.scrollIntoView(pos, { y: 'center' }),
+          userEvent: 'select.navigate',
+        });
+        view.focus();
+      }
+    } finally {
+      navigating = false;
+    }
+  }
+
+  /** Records jumps and edits of one update for the Go menu histories. */
+  function recordLocations(id: number, u: ViewUpdate) {
+    if (u.docChanged) {
+      jumpHistory.map(id, u.changes);
+      editHistory.map(id, u.changes);
+      if (u.transactions.some((tr) => tr.isUserEvent('input') || tr.isUserEvent('delete') || tr.isUserEvent('move'))) {
+        editHistory.edit({ tab: id, pos: u.state.selection.main.head });
+      }
+    }
+    if (!u.selectionSet || navigating || u.docChanged) return;
+    // Jumps: go to line, search, bookmarks, clicks far away; not cursor keys.
+    const tr = u.transactions[u.transactions.length - 1];
+    const event = tr?.annotation(Transaction.userEvent);
+    const isJump = event === undefined || tr.isUserEvent('select.pointer') || tr.isUserEvent('select.search');
+    if (!isJump || tr.isUserEvent('select.navigate')) return;
+    const from = u.startState.selection.main.head;
+    const to = u.state.selection.main.head;
+    const distance = Math.abs(u.startState.doc.lineAt(from).number - u.state.doc.lineAt(to).number);
+    if (distance >= JUMP_LINES) jumpHistory.jump({ tab: id, pos: from }, { tab: id, pos: to });
+  }
 
   let activeTab = $derived(tabs.find((t) => t.id === activeId) ?? null);
   let anyDirty = $derived(tabs.some((t) => t.dirty));
@@ -201,9 +302,14 @@
   }
 
   function activate(id: number) {
+    const before = currentLocation();
     activeId = id;
     const view = views.get(id);
     if (view) updateCursor(view);
+    // A tab switch is a jump for Go to Previous / Next Location.
+    if (!navigating && before && before.tab !== id && view) {
+      jumpHistory.jump(before, { tab: id, pos: view.state.selection.main.head });
+    }
   }
 
   function updateCursor(view: EditorView) {
@@ -216,14 +322,16 @@
       column: sel.head - line.from + 1,
       selected,
       overwrite: view.state.field(overwriteField, false) ?? false,
+      block: view.state.field(blockModeField, false) ?? false,
     };
   }
 
   function handleUpdate(id: number, u: ViewUpdate) {
     if (u.docChanged) scheduleDirtyCheck(id);
-    if (id === activeId && (u.docChanged || u.selectionSet || u.startState.field(overwriteField, false) !== u.state.field(overwriteField, false))) {
-      updateCursor(u.view);
-    }
+    recordLocations(id, u);
+    const effects = u.transactions.some((tr) => tr.effects.length > 0);
+    if (id === activeId && (u.docChanged || u.selectionSet || effects)) updateCursor(u.view);
+    if (id === activeId && effects) bookmarkVersion++;
   }
 
   function computeDirty(t: Tab): boolean {
@@ -242,6 +350,7 @@
         if (!t) return;
         const dirty = computeDirty(t);
         if (dirty !== t.dirty) patchTab(id, { dirty });
+        if (!dirty) views.get(id)?.dispatch({ effects: clearModifiedLines.of() });
       }, 150)
     );
   }
@@ -518,6 +627,7 @@
     });
     const after = getTab(id);
     if (after) patchTab(id, { dirty: computeDirty(after) });
+    views.get(id)?.dispatch({ effects: clearModifiedLines.of() });
     statusMessage = `Saved ${displayPath(t.file)}`;
     return true;
   }
@@ -600,6 +710,8 @@
     if (idx < 0) return;
     clearTimeout(dirtyTimers.get(id));
     dirtyTimers.delete(id);
+    jumpHistory.removeTab(id);
+    editHistory.removeTab(id);
     const rest = tabs.filter((t) => t.id !== id);
     tabs = rest;
     if (activeId === id) {
@@ -746,6 +858,29 @@
     ];
   }
 
+  /** Go → Bookmarks: commands plus one entry per bookmark ("12: first words of the line"). */
+  function bookmarkItems(): MenuItem[] {
+    void bookmarkVersion;
+    void cursor.line;
+    const view = activeView();
+    const lines = view ? bookmarkLines(view.state).sort((a, b) => a - b) : [];
+    const items: MenuItem[] = [
+      { label: 'Set Bookmark', shortcut: 'Ctrl+B', checked: lines.includes(cursor.line), action: () => run(toggleBookmark) },
+      { label: 'Clear All Bookmarks', disabled: lines.length === 0, action: () => run(clearAllBookmarks) },
+      { separator: true },
+      { label: 'Next Bookmark', shortcut: 'Alt+PgDown', disabled: lines.length === 0, action: () => run(gotoBookmark(1)) },
+      { label: 'Previous Bookmark', shortcut: 'Alt+PgUp', disabled: lines.length === 0, action: () => run(gotoBookmark(-1)) },
+    ];
+    if (view && lines.length > 0) {
+      items.push({ separator: true });
+      for (const n of lines) {
+        const text = view.state.doc.line(n).text.trim();
+        items.push({ label: `${n}: ${text.length > 40 ? `${text.slice(0, 40)}…` : text}`, action: () => run((v) => goToLineNumber(v, n)) });
+      }
+    }
+    return items;
+  }
+
   function encodingItems(): MenuItem[] {
     const t = activeTab;
     return ENCODINGS.map((e) => ({ label: e.label, checked: t?.encoding === e.id, action: () => setEncoding(e.id) }));
@@ -790,14 +925,54 @@
           { label: 'Copy', icon: 'gtk-copy', shortcut: 'Ctrl+C', disabled: !hasDoc, action: () => copySelection(false) },
           { label: 'Paste', icon: 'gtk-paste', shortcut: 'Ctrl+V', disabled: !hasDoc, action: paste },
           { separator: true },
-          { label: 'Select All', shortcut: 'Ctrl+A', disabled: !hasDoc, action: () => run(selectAll) },
-          { separator: true },
           { label: 'Find…', icon: 'gtk-find', shortcut: 'Ctrl+F', disabled: !hasDoc, action: () => run(openSearchPanel) },
           { label: 'Replace…', icon: 'gtk-edit', shortcut: 'Ctrl+R', disabled: !hasDoc, action: () => run(openSearchPanel) },
           { label: 'Find Next', shortcut: 'F3', disabled: !hasDoc, action: () => run(findNext) },
           { label: 'Find Previous', shortcut: 'Shift+F3', disabled: !hasDoc, action: () => run(findPrevious) },
+        ],
+      },
+      {
+        label: 'Selection',
+        items: [
+          { label: 'Select All', shortcut: 'Ctrl+A', disabled: !hasDoc, action: () => run(selectAll) },
+          { label: 'Deselect', shortcut: 'Ctrl+Shift+A', disabled: !hasDoc || cursor.selected === 0, action: () => run(deselect) },
+          {
+            label: 'Block Selection Mode',
+            shortcut: 'Ctrl+Shift+B',
+            checked: cursor.block,
+            disabled: !hasDoc,
+            action: () => run((v) => v.dispatch({ effects: toggleBlockMode.of() })),
+          },
           { separator: true },
-          { label: 'Go to Line…', shortcut: 'Ctrl+G', disabled: !hasDoc, action: () => run(gotoLine) },
+          { label: 'Toggle Comment', shortcut: 'Ctrl+/', disabled: !hasDoc, action: () => run(toggleComment) },
+          { label: 'Join Lines', shortcut: 'Ctrl+J', disabled: !hasDoc, action: () => run(joinLines) },
+          {
+            label: 'Capitalisation',
+            disabled: !hasDoc,
+            submenu: [
+              { label: 'Uppercase', shortcut: 'Ctrl+U', action: () => run(upperCase) },
+              { label: 'Lowercase', shortcut: 'Ctrl+Shift+U', action: () => run(lowerCase) },
+              { label: 'Capitalize', shortcut: 'Ctrl+Alt+U', action: () => run(capitalize) },
+            ],
+          },
+          { separator: true },
+          { label: 'Clean Indentation', disabled: !hasDoc, action: () => run(cleanIndentation) },
+          { label: 'Convert Indentation to Spaces', disabled: !hasDoc, action: () => run(convertIndentationToSpaces) },
+          { label: 'Convert Indentation to Tabs', disabled: !hasDoc, action: () => run(convertIndentationToTabs) },
+          { label: 'Format Indentation', disabled: !hasDoc, action: () => run(indentSelection) },
+          { label: 'Align On…', disabled: !hasDoc, action: () => (alignPrompt = true) },
+          { label: 'Apply Word Wrap', disabled: !hasDoc, action: () => run(applyWordWrap(80)) },
+          { separator: true },
+          { label: 'Add Caret above Cursor', shortcut: 'Ctrl+Alt+Up', disabled: !hasDoc, action: () => run(addCursorAbove) },
+          { label: 'Add Caret below Cursor', shortcut: 'Ctrl+Alt+Down', disabled: !hasDoc, action: () => run(addCursorBelow) },
+          { label: 'Add Cursors to Line Ends', shortcut: 'Alt+Shift+I', disabled: !hasDoc, action: () => run(addCursorsToLineEnds) },
+          { label: 'Find and Select Next Occurrence', shortcut: 'Alt+J', disabled: !hasDoc, action: () => run(selectNextOccurrence) },
+          {
+            label: 'Find and Select All Occurrences',
+            shortcut: 'Ctrl+Alt+Shift+J',
+            disabled: !hasDoc,
+            action: () => run(selectSelectionMatches),
+          },
         ],
       },
       {
@@ -827,6 +1002,36 @@
         ],
       },
       {
+        label: 'Go',
+        items: [
+          { label: 'Quick Open', shortcut: 'Ctrl+Alt+O', disabled: tabs.length === 0, action: () => (quickOpen = true) },
+          { separator: true },
+          { label: 'Go to Line…', shortcut: 'Ctrl+G', disabled: !hasDoc, action: () => run(gotoLine) },
+          { separator: true },
+          { label: 'Next Tab', shortcut: 'Alt+Right', disabled: tabs.length < 2, action: () => cycleTab(1) },
+          { label: 'Previous Tab', shortcut: 'Alt+Left', disabled: tabs.length < 2, action: () => cycleTab(-1) },
+          { separator: true },
+          { label: 'Go to Previous Location', shortcut: 'Ctrl+1', disabled: !hasDoc, action: () => goToLocation(jumpHistory.back(currentLocation())) },
+          { label: 'Go to Next Location', shortcut: 'Ctrl+Shift+1', disabled: !hasDoc, action: () => goToLocation(jumpHistory.forward()) },
+          { separator: true },
+          {
+            label: 'Go to Previous Editing Location',
+            shortcut: 'Ctrl+E',
+            disabled: !hasDoc,
+            action: () => goToLocation(editHistory.back(currentLocation())),
+          },
+          { label: 'Go to Next Editing Location', shortcut: 'Ctrl+Shift+E', disabled: !hasDoc, action: () => goToLocation(editHistory.forward()) },
+          { separator: true },
+          { label: 'Go to Previous Modified Line', disabled: !hasDoc, action: () => run(gotoModifiedLine(-1)) },
+          { label: 'Go to Next Modified Line', disabled: !hasDoc, action: () => run(gotoModifiedLine(1)) },
+          { separator: true },
+          { label: 'Go to Matching Bracket', shortcut: 'Ctrl+6', disabled: !hasDoc, action: () => run(cursorMatchingBracket) },
+          { label: 'Select to Matching Bracket', shortcut: 'Ctrl+Shift+6', disabled: !hasDoc, action: () => run(selectMatchingBracket) },
+          { separator: true },
+          { label: 'Bookmarks', disabled: !hasDoc, submenu: bookmarkItems() },
+        ],
+      },
+      {
         label: 'Tools',
         items: [
           {
@@ -840,12 +1045,8 @@
           { label: 'Encoding', disabled: !hasDoc, submenu: encodingItems() },
           { label: 'Highlighting', disabled: !hasDoc, submenu: languageItems() },
           { separator: true },
-          { label: 'Toggle Comment', shortcut: 'Ctrl+/', disabled: !hasDoc, action: () => run(toggleComment) },
           { label: 'Indent', shortcut: 'Tab', disabled: !hasDoc, action: () => run(indentMore) },
           { label: 'Unindent', shortcut: 'Shift+Tab', disabled: !hasDoc, action: () => run(indentLess) },
-          { separator: true },
-          { label: 'Uppercase', shortcut: 'Ctrl+U', disabled: !hasDoc, action: () => run(upperCase) },
-          { label: 'Lowercase', shortcut: 'Ctrl+Shift+U', disabled: !hasDoc, action: () => run(lowerCase) },
         ],
       },
       {
@@ -896,6 +1097,32 @@
     }
   }
 
+  /**
+   * Go menu keys that CodeMirror would otherwise take (Alt+Left/Right move by
+   * word there), so they are handled before the editor sees them.
+   */
+  /** AltGr arrives as Ctrl+Alt on Windows; such keys type characters. */
+  const isAltGraph = (e: KeyboardEvent) => e.getModifierState?.('AltGraph') ?? false;
+
+  function handleGoKeys(e: KeyboardEvent) {
+    if (question || quickOpen || alignPrompt) return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    // Ctrl+Shift+1 reports "!" (or another symbol) as key; use the physical key.
+    const digit1 = e.code === 'Digit1' || e.key === '1';
+    let handled = true;
+    if (e.altKey && !ctrl && !e.shiftKey && e.key === 'ArrowRight') cycleTab(1);
+    else if (e.altKey && !ctrl && !e.shiftKey && e.key === 'ArrowLeft') cycleTab(-1);
+    else if (ctrl && !e.altKey && digit1) goToLocation(e.shiftKey ? jumpHistory.forward() : jumpHistory.back(currentLocation()));
+    else if (ctrl && !e.altKey && e.code === 'KeyE') goToLocation(e.shiftKey ? editHistory.forward() : editHistory.back(currentLocation()));
+    // By character, not physical key: AltGr is Ctrl+Alt on Windows (AltGr+O types "ó" on Polish).
+    else if (ctrl && e.altKey && !e.shiftKey && !isAltGraph(e) && e.key.toLowerCase() === 'o') quickOpen = tabs.length > 0;
+    else handled = false;
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
   function cycleTab(dir: number) {
     if (tabs.length < 2 || activeId === null) return;
     const idx = tabs.findIndex((t) => t.id === activeId);
@@ -925,7 +1152,7 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeyDown} onblur={() => (popup = null)} />
+<svelte:window onkeydowncapture={handleGoKeys} onkeydown={handleKeyDown} onblur={() => (popup = null)} />
 
 <div
   class="editor-app"
@@ -1024,6 +1251,7 @@
       column={cursor.column}
       selected={cursor.selected}
       overwrite={cursor.overwrite}
+      block={cursor.block}
       indent={effectivePrefs.indentWithTabs ? `Tabs: ${effectivePrefs.tabWidth}` : `Soft Tabs: ${effectivePrefs.tabWidth}`}
       encoding={activeTab.encoding}
       lineEnding={activeTab.lineEnding}
@@ -1033,6 +1261,7 @@
       message={statusMessage}
       ontoggleLineEnding={() => setLineEnding(activeTab?.lineEnding === 'crlf' ? 'lf' : 'crlf')}
       ontoggleOverwrite={() => run((v) => v.dispatch({ effects: toggleOverwrite.of() }))}
+      ontoggleBlock={() => run((v) => v.dispatch({ effects: toggleBlockMode.of() }))}
       onencoding={(r) => openPopup(encodingItems(), r)}
       onlanguage={(r) => openPopup(languageItems(), r)}
     />
@@ -1044,6 +1273,36 @@
 {#if popup}
   <ContextMenu items={popup.items} x={popup.x} y={popup.y} onclose={() => (popup = null)} />
 {/if}
+
+{#if quickOpen}
+  <QuickOpen
+    items={tabs.map((t) => ({ id: t.id, title: `${t.title}${t.dirty ? ' *' : ''}`, detail: t.file ? displayPath(t.file) : '' }))}
+    onchoose={(id) => {
+      quickOpen = false;
+      activate(id);
+      views.get(id)?.focus();
+    }}
+    onclose={() => {
+      quickOpen = false;
+      activeView()?.focus();
+    }}
+  />
+{/if}
+
+<EnterValueDialog
+  open={alignPrompt}
+  title="Align On"
+  placeholder="e.g. =  or  :\s*(\S)"
+  prompt="Align lines on (regular expression; the first group, if any, marks the column):"
+  onsubmit={(pattern) => {
+    alignPrompt = false;
+    if (pattern) run(alignOn(pattern));
+  }}
+  oncancel={() => {
+    alignPrompt = false;
+    activeView()?.focus();
+  }}
+/>
 
 {#if question}
   <ChoiceDialog
