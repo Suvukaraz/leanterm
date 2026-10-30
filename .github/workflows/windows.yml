@@ -49,6 +49,9 @@ jobs:
             -ldflags="-w -s -H windowsgui" -o bin/LeanTerm.exe .
           rm -f wails_windows_amd64.syso
           wails3 generate webview2bootstrapper -dir build/windows/nsis
+          # NSIS is not on the PATH of the runner (install it when missing).
+          export PATH="$PATH:/c/Program Files (x86)/NSIS"
+          command -v makensis >/dev/null || { choco install nsis -y --no-progress && export PATH="$PATH:/c/Program Files (x86)/NSIS"; }
           cd build/windows/nsis
           makensis -V2 -DINFO_PRODUCTVERSION="$VERSION" \
             -DARG_WAILS_AMD64_BINARY="$GITHUB_WORKSPACE/bin/LeanTerm.exe" \
