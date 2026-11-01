@@ -26,7 +26,7 @@
     </div>
     <div class="about-info">
       <h2 class="app-title">LeanTerm</h2>
-      <div class="app-version">Version 1.0.0</div>
+      <div class="app-version">Version 1.1.0</div>
       <p class="app-desc">
         SSH, Telnet and SFTP connection manager for Linux and Windows,
         built with Go, Wails v3 and Svelte 5.

@@ -63,7 +63,7 @@ More options (packages, updates, uninstalling) are described [below](#installati
 The install script detects the distribution, installs the matching package with all dependencies and verifies the download against the release checksums. Running it again updates LeanTerm; options follow `sh -s --`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh -s -- --version 1.0.0
+curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh -s -- --version 1.1.0
 curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh -s -- --uninstall
 ```
 
@@ -106,9 +106,9 @@ go build -o bin/leanterm .
 
 | Package | Command |
 |---|---|
-| Debian package | `./build/package-deb.sh 1.0.0` |
-| Linux archive (used by `install.sh`) | `./build/package-tarball.sh 1.0.0` |
-| Windows installer (cross-compiled, needs `nsis` and `wails3`) | `./build/package-windows.sh 1.0.0` |
+| Debian package | `./build/package-deb.sh 1.1.0` |
+| Linux archive (used by `install.sh`) | `./build/package-tarball.sh 1.1.0` |
+| Windows installer (cross-compiled, needs `nsis` and `wails3`) | `./build/package-windows.sh 1.1.0` |
 
 Tests: `go test ./internal/...`, `npm --prefix frontend test -- --run` and `npm --prefix frontend run check`. The JavaScript bindings in `frontend/bindings` are generated with `wails3 generate bindings -clean=true` after changing a Go service.
 
