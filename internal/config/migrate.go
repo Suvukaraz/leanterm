@@ -33,11 +33,10 @@ func migrateV1toV2(cfg *Config) error {
 	return nil
 }
 
-// migrateV2toV3 replaces the removed xterm.js engine with Rio, the new default.
-// A chosen Ghostty engine is kept.
+// migrateV2toV3 replaces the removed xterm.js engine with Ghostty, the default.
 func migrateV2toV3(cfg *Config) error {
-	if cfg.Terminal.Engine != "ghostty" {
-		cfg.Terminal.Engine = "rio"
+	if cfg.Terminal.Engine != "rio" {
+		cfg.Terminal.Engine = "ghostty"
 	}
 	return nil
 }

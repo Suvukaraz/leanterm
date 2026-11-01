@@ -284,4 +284,12 @@
     position: absolute;
     inset: 4px 2px 2px 6px;
   }
+
+  /* The engines draw their own cursor. Their input elements (the contenteditable
+     container and hidden textarea of ghostty-web, Rio's textarea) would otherwise
+     show the native caret in the first line on Windows (WebView2). */
+  .terminal-container,
+  .terminal-container :global(*) {
+    caret-color: transparent;
+  }
 </style>

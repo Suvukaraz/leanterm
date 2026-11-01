@@ -71,7 +71,7 @@ func Default() *Config {
 			WindowHeight:           600,
 			StartMaximized:         false,
 			ShowStatusBar:          true,
-			Engine:                 "rio",
+			Engine:                 "ghostty",
 			ChangeMainTitle:        false,
 			MacrosBar:              "never",
 			ShowGlobalMacros:       false,

@@ -1,4 +1,4 @@
-// rioterm implementation of the terminal handle (the default engine): Rio's VT
+// rioterm implementation of the terminal handle: Rio's VT
 // core (librio, WASM) with its canvas renderer.
 //
 // rioterm's open() wires input in ways that do not fit LeanTerm (copy on every

@@ -42,7 +42,7 @@ func TestMigrateV1toV2KeepsUserChoices(t *testing.T) {
 }
 
 func TestMigrateV2toV3ReplacesXterm(t *testing.T) {
-	for engine, want := range map[string]string{"xterm": "rio", "": "rio", "ghostty": "ghostty"} {
+	for engine, want := range map[string]string{"xterm": "ghostty", "": "ghostty", "ghostty": "ghostty"} {
 		cfg := Default()
 		cfg.SchemaVersion = 2
 		cfg.Terminal.Engine = engine

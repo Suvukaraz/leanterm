@@ -52,9 +52,9 @@ export interface TermHandle {
   dispose(): void;
 }
 
-/** Rio is the default; unknown values (and the former "xterm") fall back to it. */
+/** Ghostty is the default; unknown values (and the former "xterm") fall back to it. */
 export function normalizeEngine(value: string | undefined | null): TerminalEngine {
-  return value === 'ghostty' ? 'ghostty' : 'rio';
+  return value === 'rio' ? 'rio' : 'ghostty';
 }
 
 /** Creates a terminal of the given engine inside `container`. */

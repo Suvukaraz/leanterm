@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${1:-1.1.0}"
+VERSION="${1:-1.1.1}"
 ARCH="${2:-amd64}"
 SETUP_NAME="leanterm_${VERSION}_windows_${ARCH}_setup.exe"
 WAILS3="${WAILS3:-$(command -v wails3 || echo "$HOME/go/bin/wails3")}"
