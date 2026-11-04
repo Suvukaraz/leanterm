@@ -23,8 +23,12 @@ const leanEditAppID = "org.leanterm.LeanEdit"
 
 // runLeanEdit starts only the text editor as an application of its own: no
 // main window, no sessions, clusters, KeePass or secrets. It never joins a
-// running LeanTerm (no single instance), so it works independently of it and
-// several LeanEdit windows can run at the same time.
+// running LeanTerm, so it works independently of it.
+//
+// With "single instance" in its settings (the default) the first LeanEdit owns
+// the instance: later starts (desktop, "Open with", command line) hand their
+// files over and quit, and each file opens as a tab there. Otherwise, or with
+// --new-window, every start opens its own window.
 func runLeanEdit(flags *app.CLIFlags, cfgStore *config.Store) {
 	app.SetAppUserModelID(leanEditAppID)
 
@@ -41,6 +45,23 @@ func runLeanEdit(flags *app.CLIFlags, cfgStore *config.Store) {
 	// Settings saved by LeanTerm or another LeanEdit window apply right away.
 	cfgStore.OnReload = func() { emitter.Emit("settings:changed", nil) }
 
+	var singleInstance *application.SingleInstanceOptions
+	if cfgStore.Config().Editor.SingleInstance && !flags.NewWindow && app.SingleInstancePossible() {
+		// When this start only hands its files over, the running LeanEdit may
+		// take the focus (Windows only lets the process just started do that).
+		app.AllowForegroundForOthers()
+		singleInstance = &application.SingleInstanceOptions{
+			UniqueID: app.LeanEditInstanceID(leanEditAppID, cfgStore.ConfigDir()),
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				args := data.Args
+				if len(args) > 0 {
+					args = args[1:] // the program itself
+				}
+				openLeanEditFiles(editorSvc, app.ParseCLI(args), data.WorkingDir)
+			},
+		}
+	}
+
 	wailsApp := application.New(application.Options{
 		Name:        services.EditorAppName,
 		Description: "LeanEdit text editor (part of LeanTerm)",
@@ -55,12 +76,23 @@ func runLeanEdit(flags *app.CLIFlags, cfgStore *config.Store) {
 		Linux: application.LinuxOptions{
 			ApplicationID: leanEditAppID,
 		},
+		SingleInstance: singleInstance,
 	})
 	emitter.app = wailsApp
 	systemSvc.SetApp(wailsApp)
 	editorSvc.SetApp(wailsApp, systemSvc.IsQuitting)
 
 	workDir, _ := os.Getwd()
+	openLeanEditFiles(editorSvc, flags, workDir)
+
+	if err := wailsApp.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// openLeanEditFiles opens the files of a (first or later) start as tabs, or
+// just shows and raises the window when there are none.
+func openLeanEditFiles(editorSvc *services.EditorService, flags *app.CLIFlags, workDir string) {
 	files := append(append([]string{}, flags.EditFiles...), flags.Files...)
 	opened := false
 	for _, f := range files {
@@ -75,11 +107,7 @@ func runLeanEdit(flags *app.CLIFlags, cfgStore *config.Store) {
 	}
 	if !opened {
 		if err := editorSvc.ShowWindow(); err != nil {
-			log.Fatalf("cannot open the editor window: %v", err)
+			log.Printf("cannot open the editor window: %v", err)
 		}
-	}
-
-	if err := wailsApp.Run(); err != nil {
-		log.Fatal(err)
 	}
 }

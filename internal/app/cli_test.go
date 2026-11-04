@@ -86,3 +86,18 @@ func TestParseLeanEdit(t *testing.T) {
 	assert.Equal(t, []string{"notes.txt", "/etc/hosts", "-dash.txt"}, flags.Files)
 	assert.Empty(t, flags.UnknownArgs)
 }
+
+func TestParseNewWindow(t *testing.T) {
+	flags := ParseCLI([]string{"--leanedit", "--new-window", "a.txt"})
+	assert.True(t, flags.LeanEdit)
+	assert.True(t, flags.NewWindow)
+	assert.Equal(t, []string{"a.txt"}, flags.Files)
+}
+
+func TestLeanEditInstanceID(t *testing.T) {
+	id := LeanEditInstanceID("org.leanterm.LeanEdit", "/home/me/.config/leanterm")
+	assert.Equal(t, id, LeanEditInstanceID("org.leanterm.LeanEdit", "/home/me/.config/leanterm/"))
+	assert.NotEqual(t, id, LeanEditInstanceID("org.leanterm.LeanEdit", "/tmp/other"))
+	// Valid D-Bus name: every element starts with a letter, only [A-Za-z0-9_-].
+	assert.Regexp(t, `^([A-Za-z_][A-Za-z0-9_-]*)(\.[A-Za-z_][A-Za-z0-9_-]*)+$`, id)
+}

@@ -38,6 +38,7 @@
     saveFile,
     statFile,
     type EditorFile,
+    type FileInfo,
   } from '../../lib/editor/files';
   import {
     editorExtensions,
@@ -576,6 +577,15 @@
 
   /** Saves a tab; returns false when it was not saved (cancelled or failed). */
   async function saveTab(id: number, force = false): Promise<boolean> {
+    writing++;
+    try {
+      return await saveTabNow(id, force);
+    } finally {
+      writing--;
+    }
+  }
+
+  async function saveTabNow(id: number, force: boolean): Promise<boolean> {
     const t = getTab(id);
     const view = views.get(id);
     if (!t || !view) return false;
@@ -645,6 +655,15 @@
   }
 
   async function saveTabAs(id: number): Promise<boolean> {
+    writing++;
+    try {
+      return await saveTabAsNow(id);
+    } finally {
+      writing--;
+    }
+  }
+
+  async function saveTabAsNow(id: number): Promise<boolean> {
     const t = getTab(id);
     const view = views.get(id);
     if (!t || !view) return false;
@@ -713,6 +732,98 @@
       if (a !== 'reload') return;
     }
     await loadInto(id, encoding, true);
+  }
+
+  // ---- Changes on disk ----------------------------------------------------------------------------------
+  // Like Kate: when the window gets the focus, files that another program (or the
+  // editor in LeanTerm / another LeanEdit) changed or deleted are offered for
+  // reloading. Saving additionally refuses to overwrite such a change unasked.
+
+  /** Saves in progress; their files change on disk before the tab knows it. */
+  let writing = 0;
+  let checkingDisk = false;
+  let lastDiskCheck = 0;
+  /** Disk state per tab the user chose to keep ("modTime:size", "deleted"). */
+  const ignoredOnDisk = new Map<number, string>();
+
+  function busy(): boolean {
+    return !ready || question !== null || writing > 0 || tabs.some((t) => t.loading);
+  }
+
+  async function checkDiskChanges() {
+    const now = Date.now();
+    if (checkingDisk || busy() || now - lastDiskCheck < 1000) return;
+    lastDiskCheck = now;
+    checkingDisk = true;
+    try {
+      for (const { id } of tabs) {
+        const t = getTab(id);
+        if (!t?.file || !t.initialState || t.loading) continue;
+        let info: FileInfo;
+        try {
+          info = await statFile(t.file);
+        } catch {
+          continue; // e.g. the SFTP connection of a remote file is closed
+        }
+        if (busy()) return; // a save, load or dialog started meanwhile; next focus
+        const cur = getTab(id);
+        if (!cur?.file) continue;
+
+        if (!info.exists) {
+          if (ignoredOnDisk.get(id) === 'deleted') continue;
+          activate(id);
+          const a = await ask({
+            title: 'File deleted on disk',
+            type: 'warning',
+            message: `${cur.title} was deleted or moved by another program.`,
+            detail: 'Keep it open (saving writes it again) or close the tab?',
+            choices: [
+              { id: 'keep', label: 'Keep Open', isDefault: true },
+              { id: 'close', label: 'Close Tab', icon: 'gtk-close' },
+            ],
+          });
+          if (a === 'close') await closeTab(id);
+          else ignoredOnDisk.set(id, 'deleted');
+          continue;
+        }
+
+        if (info.modTime === cur.modTime && info.size === cur.size) {
+          ignoredOnDisk.delete(id);
+          continue;
+        }
+        const state = `${info.modTime}:${info.size}`;
+        if (ignoredOnDisk.get(id) === state) continue;
+        activate(id);
+        const a = await ask({
+          title: 'File changed on disk',
+          type: 'warning',
+          message: `${cur.title} was changed by another program.`,
+          detail: cur.dirty
+            ? 'Reloading discards your unsaved changes in LeanEdit.'
+            : 'Reload it to see the new content?',
+          choices: [
+            { id: 'reload', label: 'Reload', icon: 'gtk-refresh', isDefault: !cur.dirty },
+            { id: 'ignore', label: 'Ignore', isDefault: cur.dirty },
+          ],
+        });
+        if (a === 'reload') {
+          ignoredOnDisk.delete(id);
+          await loadInto(id, '', true);
+        } else {
+          ignoredOnDisk.set(id, state);
+        }
+      }
+    } finally {
+      checkingDisk = false;
+    }
+  }
+
+  async function openNewWindow() {
+    try {
+      await EditorService.NewWindow();
+    } catch (err) {
+      await showError('A new LeanEdit window could not be opened.', err);
+    }
   }
 
   // ---- Closing ------------------------------------------------------------------------------------------
@@ -913,6 +1024,7 @@
         items: [
           { label: 'New', icon: 'gtk-new', shortcut: 'Ctrl+N', action: newDocument },
           { label: 'Open…', icon: 'gtk-open', shortcut: 'Ctrl+O', action: chooseAndOpen },
+          { label: 'New Window', shortcut: 'Ctrl+Shift+N', action: openNewWindow },
           { separator: true },
           { label: 'Save', icon: 'gtk-save', shortcut: 'Ctrl+S', disabled: !hasDoc, action: () => t && saveTab(t.id) },
           { label: 'Save As…', icon: 'gtk-save-as', shortcut: 'Ctrl+Shift+S', disabled: !hasDoc, action: () => t && saveTabAs(t.id) },
@@ -1083,6 +1195,7 @@
     const k = e.key.toLowerCase();
     let handled = true;
     if (ctrl && !e.shiftKey && k === 'n') newDocument();
+    else if (ctrl && e.shiftKey && k === 'n') openNewWindow();
     else if (ctrl && !e.shiftKey && k === 'o') chooseAndOpen();
     else if (ctrl && e.shiftKey && k === 's') t && saveTabAs(t.id);
     else if (ctrl && !e.shiftKey && k === 's') t && saveTab(t.id);
@@ -1144,6 +1257,7 @@
     offs.push(Events.On('editor:pending', () => void takePending()));
     offs.push(Events.On('editor:close-requested', () => void requestCloseWindow()));
     offs.push(Events.On('settings:changed', () => void loadEditorSettings()));
+    offs.push(Events.On('editor:focused', () => void checkDiskChanges()));
 
     (async () => {
       const s: any = await loadEditorSettings();
@@ -1160,7 +1274,12 @@
   }
 </script>
 
-<svelte:window onkeydowncapture={handleGoKeys} onkeydown={handleKeyDown} onblur={() => (popup = null)} />
+<svelte:window
+  onkeydowncapture={handleGoKeys}
+  onkeydown={handleKeyDown}
+  onblur={() => (popup = null)}
+  onfocus={() => void checkDiskChanges()}
+/>
 
 <div
   class="editor-app"

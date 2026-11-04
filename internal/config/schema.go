@@ -156,6 +156,7 @@ type EditorConfig struct {
 	ShowMinimap     bool       `toml:"show_minimap" comment:"Show the scrollbar minimap (KWrite style)"`
 	LargeFileMB     int        `toml:"large_file_mb" comment:"Ask once before opening files larger than this (MB)"`
 	HugeFileMB      int        `toml:"huge_file_mb" comment:"Ask twice before opening files larger than this (MB); syntax highlighting starts off"`
+	SingleInstance  bool       `toml:"single_instance" comment:"LeanEdit started on its own: open files as new tabs of the running LeanEdit instead of new windows"`
 }
 
 // SFTPBrowserConfig represents settings for the embedded SFTP browser

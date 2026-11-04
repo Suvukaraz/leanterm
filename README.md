@@ -63,7 +63,7 @@ More options (packages, updates, uninstalling) are described [below](#installati
 The install script detects the distribution, installs the matching package with all dependencies and verifies the download against the release checksums. Running it again updates LeanTerm; options follow `sh -s --`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh -s -- --version 1.2.0
+curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh -s -- --version 1.2.1
 curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh | sh -s -- --uninstall
 ```
 
@@ -90,7 +90,7 @@ The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu an
 
 ## LeanEdit
 
-LeanEdit is LeanTerm's text editor as an application of its own: it has its own menu entry and icon, is offered in the file manager's *Open with* for text files and runs independently of LeanTerm (`leanterm --leanedit [file…]`). Each start opens a separate window, also while LeanTerm is running; LeanTerm itself still runs only once. Started on its own, LeanEdit edits local files and needs no connection, sessions or passwords. *Settings* in its menu bar opens its own small settings window, in LeanTerm as well; the settings are shared with the editor in LeanTerm.
+LeanEdit is LeanTerm's text editor as an application of its own: it has its own menu entry and icon, is offered in the file manager's *Open with* for text files and runs independently of LeanTerm (`leanterm --leanedit [file…]`). By default it runs once: further files (double-click, *Open with*, command line) open as new tabs of the running LeanEdit. With *Open files in the running LeanEdit* switched off in its settings, every file opens in a new window; *File → New Window* (`--new-window`) always opens one. This is independent of LeanTerm, whose editor window stays separate; LeanTerm itself runs only once. When the window gets the focus, LeanEdit offers to reload files that were changed or deleted by another program (also by the editor in LeanTerm), and saving never overwrites such a change without asking. Started on its own, LeanEdit edits local files and needs no connection, sessions or passwords. *Settings* in its menu bar opens its own small settings window, in LeanTerm as well; the settings are shared with the editor in LeanTerm.
 
 On Windows the installer offers LeanEdit as an option (Start menu and desktop shortcut, *Open with* for text files); on Linux the packages always install it.
 
@@ -114,9 +114,9 @@ go build -o bin/leanterm .
 
 | Package | Command |
 |---|---|
-| Debian package | `./build/package-deb.sh 1.2.0` |
-| Linux archive (used by `install.sh`) | `./build/package-tarball.sh 1.2.0` |
-| Windows installer (cross-compiled, needs `nsis` and `wails3`) | `./build/package-windows.sh 1.2.0` |
+| Debian package | `./build/package-deb.sh 1.2.1` |
+| Linux archive (used by `install.sh`) | `./build/package-tarball.sh 1.2.1` |
+| Windows installer (cross-compiled, needs `nsis` and `wails3`) | `./build/package-windows.sh 1.2.1` |
 
 Tests: `go test ./internal/...`, `npm --prefix frontend test -- --run` and `npm --prefix frontend run check`. The JavaScript bindings in `frontend/bindings` are generated with `wails3 generate bindings -clean=true` after changing a Go service.
 

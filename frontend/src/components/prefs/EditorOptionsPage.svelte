@@ -44,6 +44,16 @@
   </Frame>
   {/if}
 
+  <Frame label="Windows">
+    <div class="col-flex">
+      <CheckButton bind:checked={editor.SingleInstance} label="Open files in the running LeanEdit as new tabs (single instance)" />
+      <span class="hint-text">
+        For LeanEdit started on its own (desktop, "Open with"). Off: every file opens in a new window. File → New
+        Window always opens one. Applies to the next start; the editor in LeanTerm is not affected.
+      </span>
+    </div>
+  </Frame>
+
   <Frame label="Editing">
     <div class="col-flex">
       <div class="row-flex">

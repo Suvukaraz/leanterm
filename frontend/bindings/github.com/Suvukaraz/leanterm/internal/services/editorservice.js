@@ -142,6 +142,15 @@ export function Load(f, encoding, allowBinary) {
 }
 
 /**
+ * NewWindow starts another LeanEdit with its own window (File → New Window),
+ * also when LeanEdit runs as a single instance, and from LeanTerm's editor.
+ * @returns {$CancellablePromise<void>}
+ */
+export function NewWindow() {
+    return $Call.ByID(601071532);
+}
+
+/**
  * Open queues a file for the editor window, creating or raising the window.
  * The window picks queued files up with TakePending ("editor:pending").
  * @param {$models.EditorFile} f
