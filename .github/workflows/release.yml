@@ -1,0 +1,65 @@
+# Publishes a GitHub release when a version tag (v1.2.3) is pushed: the Linux
+# packages, the Windows installer (cross-compiled) and SHA256SUMS, with the
+# release notes from docs/releases/<tag>.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Check version and notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./frontend/package.json').version")
+          if [ "$PKG" != "$VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match frontend/package.json ($PKG)"; exit 1
+          fi
+          test -f "docs/releases/$GITHUB_REF_NAME.md" || { echo "docs/releases/$GITHUB_REF_NAME.md is missing"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev nsis
+          npm --prefix frontend ci
+          (cd frontend && npx vitest run)
+          go test ./internal/...
+
+      - name: Build packages
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+          bash build/package-deb.sh "$VERSION"
+          bash build/package-tarball.sh "$VERSION"
+          WAILS3="$(go env GOPATH)/bin/wails3" bash build/package-windows.sh "$VERSION"
+          # The binary must not need a newer glibc than 2.34.
+          objdump -T bin/leanterm | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir dist
+          cp "bin/leanterm_${VERSION}_amd64.deb" "bin/leanterm_${VERSION}_linux_amd64.tar.gz" \
+             "bin/leanterm_${VERSION}_windows_amd64_setup.exe" dist/
+          (cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file "docs/releases/$GITHUB_REF_NAME.md"
