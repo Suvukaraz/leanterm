@@ -116,17 +116,28 @@ func main() {
 		app.PrintUsage()
 		return
 	}
+	// A link or copy of the binary named "leanedit" starts LeanEdit as well.
+	if name := strings.ToLower(strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")); name == "leanedit" {
+		flags.LeanEdit = true
+	}
 
 	cfgStore, err := config.NewStore(config.StoreOptions{
 		ConfigDir: flags.ConfigDir,
-		NoBackup:  flags.NoBackup,
-		ReadOnly:  flags.ReadOnly,
+		// LeanEdit runs next to LeanTerm and shares its configuration; only
+		// LeanTerm rotates the backups.
+		NoBackup: flags.NoBackup || flags.LeanEdit,
+		ReadOnly: flags.ReadOnly,
 	})
 	if err != nil {
 		log.Fatalf("failed to initialize config store: %v", err)
 	}
 	if err := cfgStore.Load(); err != nil {
 		log.Fatalf("failed to load configuration: %v", err)
+	}
+
+	if flags.LeanEdit {
+		runLeanEdit(flags, cfgStore)
+		return
 	}
 
 	// Handle CLI dump and list commands
@@ -183,6 +194,9 @@ func main() {
 	clusterSvc := services.NewClusterService(clusterMgr, sessionMgr, cfgStore)
 	editorSvc := services.NewEditorService(cfgStore, sftpSvc, emitter)
 	configSvc.SetEmitter(emitter)
+	// config.toml changed on disk (e.g. LeanEdit saved its settings): show the
+	// reloaded settings in all windows.
+	cfgStore.OnReload = func() { emitter.Emit("settings:changed", nil) }
 
 	var singleInstance *application.SingleInstanceOptions
 	if !cfgStore.Config().General.AllowMultipleInstances {

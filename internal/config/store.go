@@ -341,6 +341,40 @@ func (s *Store) saveLocked() error {
 	return nil
 }
 
+// UpdateOnDisk re-reads config.toml, applies change to it and writes it back
+// right away. LeanEdit uses it: it runs as its own process next to LeanTerm, so
+// it must only change its own settings in the file LeanTerm may have saved
+// meanwhile, never write back an older copy of everything else.
+func (s *Store) UpdateOnDisk(change func(cfg *Config)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.opts.ReadOnly {
+		return ErrReadOnly
+	}
+
+	var cfg *Config
+	if data, err := os.ReadFile(s.ConfigPath()); err == nil && len(data) > 0 {
+		cfg, _ = s.parseConfig(data)
+	}
+	if cfg == nil {
+		// No (readable) file yet: start from a copy of the configuration in memory.
+		data, err := toml.Marshal(s.cfg)
+		if err != nil {
+			return err
+		}
+		if cfg, err = s.parseConfig(data); err != nil {
+			return err
+		}
+	}
+
+	change(cfg)
+	if res := Validate(cfg); res.HasErrors() {
+		return res.Error()
+	}
+	s.cfg = cfg
+	return s.saveLocked()
+}
+
 // MarkDirty marks the configuration as modified and schedules an autosave if enabled.
 func (s *Store) MarkDirty() {
 	s.mu.Lock()

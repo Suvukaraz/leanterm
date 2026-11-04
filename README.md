@@ -51,7 +51,7 @@ More options (packages, updates, uninstalling) are described [below](#installati
 - **Terminals** – tabs and split tabs, find bar, tab colours; local shell via PTY (Linux) or ConPTY (Windows).
 - **Two terminal engines** – [Rio](https://github.com/raphamorim/rio)'s terminal core via [rioterm](https://github.com/raphamorim/riotermjs) or [Ghostty](https://ghostty.org)'s terminal core via [ghostty-web](https://github.com/coder/ghostty-web) (default), selectable in *Preferences → Terminal Options*. Both run as WebAssembly inside LeanTerm, so Rio's and Ghostty's terminal emulation is available on Linux and Windows alike.
 - **File browser** – SFTP and local files next to the terminal: drag and drop, parallel transfers with queue, follows the shell's folder, open with the default application and upload changes back.
-- **Editor** – edits local and remote files directly over SSH; syntax highlighting for 50+ languages and configuration formats, KWrite-style *Selection* and *Go* menus, bookmarks, block selection and minimap.
+- **Editor (LeanEdit)** – edits local and remote files directly over SSH; syntax highlighting for 50+ languages and configuration formats, KWrite-style *Selection* and *Go* menus, bookmarks, block selection and minimap. Also installed as a separate application, see [LeanEdit](#leanedit).
 - **Automation** – variables and prompts, Expect sequences, connection chains, clusters with broadcast input, pipe/tee of terminal output.
 - **Security** – secrets encrypted with [age](https://age-encryption.org) and kept in the system keyring or behind a master password; KeePassXC integration; GUI lock.
 - **Organisation** – connection tree with groups, favourites, history, quick connect, Wake-on-LAN and bulk edit.
@@ -76,7 +76,7 @@ Requirements: x86_64, glibc 2.34+, GTK 4.10+ and WebKitGTK 6.0 – Debian 12 and
 
 ### Windows
 
-The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu and desktop shortcuts and installs the WebView2 runtime if needed. It is not code-signed yet, so SmartScreen asks for confirmation on the first start. Windows 10 version 1809 or later is required.
+The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu and desktop shortcuts (optionally also for [LeanEdit](#leanedit)) and installs the WebView2 runtime if needed. It is not code-signed yet, so SmartScreen asks for confirmation on the first start. Windows 10 version 1809 or later is required.
 
 ### Platform differences
 
@@ -88,11 +88,19 @@ The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu an
 | SSH agent | `SSH_AUTH_SOCK` | Windows OpenSSH agent or a pipe in `SSH_AUTH_SOCK` (e.g. Pageant) |
 | X11 forwarding | local X server | VcXsrv, X410 or another X server on `localhost:0` |
 
+## LeanEdit
+
+LeanEdit is LeanTerm's text editor as an application of its own: it has its own menu entry and icon, is offered in the file manager's *Open with* for text files and runs independently of LeanTerm (`leanterm --leanedit [file…]`). Each start opens a separate window, also while LeanTerm is running; LeanTerm itself still runs only once. Started on its own, LeanEdit edits local files and needs no connection, sessions or passwords. *Settings → Configure LeanEdit…* opens its own small preferences window, in LeanTerm as well; the settings are shared with the editor in LeanTerm.
+
+On Windows the installer offers LeanEdit as an option (Start menu and desktop shortcut, *Open with* for text files); on Linux the packages always install it.
+
 ## Configuration
 
 Settings are edited in *Preferences* and stored as TOML in `config.toml` (window layout in `state/ui.toml`); passwords are kept separately in the encrypted `secrets.age`. All options with their defaults are listed in [docs/config-reference.md](docs/config-reference.md).
 
-Start options such as `--start-uuid`, `--start-shell`, `--edit <file>` or `--config-dir` are listed with `leanterm --help`.
+Terminal screenshots (*Take Screenshot* in the terminal's context menu) and session logs are saved in the folders set in *Preferences → Terminal Options* (default: `screenshots` and `session_logs` in the configuration folder); *Save session log…* asks for the file name, starting in the session logs folder.
+
+Start options such as `--start-uuid`, `--start-shell`, `--edit <file>`, `--leanedit` or `--config-dir` are listed with `leanterm --help`.
 
 ## Building from source
 
