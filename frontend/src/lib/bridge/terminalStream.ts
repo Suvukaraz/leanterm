@@ -56,6 +56,10 @@ export class TerminalStream {
   private inputTimer?: ReturnType<typeof setTimeout>;
   private sending = false;
 
+  /** Size still to be sent to the backend (newest wins). */
+  private resizeTarget?: { cols: number; rows: number };
+  private resizing = false;
+
   /** Called for every output packet (used for the "new data" tab colour). */
   public ondata?: () => void;
 
@@ -165,11 +169,37 @@ export class TerminalStream {
     }
   }
 
+  /**
+   * Tells the backend (PTY / SSH window) the terminal's size.
+   *
+   * Calls are sent one at a time and only the newest size is sent next: bridge
+   * calls run concurrently in the backend, so while the window is being resized
+   * an older size could otherwise arrive last. The shell would then format its
+   * output (progress bars, prompts, full-screen programs) for a width the
+   * terminal does not have, and every redraw would wrap into a new line.
+   */
   public resize(cols: number, rows: number): void {
-    if (cols <= 0 || rows <= 0) return;
-    SessionService.Resize(this.tmpID, cols, rows).catch((err) => {
-      console.warn(`Resize failed for ${this.tmpID}:`, err);
-    });
+    if (cols <= 0 || rows <= 0 || this.destroyed) return;
+    this.resizeTarget = { cols, rows };
+    void this.flushResize();
+  }
+
+  private async flushResize(): Promise<void> {
+    if (this.resizing) return;
+    this.resizing = true;
+    try {
+      while (this.resizeTarget && !this.destroyed) {
+        const { cols, rows } = this.resizeTarget;
+        this.resizeTarget = undefined;
+        try {
+          await SessionService.Resize(this.tmpID, cols, rows);
+        } catch (err) {
+          console.warn(`Resize failed for ${this.tmpID}:`, err);
+        }
+      }
+    } finally {
+      this.resizing = false;
+    }
   }
 
   public destroy(): void {
