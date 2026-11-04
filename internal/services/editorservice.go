@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 
@@ -169,6 +170,10 @@ func (es *EditorService) createWindow(app *application.App) *application.Webview
 	}
 
 	win := app.Window.NewWithOptions(opts)
+	// The window checks its files for changes on disk whenever it gets the focus.
+	win.OnWindowEvent(events.Common.WindowFocus, func(*application.WindowEvent) {
+		win.EmitEvent("editor:focused")
+	})
 	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		es.mu.Lock()
 		quitting := es.isQuitting != nil && es.isQuitting()
@@ -229,6 +234,25 @@ func (es *EditorService) TakePending() []EditorFile {
 		out = []EditorFile{}
 	}
 	return out
+}
+
+// NewWindow starts another LeanEdit with its own window (File → New Window),
+// also when LeanEdit runs as a single instance, and from LeanTerm's editor.
+func (es *EditorService) NewWindow() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := []string{"--leanedit", "--new-window"}
+	if es.store != nil {
+		args = append(args, "--config-dir="+es.store.ConfigDir())
+	}
+	cmd := exec.Command(exe, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }() // reaps the process when that window is closed
+	return nil
 }
 
 // CloseWindow closes the editor window without asking again (the window has

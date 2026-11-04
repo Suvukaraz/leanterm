@@ -180,7 +180,7 @@ func (ss *SystemService) OpenPath(path string) error {
 func (ss *SystemService) AppInfo() map[string]string {
 	return map[string]string{
 		"name":        "LeanTerm",
-		"version":     "1.2.0",
+		"version":     "1.2.1",
 		"license":     "GPLv3",
 		"description": "SSH, Telnet and SFTP connection manager for Linux and Windows (Go + Wails + Svelte)",
 	}

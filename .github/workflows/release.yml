@@ -1,0 +1,85 @@
+# Publishes the GitHub release of the version in frontend/package.json: the
+# Linux packages, the Windows installer (cross-compiled) and SHA256SUMS, with
+# the release notes from docs/releases/v<version>.md.
+#
+# Runs when a version change reaches main (the release and its tag v<version>
+# are created from that commit; an existing release is left alone), when a
+# tag v<version> is pushed, or by hand.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [frontend/package.json]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Check version and notes
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./frontend/package.json').version")
+          TAG="v$VERSION"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "$TAG" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match frontend/package.json ($VERSION)"; exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists already, nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test -f "docs/releases/$TAG.md" || { echo "docs/releases/$TAG.md is missing"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Tests
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev nsis
+          npm --prefix frontend ci
+          (cd frontend && npx vitest run)
+          go test ./internal/...
+
+      - name: Build packages
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+          bash build/package-deb.sh "$VERSION"
+          bash build/package-tarball.sh "$VERSION"
+          WAILS3="$(go env GOPATH)/bin/wails3" bash build/package-windows.sh "$VERSION"
+          # The binary must not need a newer glibc than 2.34.
+          objdump -T bin/leanterm | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
+
+      - name: Publish release
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir dist
+          cp "bin/leanterm_${VERSION}_amd64.deb" "bin/leanterm_${VERSION}_linux_amd64.tar.gz" \
+             "bin/leanterm_${VERSION}_windows_amd64_setup.exe" dist/
+          (cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS)
+          # Creates the tag on this commit unless it was pushed already.
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" \
+            --title "$TAG" --notes-file "docs/releases/$TAG.md"

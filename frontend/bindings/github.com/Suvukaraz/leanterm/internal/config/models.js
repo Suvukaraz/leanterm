@@ -1078,6 +1078,13 @@ export class EditorConfig {
              */
             this["HugeFileMB"] = 0;
         }
+        if (!("SingleInstance" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["SingleInstance"] = false;
+        }
 
         Object.assign(this, $$source);
     }

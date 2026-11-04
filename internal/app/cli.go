@@ -22,6 +22,9 @@ type CLIFlags struct {
 	EditFiles []string
 	// LeanEdit starts only the text editor, as its own application (--leanedit).
 	LeanEdit bool
+	// NewWindow makes LeanEdit open its own window even when it runs as a single
+	// instance (--new-window, File → New Window).
+	NewWindow bool
 	// Files are the arguments without a leading dash; LeanEdit opens them.
 	Files       []string
 	DumpUUID    string
@@ -117,6 +120,8 @@ func ParseCLI(args []string) *CLIFlags {
 			}
 		case "leanedit":
 			flags.LeanEdit = true
+		case "new-window":
+			flags.NewWindow = true
 		case "list-uuids":
 			flags.ListUUIDs = true
 		case "preferences", "settings":
@@ -154,7 +159,9 @@ Options:
   --edit-uuid=<id>            Open the edit window for the connection with UUID <id>
   --edit=<file>               Open a local file in the built-in editor (can be repeated)
   --leanedit [<file>...]      Start only the text editor LeanEdit, as its own application
-                              (independent of a running LeanTerm, several may run at once)
+                              (independent of a running LeanTerm); with "single instance"
+                              in its settings, files open as tabs of the running LeanEdit
+  --new-window                LeanEdit: open a new window even in single instance mode
   --dump-uuid=<id>            Print configuration for UUID <id> as TOML and exit
   --list-uuids                Print table of all connections and groups (UUID/Type/Method/Name)
   --settings                  Open the Settings window on startup (also --preferences)

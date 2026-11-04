@@ -124,6 +124,7 @@ func Default() *Config {
 			ShowMinimap:     true,
 			LargeFileMB:     10,
 			HugeFileMB:      100,
+			SingleInstance:  true,
 		},
 		SFTPBrowser: SFTPBrowserConfig{
 			AutoOpen:             true,

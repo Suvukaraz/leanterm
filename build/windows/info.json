@@ -1,10 +1,10 @@
 {
 	"fixed": {
-		"file_version": "1.2.0"
+		"file_version": "1.2.1"
 	},
 	"info": {
 		"0409": {
-			"ProductVersion": "1.2.0",
+			"ProductVersion": "1.2.1",
 			"CompanyName": "LeanTerm Project",
 			"FileDescription": "LeanTerm Connection Manager",
 			"LegalCopyright": "© 2026 LeanTerm Project, GPL-3.0",
