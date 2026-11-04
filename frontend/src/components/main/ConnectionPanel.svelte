@@ -241,7 +241,7 @@
                 <ul class="welcome-list">
                   <li>Select or create a connection in the left tree and click Connect or double-click to start.</li>
                   <li>Use Local shell to open an instant terminal.</li>
-                  <li>Click Preferences to customize colors, keys, fonts, and security settings.</li>
+                  <li>Click Settings to customize colors, keys, fonts, and security settings.</li>
                 </ul>
               </div>
             </div>

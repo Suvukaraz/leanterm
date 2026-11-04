@@ -179,8 +179,8 @@
 
 {#if open}
   <Dialog
-    title="Preferences"
-    bannerText="Preferences"
+    title="Settings"
+    bannerText="Settings"
     width={880}
     height={660}
     movable
@@ -271,7 +271,7 @@
 
 {#if hintDialog.open}
   <MessageDialog
-    title="Preferences"
+    title="Settings"
     secondaryText={hintDialog.message}
     type="info"
     buttons="ok"

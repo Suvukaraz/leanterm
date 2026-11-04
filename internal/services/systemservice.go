@@ -48,13 +48,13 @@ func (ss *SystemService) LookupArpMAC(ip string) (string, error) {
 	return wol.LookupArpMAC(ip)
 }
 
-// ScreenshotsDir is the folder for terminal screenshots: Preferences > Terminal
+// ScreenshotsDir is the folder for terminal screenshots: Settings > Terminal
 // Options > Screenshots, else <config dir>/screenshots.
 func (ss *SystemService) ScreenshotsDir() string {
 	return ss.folder(func(cfg *config.Config) string { return cfg.Terminal.ScreenshotsFolder }, "screenshots")
 }
 
-// SessionLogsDir is the folder for session logs: Preferences > Terminal Options >
+// SessionLogsDir is the folder for session logs: Settings > Terminal Options >
 // Session Logs, else <config dir>/session_logs. "Save session log…" starts there.
 func (ss *SystemService) SessionLogsDir() string {
 	return ss.folder(func(cfg *config.Config) string { return cfg.Terminal.SessionLogs.Folder }, "session_logs")
@@ -180,7 +180,7 @@ func (ss *SystemService) OpenPath(path string) error {
 func (ss *SystemService) AppInfo() map[string]string {
 	return map[string]string{
 		"name":        "LeanTerm",
-		"version":     "1.1.1",
+		"version":     "1.2.0",
 		"license":     "GPLv3",
 		"description": "SSH, Telnet and SFTP connection manager for Linux and Windows (Go + Wails + Svelte)",
 	}

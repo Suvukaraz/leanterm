@@ -1007,7 +1007,7 @@ export class DynamicForward {
 }
 
 /**
- * EditorConfig represents the built-in text editor (Preferences > Editor)
+ * EditorConfig represents the built-in text editor (Settings > Editor)
  */
 export class EditorConfig {
     /**

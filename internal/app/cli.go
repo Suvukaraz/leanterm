@@ -119,7 +119,7 @@ func ParseCLI(args []string) *CLIFlags {
 			flags.LeanEdit = true
 		case "list-uuids":
 			flags.ListUUIDs = true
-		case "preferences":
+		case "preferences", "settings":
 			flags.Preferences = true
 		case "quick-conn":
 			flags.QuickConn = true
@@ -157,7 +157,7 @@ Options:
                               (independent of a running LeanTerm, several may run at once)
   --dump-uuid=<id>            Print configuration for UUID <id> as TOML and exit
   --list-uuids                Print table of all connections and groups (UUID/Type/Method/Name)
-  --preferences               Open the Preferences window on startup
+  --settings                  Open the Settings window on startup (also --preferences)
   --quick-conn                Open the Quick Connect window on startup
   --no-splash                 Disable splash/greeting on startup
   --readonly                  Start in read-only mode (no configuration changes saved)

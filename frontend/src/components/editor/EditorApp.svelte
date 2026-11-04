@@ -1061,12 +1061,8 @@
           { label: 'Unindent', shortcut: 'Shift+Tab', disabled: !hasDoc, action: () => run(indentLess) },
         ],
       },
-      {
-        label: 'Settings',
-        items: [
-          { label: 'Configure LeanEdit…', icon: 'gtk-preferences', action: () => EditorService.ShowPreferences() },
-        ],
-      },
+      // Opens LeanEdit's settings window right away (no drop-down menu).
+      { label: 'Settings', items: [], action: () => void EditorService.ShowPreferences() },
     ];
   });
 

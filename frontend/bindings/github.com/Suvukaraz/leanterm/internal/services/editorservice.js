@@ -70,7 +70,7 @@ export function ChooseSaveFile(suggested) {
 }
 
 /**
- * ClosePreferences closes the preferences window (OK / Cancel).
+ * ClosePreferences closes the settings window (OK / Cancel).
  * @returns {$CancellablePromise<void>}
  */
 export function ClosePreferences() {
@@ -211,7 +211,7 @@ export function SetWindowSetup(setup) {
 }
 
 /**
- * ShowPreferences opens LeanEdit's own preferences window (only the editor
+ * ShowPreferences opens LeanEdit's own settings window (only the editor
  * settings) or raises it when it is already open.
  * @returns {$CancellablePromise<void>}
  */

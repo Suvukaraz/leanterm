@@ -243,7 +243,7 @@ func (es *EditorService) CloseWindow() {
 	}
 }
 
-// ShowPreferences opens LeanEdit's own preferences window (only the editor
+// ShowPreferences opens LeanEdit's own settings window (only the editor
 // settings) or raises it when it is already open.
 func (es *EditorService) ShowPreferences() error {
 	es.mu.Lock()
@@ -269,7 +269,7 @@ func (es *EditorService) ShowPreferences() error {
 	}
 	win = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             editorPrefsWindowName,
-		Title:            EditorAppName + " Preferences",
+		Title:            EditorAppName + " Settings",
 		Width:            560,
 		Height:           620,
 		MinWidth:         420,
@@ -292,7 +292,7 @@ func (es *EditorService) ShowPreferences() error {
 	return nil
 }
 
-// ClosePreferences closes the preferences window (OK / Cancel).
+// ClosePreferences closes the settings window (OK / Cancel).
 func (es *EditorService) ClosePreferences() {
 	es.mu.Lock()
 	win := es.prefsWindow

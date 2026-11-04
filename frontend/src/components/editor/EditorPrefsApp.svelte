@@ -1,6 +1,6 @@
 <script lang="ts">
-  // LeanEdit's preferences window (#/editor-prefs): only the editor settings, opened
-  // from the editor (Settings → Configure LeanEdit…), inside LeanTerm and on its own.
+  // LeanEdit's settings window (#/editor-prefs): only the editor settings, opened
+  // with "Settings" in the editor's menu bar, inside LeanTerm and on its own.
   import { onMount } from 'svelte';
   import * as EditorService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/editorservice.js';
   import { setIconTheme } from '../../lib/theme/icons';
@@ -14,7 +14,7 @@
   let saving = $state(false);
 
   onMount(() => {
-    document.title = 'LeanEdit Preferences';
+    document.title = 'LeanEdit Settings';
     (async () => {
       try {
         const s: any = await EditorService.GetEditorSettings();

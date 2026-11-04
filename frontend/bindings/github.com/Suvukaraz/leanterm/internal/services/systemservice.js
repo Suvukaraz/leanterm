@@ -149,7 +149,7 @@ export function SaveScreenshot(connID, name, base64PNG) {
 }
 
 /**
- * ScreenshotsDir is the folder for terminal screenshots: Preferences > Terminal
+ * ScreenshotsDir is the folder for terminal screenshots: Settings > Terminal
  * Options > Screenshots, else <config dir>/screenshots.
  * @returns {$CancellablePromise<string>}
  */
@@ -158,7 +158,7 @@ export function ScreenshotsDir() {
 }
 
 /**
- * SessionLogsDir is the folder for session logs: Preferences > Terminal Options >
+ * SessionLogsDir is the folder for session logs: Settings > Terminal Options >
  * Session Logs, else <config dir>/session_logs. "Save session log…" starts there.
  * @returns {$CancellablePromise<string>}
  */
