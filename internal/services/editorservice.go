@@ -26,12 +26,21 @@ type EditorFile struct {
 	Path string `json:"path"`
 }
 
-const editorWindowName = "editor"
+const (
+	editorWindowName      = "editor"
+	editorPrefsWindowName = "editor-prefs"
+	// EditorAppName is the editor's name, also when it runs inside LeanTerm.
+	EditorAppName = "LeanEdit"
+)
 
-// EditorService backs the text editor: one extra window with a tab per file,
-// fed by Open from the file browsers. File contents travel in chunks
-// (Load/ReadChunk, BeginSave/AppendSave/CommitSave) so large files do not
-// block the bridge.
+// EditorService backs the text editor (LeanEdit): one window with a tab per
+// file, fed by Open from the file browsers or the command line. File contents
+// travel in chunks (Load/ReadChunk, BeginSave/AppendSave/CommitSave) so large
+// files do not block the bridge.
+//
+// Inside LeanTerm the window is an extra window of LeanTerm. Started on its own
+// (leanterm --leanedit) it is the only window of a separate process: closing it
+// quits that process, and its settings are written straight to config.toml.
 type EditorService struct {
 	mu         sync.Mutex
 	app        *application.App
@@ -41,10 +50,15 @@ type EditorService struct {
 	isQuitting func() bool
 	files      *editor.Manager
 
-	window     *application.WebviewWindow
-	allowClose bool
-	pending    []EditorFile
-	unsaved    bool
+	window      *application.WebviewWindow
+	prefsWindow *application.WebviewWindow
+	allowClose  bool
+	pending     []EditorFile
+	unsaved     bool
+	standalone  bool
+	// windowSetup is called for every window the service creates (LeanEdit sets
+	// its own icon on Windows with it).
+	windowSetup func(*application.WebviewWindow)
 }
 
 func NewEditorService(store *config.Store, sftp *SFTPService, emitter settingsEmitter) *EditorService {
@@ -58,6 +72,29 @@ func (es *EditorService) SetApp(app *application.App, isQuitting func() bool) {
 	defer es.mu.Unlock()
 	es.app = app
 	es.isQuitting = isQuitting
+}
+
+// SetStandalone switches the service to LeanEdit's own process (see the type).
+func (es *EditorService) SetStandalone(standalone bool) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.standalone = standalone
+}
+
+// SetWindowSetup registers a function that is called for every new window.
+func (es *EditorService) SetWindowSetup(setup func(*application.WebviewWindow)) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.windowSetup = setup
+}
+
+func (es *EditorService) setupWindow(win *application.WebviewWindow) {
+	es.mu.Lock()
+	setup := es.windowSetup
+	es.mu.Unlock()
+	if setup != nil {
+		setup(win)
+	}
 }
 
 // ---- Window -----------------------------------------------------------------
@@ -116,7 +153,7 @@ func (es *EditorService) createWindow(app *application.App) *application.Webview
 	}
 	opts := application.WebviewWindowOptions{
 		Name:             editorWindowName,
-		Title:            "LeanTerm Editor",
+		Title:            EditorAppName,
 		Width:            900,
 		Height:           640,
 		MinWidth:         480,
@@ -150,12 +187,23 @@ func (es *EditorService) createWindow(app *application.App) *application.Webview
 		es.allowClose = false
 		es.unsaved = false
 		es.pending = nil
+		standalone, prefs := es.standalone, es.prefsWindow
 		es.mu.Unlock()
+
+		// LeanEdit on its own: the editor window is the application, so closing
+		// it also closes an open preferences window and quits.
+		if standalone {
+			if prefs != nil {
+				prefs.Close()
+			}
+			go app.Quit()
+		}
 	})
 
 	es.mu.Lock()
 	es.window = win
 	es.mu.Unlock()
+	es.setupWindow(win)
 	return win
 }
 
@@ -195,22 +243,120 @@ func (es *EditorService) CloseWindow() {
 	}
 }
 
-// ShowPreferences raises the main window and opens Preferences there on the
-// Editor page ("editor:configure").
-func (es *EditorService) ShowPreferences() {
+// ShowPreferences opens LeanEdit's own settings window (only the editor
+// settings) or raises it when it is already open.
+func (es *EditorService) ShowPreferences() error {
 	es.mu.Lock()
-	app := es.app
+	app, win := es.app, es.prefsWindow
 	es.mu.Unlock()
-	if app != nil {
-		if w, ok := app.Window.GetByName("main"); ok {
-			w.Show()
-			w.UnMinimise()
-			w.Focus()
+	if app == nil {
+		return errors.New("application not ready")
+	}
+	if win != nil {
+		win.Show()
+		win.UnMinimise()
+		win.Focus()
+		return nil
+	}
+
+	scheme := ""
+	if es.store != nil {
+		scheme = es.store.Config().General.ColorScheme
+	}
+	bg := application.NewRGB(0x2b, 0x2b, 0x2b)
+	if scheme == "light" {
+		bg = application.NewRGB(0xf0, 0xf0, 0xf0)
+	}
+	win = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             editorPrefsWindowName,
+		Title:            EditorAppName + " Settings",
+		Width:            560,
+		Height:           620,
+		MinWidth:         420,
+		MinHeight:        360,
+		URL:              "/#/editor-prefs",
+		BackgroundColour: bg,
+		InitialPosition:  application.WindowCentered,
+	})
+	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		es.mu.Lock()
+		if es.prefsWindow == win {
+			es.prefsWindow = nil
 		}
+		es.mu.Unlock()
+	})
+	es.mu.Lock()
+	es.prefsWindow = win
+	es.mu.Unlock()
+	es.setupWindow(win)
+	return nil
+}
+
+// ClosePreferences closes the settings window (OK / Cancel).
+func (es *EditorService) ClosePreferences() {
+	es.mu.Lock()
+	win := es.prefsWindow
+	es.mu.Unlock()
+	if win != nil {
+		win.Close()
+	}
+}
+
+// EditorSettings is what the editor and its preferences window need from the
+// configuration.
+type EditorSettings struct {
+	Editor      config.EditorConfig `json:"editor"`
+	ColorScheme string              `json:"colorScheme"`
+	IconTheme   string              `json:"iconTheme"`
+	// Standalone is true in LeanEdit's own process (no LeanTerm file browsers).
+	Standalone bool `json:"standalone"`
+}
+
+// GetEditorSettings returns the current editor settings.
+func (es *EditorService) GetEditorSettings() EditorSettings {
+	es.mu.Lock()
+	standalone := es.standalone
+	es.mu.Unlock()
+	out := EditorSettings{Standalone: standalone}
+	if es.store != nil {
+		cfg := es.store.Config()
+		out.Editor = cfg.Editor
+		out.ColorScheme = cfg.General.ColorScheme
+		out.IconTheme = cfg.General.Theme
+	}
+	return out
+}
+
+// SaveEditorSettings stores the editor settings and tells all windows
+// ("settings:changed"). Invalid values are rejected with a readable error.
+func (es *EditorService) SaveEditorSettings(ed config.EditorConfig) error {
+	if es.store == nil {
+		return errors.New("no configuration")
+	}
+	es.mu.Lock()
+	standalone := es.standalone
+	es.mu.Unlock()
+
+	if standalone {
+		// Only the [editor] section of the file on disk changes; LeanTerm (if it
+		// runs) reloads the file.
+		if err := es.store.UpdateOnDisk(func(cfg *config.Config) { cfg.Editor = ed }); err != nil {
+			return err
+		}
+	} else {
+		cfg := es.store.Config()
+		before := cfg.Editor
+		cfg.Editor = ed
+		if res := config.Validate(cfg); res.HasErrors() {
+			cfg.Editor = before
+			return res.Error()
+		}
+		es.store.MarkDirty()
 	}
 	if es.emitter != nil {
-		es.emitter.Emit("editor:configure", nil)
+		es.emitter.Emit("settings:changed", nil)
 	}
+	return nil
 }
 
 // SetUnsaved is called by the editor window whenever its unsaved state changes.

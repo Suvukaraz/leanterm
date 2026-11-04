@@ -1,6 +1,7 @@
 <script lang="ts">
-  // The editor window (#/editor): KWrite-like text editor with one tab per file,
-  // built on CodeMirror. Files come from the file browsers via EditorService.Open.
+  // The editor window (#/editor), LeanEdit: KWrite-like text editor with one tab per
+  // file, built on CodeMirror. Files come from LeanTerm's file browsers or the command
+  // line (leanterm --leanedit, LeanEdit's own process) via EditorService.Open.
   import { onMount, untrack } from 'svelte';
   import { Clipboard, Events, Window as WailsWindow } from '@wailsio/runtime';
   import { EditorState, Transaction, type Extension, type Text } from '@codemirror/state';
@@ -22,7 +23,6 @@
   import { foldAll, unfoldAll } from '@codemirror/language';
 
   import * as EditorService from '../../../bindings/github.com/Suvukaraz/leanterm/internal/services/editorservice.js';
-  import { settings, loadSettings } from '../../lib/stores/config';
   import { readClipboardText } from '../../lib/bridge/clipboard';
   import { setIconTheme } from '../../lib/theme/icons';
   import { fontFamilyCss, ptToPx } from '../../lib/terminal/look';
@@ -198,8 +198,20 @@
 
   // ---- Settings, theme and font --------------------------------------------------------------
 
-  let editorCfg = $derived(($settings as any)?.editor ?? {});
-  let dark = $derived(($settings as any)?.general?.ColorScheme !== 'light');
+  // Only the editor part of the configuration (EditorService works in LeanEdit's own
+  // process too, where LeanTerm's ConfigService does not exist).
+  let editorSettings = $state.raw<any>(null);
+  let editorCfg = $derived(editorSettings?.editor ?? {});
+  let dark = $derived(editorSettings?.colorScheme !== 'light');
+
+  async function loadEditorSettings(): Promise<any> {
+    try {
+      editorSettings = await EditorService.GetEditorSettings();
+    } catch (err) {
+      console.error('Failed to load the editor settings:', err);
+    }
+    return editorSettings;
+  }
   let prefs = $derived<ViewPrefs>({
     tabWidth: editorCfg.TabWidth > 0 ? editorCfg.TabWidth : 4,
     indentWithTabs: !!editorCfg.IndentWithTabs,
@@ -247,7 +259,7 @@
 
   $effect(() => {
     const t = activeTab;
-    const title = t ? `${t.title}${t.dirty ? ' *' : ''} — LeanTerm Editor` : 'LeanTerm Editor';
+    const title = t ? `${t.title}${t.dirty ? ' *' : ''} — LeanEdit` : 'LeanEdit';
     document.title = title;
     void WailsWindow.SetTitle(title).catch(() => {});
   });
@@ -282,7 +294,7 @@
   function showError(message: string, err?: unknown): Promise<string> {
     const detail = err === undefined ? '' : String((err as any)?.message ?? err);
     return ask({
-      title: 'LeanTerm Editor',
+      title: 'LeanEdit',
       type: 'error',
       message,
       detail,
@@ -462,7 +474,7 @@
         title: 'Very large file',
         type: 'warning',
         message: `${name} is very large (${formatSize(info.size)}).`,
-        detail: 'Opening it needs a lot of memory and can take a long time; LeanTerm may become slow.',
+        detail: 'Opening it needs a lot of memory and can take a long time; LeanEdit may become slow.',
         choices: [{ id: 'continue', label: 'Continue', isDefault: false }, { ...CANCEL, isDefault: true }],
       });
       if (a !== 'continue') return;
@@ -1049,12 +1061,8 @@
           { label: 'Unindent', shortcut: 'Shift+Tab', disabled: !hasDoc, action: () => run(indentLess) },
         ],
       },
-      {
-        label: 'Settings',
-        items: [
-          { label: 'Configure Editor…', icon: 'gtk-preferences', action: () => EditorService.ShowPreferences() },
-        ],
-      },
+      // Opens LeanEdit's settings window right away (no drop-down menu).
+      { label: 'Settings', items: [], action: () => void EditorService.ShowPreferences() },
     ];
   });
 
@@ -1135,11 +1143,11 @@
     const offs: Array<() => void> = [];
     offs.push(Events.On('editor:pending', () => void takePending()));
     offs.push(Events.On('editor:close-requested', () => void requestCloseWindow()));
-    offs.push(Events.On('settings:changed', () => void loadSettings()));
+    offs.push(Events.On('settings:changed', () => void loadEditorSettings()));
 
     (async () => {
-      const s: any = await loadSettings();
-      setIconTheme(s?.general?.Theme);
+      const s: any = await loadEditorSettings();
+      setIconTheme(s?.iconTheme);
       ready = true;
       await takePending();
     })();

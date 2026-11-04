@@ -76,11 +76,13 @@ function payload(ev: any): any {
  */
 export function initSessionEvents(): () => void {
   const offs = [
-    Events.On('session:opened', (ev: any) => {
+    Events.On('session:opened', async (ev: any) => {
       const data = payload(ev);
-      scheduleRefresh();
       refreshHistory();
       const tmpID = data?.session?.tmpID;
+      // A newly opened terminal (connection, local shell, CLI, launch at startup)
+      // becomes the visible tab; its tab exists once the list is refreshed.
+      await refreshSessions();
       if (tmpID && data?.where !== 'background') activeTab.set(tmpID);
     }),
     Events.On('session:state', (ev: any) => {

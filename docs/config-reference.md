@@ -9,7 +9,7 @@
 # Configuration schema version
 schema_version = 3
 
-# Preferences > Main Options > Behaviour
+# Settings > Main Options > Behaviour
 [general]
 # Main Window Layout: traditional | compact
 layout = 'traditional'
@@ -44,7 +44,7 @@ allow_multiple_instances = false
 # Sort groups first in tree
 sort_groups_first = true
 
-# Preferences > Main Options > Look and Feel
+# Settings > Main Options > Look and Feel
 [appearance]
 # Start on: connections | favourites | history | clusters
 start_tree_on = 'connections'
@@ -110,7 +110,7 @@ family = ''
 # Font size in points
 size = 0
 
-# Preferences > Main Options > Advanced
+# Settings > Main Options > Advanced
 [prompts]
 # Command prompt regexp (empty = built-in default)
 command = ''
@@ -125,7 +125,7 @@ remote_host_key_changed = ''
 # Press any key to continue regexp
 press_any_key = ''
 
-# Preferences > Terminal Options
+# Settings > Terminal Options
 [terminal]
 # Close Terminal on disconnection
 close_on_disconnect = false
@@ -149,8 +149,8 @@ window_height = 600
 start_maximized = false
 # Show status bar on every terminal
 show_status_bar = true
-# Terminal engine: rio | ghostty (applies to new terminals)
-engine = 'rio'
+# Terminal engine: ghostty | rio (applies to new terminals)
+engine = 'ghostty'
 # Change main window title with terminal title
 change_main_title = false
 # Show MACROS: never | combo | buttons
@@ -171,6 +171,8 @@ confirm_chains = true
 skip_first_chain_expect = true
 # Expect DEBUG
 debug = false
+# Folder for terminal screenshots (empty = <config dir>/screenshots)
+screenshots_folder = ''
 
 # Tab label status colors
 [terminal.colors]
@@ -257,7 +259,7 @@ download_dir = ''
 # Polling interval in seconds (0 = disabled)
 poll_seconds = 0
 
-# Preferences > Editor
+# Settings > Editor
 [editor]
 # Double-click on a text file opens it in: editor | default_app
 open_text_files_in = 'editor'

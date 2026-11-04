@@ -19,7 +19,11 @@ type CLIFlags struct {
 	StartUUIDs []string // id or id:cluster
 	EditUUID   string
 	// EditFiles are local files to open in the built-in editor (--edit).
-	EditFiles   []string
+	EditFiles []string
+	// LeanEdit starts only the text editor, as its own application (--leanedit).
+	LeanEdit bool
+	// Files are the arguments without a leading dash; LeanEdit opens them.
+	Files       []string
 	DumpUUID    string
 	ListUUIDs   bool
 	Preferences bool
@@ -35,9 +39,14 @@ func ParseCLI(args []string) *CLIFlags {
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if !strings.HasPrefix(arg, "-") {
-			flags.UnknownArgs = append(flags.UnknownArgs, arg)
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			flags.Files = append(flags.Files, arg)
 			continue
+		}
+		if arg == "--" {
+			// Everything after "--" is a file name, even when it starts with a dash.
+			flags.Files = append(flags.Files, args[i+1:]...)
+			break
 		}
 
 		// Normalize single leading dash to double dash if not already
@@ -106,9 +115,11 @@ func ParseCLI(args []string) *CLIFlags {
 				i++
 				flags.EditFiles = append(flags.EditFiles, args[i])
 			}
+		case "leanedit":
+			flags.LeanEdit = true
 		case "list-uuids":
 			flags.ListUUIDs = true
-		case "preferences":
+		case "preferences", "settings":
 			flags.Preferences = true
 		case "quick-conn":
 			flags.QuickConn = true
@@ -142,9 +153,11 @@ Options:
   --start-uuid=<id>[:<clust>] Start the connection with the given UUID (can be repeated)
   --edit-uuid=<id>            Open the edit window for the connection with UUID <id>
   --edit=<file>               Open a local file in the built-in editor (can be repeated)
+  --leanedit [<file>...]      Start only the text editor LeanEdit, as its own application
+                              (independent of a running LeanTerm, several may run at once)
   --dump-uuid=<id>            Print configuration for UUID <id> as TOML and exit
   --list-uuids                Print table of all connections and groups (UUID/Type/Method/Name)
-  --preferences               Open the Preferences window on startup
+  --settings                  Open the Settings window on startup (also --preferences)
   --quick-conn                Open the Quick Connect window on startup
   --no-splash                 Disable splash/greeting on startup
   --readonly                  Start in read-only mode (no configuration changes saved)

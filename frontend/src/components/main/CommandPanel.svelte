@@ -540,7 +540,7 @@
         <button
           type="button"
           class="button-cp"
-          title="Open general preferences"
+          title="Open the settings"
           onclick={() => prefsDialogOpen.set(true)}
         >
           <img src={getIcon('gtk-preferences')} alt="Prefs" width="16" height="16" />

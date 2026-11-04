@@ -94,6 +94,7 @@ jobs:
         run: |
           leanterm --help | head -n 1
           ls /usr/share/applications/org.leanterm.LeanTerm.desktop /usr/local/share/applications/org.leanterm.LeanTerm.desktop 2>/dev/null | grep -q .
+          ls /usr/share/applications/org.leanterm.LeanEdit.desktop /usr/local/share/applications/org.leanterm.LeanEdit.desktop 2>/dev/null | grep -q .
 
       - name: Uninstall
         if: ${{ !matrix.unsupported }}

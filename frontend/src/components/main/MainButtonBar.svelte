@@ -73,16 +73,16 @@
   />
 
   <Button
-    label="Preferences"
+    label="Settings"
     icon="gtk-preferences"
-    tooltip="Open the general preferences control"
+    tooltip="Open the settings"
     onclick={() => prefsDialogOpen.set(true)}
   />
 
   <ToggleButton
     checked={$isLocked}
     icon={$isLocked ? 'asbru-protected' : 'asbru-unprotected'}
-    tooltip="Password [un]lock GUI. In order to use this functionality, check the 'Protect with password' field under 'Preferences'->'Main Options'"
+    tooltip="Password [un]lock GUI. In order to use this functionality, check the 'Protect with password' field under 'Settings'->'Main Options'"
     disabled={!protectWithPassword}
     onchange={handleLockToggle}
   />

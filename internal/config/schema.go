@@ -142,9 +142,10 @@ type TerminalConfig struct {
 	Colors                 TerminalColorsConfig `toml:"colors" comment:"Tab label status colors"`
 	Look                   TerminalLookConfig   `toml:"look" comment:"Terminal UI visual configuration"`
 	SessionLogs            SessionLogsConfig    `toml:"session_logs" comment:"Session logs auto save configuration"`
+	ScreenshotsFolder      string               `toml:"screenshots_folder" comment:"Folder for terminal screenshots (empty = <config dir>/screenshots)"`
 }
 
-// EditorConfig represents the built-in text editor (Preferences > Editor)
+// EditorConfig represents the built-in text editor (Settings > Editor)
 type EditorConfig struct {
 	Font            FontConfig `toml:"font" comment:"Editor font"`
 	OpenTextFilesIn string     `toml:"open_text_files_in" comment:"Double-click on a text file opens it in: editor | default_app"`
@@ -406,12 +407,12 @@ type Connection struct {
 // Config is the root configuration structure mapped to config.toml
 type Config struct {
 	SchemaVersion int                 `toml:"schema_version" comment:"Configuration schema version"`
-	General       GeneralConfig       `toml:"general" comment:"Preferences > Main Options > Behaviour"`
-	Appearance    AppearanceConfig    `toml:"appearance" comment:"Preferences > Main Options > Look and Feel"`
-	Prompts       PromptsConfig       `toml:"prompts" comment:"Preferences > Main Options > Advanced"`
-	Terminal      TerminalConfig      `toml:"terminal" comment:"Preferences > Terminal Options"`
+	General       GeneralConfig       `toml:"general" comment:"Settings > Main Options > Behaviour"`
+	Appearance    AppearanceConfig    `toml:"appearance" comment:"Settings > Main Options > Look and Feel"`
+	Prompts       PromptsConfig       `toml:"prompts" comment:"Settings > Main Options > Advanced"`
+	Terminal      TerminalConfig      `toml:"terminal" comment:"Settings > Terminal Options"`
 	SFTPBrowser   SFTPBrowserConfig   `toml:"sftp_browser" comment:"SFTP browser side panel settings"`
-	Editor        EditorConfig        `toml:"editor" comment:"Preferences > Editor"`
+	Editor        EditorConfig        `toml:"editor" comment:"Settings > Editor"`
 	LocalShell    LocalShellConfig    `toml:"local_shell" comment:"Local Shell options"`
 	Network       NetworkConfig       `toml:"network" comment:"Global Network Settings"`
 	Variables     []VariableConfig    `toml:"variables,omitempty" comment:"Global Variables (<GV:name>)"`

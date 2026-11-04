@@ -40,9 +40,15 @@
     ondblclick
   }: Props = $props();
 
-  // If no active tab, default to first tab
+  // The tab shown: the active one, or the first tab while the active one is not
+  // (yet) in the list. A tab that is activated right when it is opened may arrive
+  // a moment after it was made active; it must be shown then, so an unknown id
+  // is not replaced by the first tab.
+  let shown = $derived(tabs.some((t) => t.id === activeTab) ? activeTab : (tabs[0]?.id ?? ''));
+
+  // No active tab at all: the first tab becomes the active one (bound parents see it).
   $effect(() => {
-    if ((!activeTab || !tabs.some(t => t.id === activeTab)) && tabs.length > 0) {
+    if (!activeTab && tabs.length > 0) {
       activeTab = tabs[0].id;
     }
   });
@@ -73,8 +79,8 @@
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === tab.id}
-        class={`notebook-tab ${activeTab === tab.id ? 'active' : ''}`}
+        aria-selected={shown === tab.id}
+        class={`notebook-tab ${shown === tab.id ? 'active' : ''}`}
         style={tab.bgColor ? `background-color: ${tab.bgColor};` : ''}
         title={tab.tooltip || tab.label}
         onclick={() => selectTab(tab.id)}
@@ -122,7 +128,7 @@
   </div>
 
   <div class="notebook-content">
-    {@render children?.(activeTab)}
+    {@render children?.(shown)}
   </div>
 </div>
 

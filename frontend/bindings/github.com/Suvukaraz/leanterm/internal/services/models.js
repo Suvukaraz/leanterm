@@ -425,6 +425,64 @@ export class EditorFile {
 }
 
 /**
+ * EditorSettings is what the editor and its preferences window need from the
+ * configuration.
+ */
+export class EditorSettings {
+    /**
+     * Creates a new EditorSettings instance.
+     * @param {Partial<EditorSettings>} [$$source = {}] - The source object to create the EditorSettings.
+     */
+    constructor($$source = {}) {
+        if (!("editor" in $$source)) {
+            /**
+             * @member
+             * @type {config$0.EditorConfig}
+             */
+            this["editor"] = (new config$0.EditorConfig());
+        }
+        if (!("colorScheme" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["colorScheme"] = "";
+        }
+        if (!("iconTheme" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["iconTheme"] = "";
+        }
+        if (!("standalone" in $$source)) {
+            /**
+             * Standalone is true in LeanEdit's own process (no LeanTerm file browsers).
+             * @member
+             * @type {boolean}
+             */
+            this["standalone"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new EditorSettings instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {EditorSettings}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType15;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("editor" in $$parsedSource) {
+            $$parsedSource["editor"] = $$createField0_0($$parsedSource["editor"]);
+        }
+        return new EditorSettings(/** @type {Partial<EditorSettings>} */($$parsedSource));
+    }
+}
+
+/**
  * FontFamily is an installed font family as listed by fontconfig.
  */
 export class FontFamily {
@@ -773,12 +831,12 @@ export class Settings {
      * @returns {Settings}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType15;
-        const $$createField1_0 = $$createType16;
-        const $$createField2_0 = $$createType17;
-        const $$createField3_0 = $$createType18;
-        const $$createField4_0 = $$createType19;
-        const $$createField5_0 = $$createType20;
+        const $$createField0_0 = $$createType16;
+        const $$createField1_0 = $$createType17;
+        const $$createField2_0 = $$createType18;
+        const $$createField3_0 = $$createType19;
+        const $$createField4_0 = $$createType20;
+        const $$createField5_0 = $$createType15;
         const $$createField6_0 = $$createType21;
         const $$createField7_0 = $$createType22;
         const $$createField8_0 = $$createType24;
@@ -846,12 +904,12 @@ const $$createType11 = config$0.MacrosConfig.createFrom;
 const $$createType12 = config$0.UserVariable.createFrom;
 const $$createType13 = $Create.Array($$createType12);
 const $$createType14 = config$0.ConnectionTerminal.createFrom;
-const $$createType15 = config$0.GeneralConfig.createFrom;
-const $$createType16 = config$0.AppearanceConfig.createFrom;
-const $$createType17 = config$0.PromptsConfig.createFrom;
-const $$createType18 = config$0.TerminalConfig.createFrom;
-const $$createType19 = config$0.SFTPBrowserConfig.createFrom;
-const $$createType20 = config$0.EditorConfig.createFrom;
+const $$createType15 = config$0.EditorConfig.createFrom;
+const $$createType16 = config$0.GeneralConfig.createFrom;
+const $$createType17 = config$0.AppearanceConfig.createFrom;
+const $$createType18 = config$0.PromptsConfig.createFrom;
+const $$createType19 = config$0.TerminalConfig.createFrom;
+const $$createType20 = config$0.SFTPBrowserConfig.createFrom;
 const $$createType21 = config$0.LocalShellConfig.createFrom;
 const $$createType22 = config$0.NetworkConfig.createFrom;
 const $$createType23 = config$0.VariableConfig.createFrom;

@@ -22,7 +22,7 @@ Unicode true
 ## !define INFO_PROJECTNAME    "my-project" # Default "LeanTerm"
 ## !define INFO_COMPANYNAME    "My Company" # Default "My Company"
 ## !define INFO_PRODUCTNAME    "My Product Name" # Default "LeanTerm"
-## !define INFO_PRODUCTVERSION "1.1.1"     # Default "0.1.0"
+## !define INFO_PRODUCTVERSION "1.2.0"     # Default "0.1.0"
 ## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "© 2026, My Company"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
@@ -59,6 +59,8 @@ ManifestDPIAware true
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 # !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
+!define MUI_COMPONENTSPAGE_SMALLDESC
+!insertmacro MUI_PAGE_COMPONENTS # Optional parts (LeanEdit).
 !insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
@@ -87,7 +89,8 @@ Function .onInit
    !insertmacro wails.checkArchitecture
 FunctionEnd
 
-Section
+Section "LeanTerm" SecLeanTerm
+    SectionIn RO # always installed
     !insertmacro wails.setShellContext
 
     !insertmacro wails.webview2runtime
@@ -95,6 +98,7 @@ Section
     SetOutPath $INSTDIR
     
     !insertmacro wails.files
+    File "..\leanedit.ico"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
@@ -105,6 +109,84 @@ Section
     !insertmacro wails.writeUninstaller
 SectionEnd
 
+####
+## LeanEdit: LeanTerm's text editor on its own (LeanTerm.exe --leanedit). It runs
+## independently of LeanTerm, so it gets its own shortcuts and is offered in
+## Explorer's "Open with" for text files.
+####
+!define LEANEDIT_PROGID "LeanTerm.LeanEdit"
+!define LEANEDIT_CMD '"$INSTDIR\${PRODUCT_EXECUTABLE}" --leanedit'
+
+!macro leanedit.openWith EXT
+    WriteRegStr SHCTX "Software\Classes\${EXT}\OpenWithProgids" "${LEANEDIT_PROGID}" ""
+!macroend
+!macro leanedit.removeOpenWith EXT
+    DeleteRegValue SHCTX "Software\Classes\${EXT}\OpenWithProgids" "${LEANEDIT_PROGID}"
+!macroend
+# Text file types offered "Open with LeanEdit" (the list is used for install and uninstall).
+!macro leanedit.forEachExtension MACRO
+    !insertmacro ${MACRO} ".txt"
+    !insertmacro ${MACRO} ".log"
+    !insertmacro ${MACRO} ".md"
+    !insertmacro ${MACRO} ".ini"
+    !insertmacro ${MACRO} ".cfg"
+    !insertmacro ${MACRO} ".conf"
+    !insertmacro ${MACRO} ".config"
+    !insertmacro ${MACRO} ".json"
+    !insertmacro ${MACRO} ".xml"
+    !insertmacro ${MACRO} ".yaml"
+    !insertmacro ${MACRO} ".yml"
+    !insertmacro ${MACRO} ".toml"
+    !insertmacro ${MACRO} ".csv"
+    !insertmacro ${MACRO} ".properties"
+    !insertmacro ${MACRO} ".env"
+    !insertmacro ${MACRO} ".sql"
+    !insertmacro ${MACRO} ".sh"
+    !insertmacro ${MACRO} ".ps1"
+    !insertmacro ${MACRO} ".bat"
+    !insertmacro ${MACRO} ".cmd"
+    !insertmacro ${MACRO} ".py"
+    !insertmacro ${MACRO} ".js"
+    !insertmacro ${MACRO} ".ts"
+    !insertmacro ${MACRO} ".go"
+    !insertmacro ${MACRO} ".c"
+    !insertmacro ${MACRO} ".h"
+    !insertmacro ${MACRO} ".cpp"
+    !insertmacro ${MACRO} ".cs"
+    !insertmacro ${MACRO} ".java"
+    !insertmacro ${MACRO} ".css"
+    !insertmacro ${MACRO} ".html"
+    !insertmacro ${MACRO} ".htm"
+!macroend
+
+Section "LeanEdit (text editor)" SecLeanEdit
+    !insertmacro wails.setShellContext
+
+    CreateShortcut "$SMPROGRAMS\LeanEdit.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}" "--leanedit" "$INSTDIR\leanedit.ico" 0 "" "" "LeanEdit text editor"
+    CreateShortcut "$DESKTOP\LeanEdit.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}" "--leanedit" "$INSTDIR\leanedit.ico" 0 "" "" "LeanEdit text editor"
+
+    # ProgID used by "Open with": name and icon of LeanEdit, opens the file in it.
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}" "" "Text Document (LeanEdit)"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}" "FriendlyTypeName" "Text Document (LeanEdit)"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}\DefaultIcon" "" "$INSTDIR\leanedit.ico"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}\Application" "ApplicationName" "LeanEdit"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}\Application" "ApplicationDescription" "LeanEdit text editor (LeanTerm)"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}\Application" "ApplicationIcon" "$INSTDIR\leanedit.ico"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}\shell\open" "FriendlyAppName" "LeanEdit"
+    WriteRegStr SHCTX "Software\Classes\${LEANEDIT_PROGID}\shell\open\command" "" '${LEANEDIT_CMD} "%1"'
+    !insertmacro leanedit.forEachExtension leanedit.openWith
+    # Any other file Windows considers text (perceived type "text").
+    WriteRegStr SHCTX "Software\Classes\SystemFileAssociations\text\OpenWithProgids" "${LEANEDIT_PROGID}" ""
+
+    # Tell Explorer about the new "Open with" entries.
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+SectionEnd
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecLeanTerm} "LeanTerm connection manager (required)."
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecLeanEdit} "LeanEdit, LeanTerm's text editor on its own: Start menu and desktop shortcut and $\"Open with$\" for text files."
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
 Section "uninstall" 
     !insertmacro wails.setShellContext
 
@@ -114,6 +196,14 @@ Section "uninstall"
 
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
+
+    # LeanEdit (nothing to do when it was not selected)
+    Delete "$SMPROGRAMS\LeanEdit.lnk"
+    Delete "$DESKTOP\LeanEdit.lnk"
+    !insertmacro leanedit.forEachExtension leanedit.removeOpenWith
+    DeleteRegValue SHCTX "Software\Classes\SystemFileAssociations\text\OpenWithProgids" "${LEANEDIT_PROGID}"
+    DeleteRegKey SHCTX "Software\Classes\${LEANEDIT_PROGID}"
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols

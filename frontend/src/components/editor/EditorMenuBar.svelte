@@ -4,7 +4,10 @@
 
   export interface MenuDef {
     label: string;
+    /** Entries of the drop-down menu (ignored when the title has an action). */
     items: MenuItem[];
+    /** Runs on click instead of opening a menu (e.g. "Settings"). */
+    action?: () => void;
   }
 
   interface Props {
@@ -29,6 +32,12 @@
   }
 
   function handleClick(index: number, e: MouseEvent) {
+    const action = menus[index].action;
+    if (action) {
+      openIndex = null;
+      action();
+      return;
+    }
     if (closedIndex === index && performance.now() - closedAt < 300) return;
     if (openIndex === index) {
       openIndex = null;
@@ -38,6 +47,7 @@
   }
 
   function handleEnter(index: number, e: MouseEvent) {
+    if (menus[index].action) return; // no menu to switch to
     if (openIndex !== null && openIndex !== index) openAt(index, e.currentTarget as HTMLElement);
   }
 
@@ -58,8 +68,8 @@
       class="menubar-item"
       class:open={openIndex === i}
       role="menuitem"
-      aria-haspopup="true"
-      aria-expanded={openIndex === i}
+      aria-haspopup={menu.action ? undefined : 'true'}
+      aria-expanded={menu.action ? undefined : openIndex === i}
       onclick={(e) => handleClick(i, e)}
       onmouseenter={(e) => handleEnter(i, e)}
     >

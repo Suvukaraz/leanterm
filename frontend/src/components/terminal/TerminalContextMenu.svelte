@@ -32,6 +32,8 @@
     ondisconnect?: () => void;
     oncloseTerm?: () => void;
     oncloseMenu: () => void;
+    /** Short feedback shown in the terminal (saved file, error); folder adds "Open folder". */
+    onnotice?: (text: string, folder?: string, isError?: boolean) => void;
   }
 
   let {
@@ -49,6 +51,7 @@
     ondisconnect,
     oncloseTerm,
     oncloseMenu,
+    onnotice,
   }: Props = $props();
 
   let sessionInfo = $derived($sessions.find((s) => s.tmpID === tmpID));
@@ -56,32 +59,71 @@
     sessionInfo?.connID && $tree ? findNode(sessionInfo.connID, $tree) : null
   );
 
-  async function takeScreenshot() {
-    if (!term) return;
-    const canvas = term.element?.querySelector('canvas');
-    let dataUrl = '';
-    if (canvas) {
-      dataUrl = canvas.toDataURL('image/png');
-    } else if (term.element) {
-      const offscreen = document.createElement('canvas');
-      offscreen.width = term.element.clientWidth || 800;
-      offscreen.height = term.element.clientHeight || 600;
-      const ctx = offscreen.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#1e1e1e';
-        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '12px monospace';
-        term.lines(50).forEach((line, i) => ctx.fillText(line, 10, 20 + i * 14));
-        dataUrl = offscreen.toDataURL('image/png');
-      }
+  function dirName(path: string): string {
+    const i = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+    return i > 0 ? path.slice(0, i) : path;
+  }
+
+  /**
+   * PNG (data URL) of what the terminal shows. The terminal's canvas is copied into
+   * a separate canvas first and only that copy is read back: reading pixels from the
+   * live (GPU) canvas can make the browser engine keep drawing it in software from
+   * then on, which costs a lot of CPU for as long as the terminal is open.
+   */
+  async function captureTerminal(): Promise<string> {
+    if (!term) return '';
+    const source = term.element?.querySelector('canvas');
+    const copy = document.createElement('canvas');
+    const ctx = copy.getContext('2d');
+    if (!ctx) return '';
+    if (source && source.width > 0 && source.height > 0) {
+      copy.width = source.width;
+      copy.height = source.height;
+      ctx.drawImage(source, 0, 0);
+    } else {
+      // No canvas: draw the text of the screen.
+      copy.width = term.element?.clientWidth || 800;
+      copy.height = term.element?.clientHeight || 600;
+      ctx.fillStyle = '#1e1e1e';
+      ctx.fillRect(0, 0, copy.width, copy.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px monospace';
+      term.lines(50).forEach((line, i) => ctx.fillText(line, 10, 20 + i * 14));
     }
-    if (dataUrl) {
-      try {
-        await SystemService.SaveScreenshot(sessionInfo?.connID || '', dataUrl);
-      } catch (err) {
-        console.error('Failed to save screenshot:', err);
-      }
+    const blob = await new Promise<Blob | null>((resolve) => copy.toBlob(resolve, 'image/png'));
+    copy.width = copy.height = 0; // free the copy right away
+    if (!blob) return '';
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function takeScreenshot() {
+    try {
+      const dataUrl = await captureTerminal();
+      if (!dataUrl) throw new Error('nothing to capture');
+      const path = await SystemService.SaveScreenshot(sessionInfo?.connID || '', sessionInfo?.title || kind, dataUrl);
+      onnotice?.(`Screenshot saved: ${path}`, dirName(path));
+    } catch (err: any) {
+      onnotice?.(`Screenshot failed: ${err?.message || err}`, undefined, true);
+    }
+  }
+
+  async function saveSessionLog() {
+    try {
+      const [dir, name] = await Promise.all([
+        SystemService.SessionLogsDir(),
+        SystemService.DefaultLogName(sessionInfo?.title || kind),
+      ]);
+      const path = await SystemService.ChooseSaveFileIn('Save session log', dir, name);
+      if (!path) return; // cancelled
+      await SessionService.SaveSessionLog(tmpID, path, true);
+      onnotice?.(`Session log saved: ${path}`, dirName(path));
+    } catch (err: any) {
+      onnotice?.(`Saving the session log failed: ${err?.message || err}`, undefined, true);
     }
   }
 
@@ -235,10 +277,7 @@
       {
         label: 'Save session log...',
         icon: 'gtk-save',
-        action: async () => {
-          const path = `/tmp/leanterm_session_${tmpID}.log`;
-          await SessionService.SaveSessionLog(tmpID, path, true);
-        },
+        action: saveSessionLog,
       },
       {
         label: 'Reset',

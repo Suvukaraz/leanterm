@@ -246,6 +246,15 @@ install_tarball() {
 		put 0644 "$src/icons/leanterm-$size.png" "$PREFIX/share/icons/hicolor/${size}x${size}/apps/leanterm.png"
 	done
 	put 0644 "$src/icons/leanterm.svg" "$PREFIX/share/icons/hicolor/scalable/apps/leanterm.svg"
+	# LeanEdit, the text editor on its own (archives of older releases do not have it)
+	if [ -f "$src/org.leanterm.LeanEdit.desktop" ]; then
+		sed "s|^Exec=leanterm|Exec=$PREFIX/bin/leanterm|" "$src/org.leanterm.LeanEdit.desktop" >"$TMP/org.leanterm.LeanEdit.desktop"
+		put 0644 "$TMP/org.leanterm.LeanEdit.desktop" "$PREFIX/share/applications/org.leanterm.LeanEdit.desktop"
+		for size in 16 24 32 48 64 128 256 512; do
+			put 0644 "$src/icons/leanedit-$size.png" "$PREFIX/share/icons/hicolor/${size}x${size}/apps/leanedit.png"
+		done
+		put 0644 "$src/icons/leanedit.svg" "$PREFIX/share/icons/hicolor/scalable/apps/leanedit.svg"
+	fi
 	echo "$MANIFEST" >>"$files"
 	as_root install -D -m 0644 "$files" "$MANIFEST"
 	refresh_caches

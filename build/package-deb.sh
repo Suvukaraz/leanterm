@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${1:-1.1.1}"
+VERSION="${1:-1.2.0}"
 ARCH="amd64"
 PKG_NAME="leanterm"
 DEB_NAME="${PKG_NAME}_${VERSION}_${ARCH}.deb"
@@ -50,11 +50,18 @@ Keywords=ssh;telnet;sftp;terminal;connection;
 EOF
 chmod 0644 "$DEB_ROOT/usr/share/applications/org.leanterm.LeanTerm.desktop"
 
+# LeanEdit: the text editor on its own (own menu entry, "Open with" for text files)
+sed "s|^Exec=leanterm|Exec=/usr/bin/leanterm|" "$ROOT_DIR/build/linux/org.leanterm.LeanEdit.desktop" \
+    > "$DEB_ROOT/usr/share/applications/org.leanterm.LeanEdit.desktop"
+chmod 0644 "$DEB_ROOT/usr/share/applications/org.leanterm.LeanEdit.desktop"
+
 # 3. Icons
 for size in 16 24 32 48 64 128 256 512; do
     install -m 0644 "$ROOT_DIR/build/linux/icons/leanterm-${size}.png" "$DEB_ROOT/usr/share/icons/hicolor/${size}x${size}/apps/leanterm.png"
+    install -m 0644 "$ROOT_DIR/build/linux/icons/leanedit-${size}.png" "$DEB_ROOT/usr/share/icons/hicolor/${size}x${size}/apps/leanedit.png"
 done
 install -m 0644 "$ROOT_DIR/LeanTerm_Icon.svg" "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps/leanterm.svg"
+install -m 0644 "$ROOT_DIR/LeanEdit_Icon.svg" "$DEB_ROOT/usr/share/icons/hicolor/scalable/apps/leanedit.svg"
 
 # 4. Control file
 cat <<EOF > "$DEB_ROOT/DEBIAN/control"

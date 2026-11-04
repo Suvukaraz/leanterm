@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="linear-gradient-1" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22110c"/>
+      <stop offset="1" stop-color="#140a07"/>
+    </linearGradient>
+  </defs>
+  <title>LeanEdit</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M60 16 L196 16 C220.301 16 240 35.699 240 60 L240 196 C240 220.301 220.301 240 196 240 L60 240 C35.699 240 16 220.301 16 196 L16 60 C16 35.699 35.699 16 60 16 Z" fill="url(#linear-gradient-1)"/>
+    <path d="M60 16 L196 16 C220.301 16 240 35.699 240 60 L240 196 C240 220.301 220.301 240 196 240 L60 240 C35.699 240 16 220.301 16 196 L16 60 C16 35.699 35.699 16 60 16 Z" fill="none" stroke="#5c3826" stroke-width="6"/>
+    <path d="M155.118 88 C167.118 88 172.118 98 172.118 110 C172.118 122 181.118 128 185.118 128 C181.118 128 172.118 134 172.118 146 C172.118 158 167.118 168 155.118 168" fill="none" stroke="#e5975c" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M100.882 88 C88.882 88 83.882 98 83.882 110 C83.882 122 74.882 128 70.882 128 C74.882 128 83.882 134 83.882 146 C83.882 158 88.882 168 100.882 168" fill="none" stroke="#e56c52" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

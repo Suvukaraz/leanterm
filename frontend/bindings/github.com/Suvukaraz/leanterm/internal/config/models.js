@@ -1007,7 +1007,7 @@ export class DynamicForward {
 }
 
 /**
- * EditorConfig represents the built-in text editor (Preferences > Editor)
+ * EditorConfig represents the built-in text editor (Settings > Editor)
  */
 export class EditorConfig {
     /**
@@ -2753,6 +2753,13 @@ export class TerminalConfig {
              * @type {SessionLogsConfig}
              */
             this["SessionLogs"] = (new SessionLogsConfig());
+        }
+        if (!("ScreenshotsFolder" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["ScreenshotsFolder"] = "";
         }
 
         Object.assign(this, $$source);

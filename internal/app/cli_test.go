@@ -79,3 +79,10 @@ func TestParseEditFiles(t *testing.T) {
 	assert.Equal(t, []string{"/etc/hosts", "notes.txt"}, flags.EditFiles)
 	assert.True(t, flags.StartShell)
 }
+
+func TestParseLeanEdit(t *testing.T) {
+	flags := ParseCLI([]string{"--leanedit", "notes.txt", "/etc/hosts", "--", "-dash.txt"})
+	assert.True(t, flags.LeanEdit)
+	assert.Equal(t, []string{"notes.txt", "/etc/hosts", "-dash.txt"}, flags.Files)
+	assert.Empty(t, flags.UnknownArgs)
+}

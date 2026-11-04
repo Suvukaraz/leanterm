@@ -185,10 +185,11 @@ func (l *SessionLogger) Close() error {
 	return nil
 }
 
-// SaveManualLog dumps the ring buffer contents to a specified file.
+// SaveManualLog dumps the ring buffer contents to a specified file ("Save
+// session log…"). Terminal output can be confidential: readable by the user only.
 func SaveManualLog(filePath string, bufferData []byte, stripControl bool) error {
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
 
@@ -197,5 +198,5 @@ func SaveManualLog(filePath string, bufferData []byte, stripControl bool) error 
 		data = StripEscapeSequences(data)
 	}
 
-	return os.WriteFile(filePath, data, 0644)
+	return os.WriteFile(filePath, data, 0600)
 }

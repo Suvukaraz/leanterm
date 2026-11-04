@@ -7,14 +7,16 @@
 
   interface Props {
     settings: any;
+    /** LeanEdit on its own: there are no LeanTerm file browsers to configure. */
+    standalone?: boolean;
   }
 
-  let { settings = $bindable() }: Props = $props();
+  let { settings = $bindable(), standalone = false }: Props = $props();
 
   const editor = $derived(settings.editor);
 
   const openInOptions = [
-    { value: 'editor', label: 'LeanTerm Editor' },
+    { value: 'editor', label: 'LeanEdit' },
     { value: 'default_app', label: 'Default application' },
   ];
 </script>
@@ -27,6 +29,7 @@
     </div>
   </Frame>
 
+  {#if !standalone}
   <Frame label="Opening files">
     <div class="col-flex">
       <div class="row-flex">
@@ -39,6 +42,7 @@
       </span>
     </div>
   </Frame>
+  {/if}
 
   <Frame label="Editing">
     <div class="col-flex">

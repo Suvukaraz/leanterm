@@ -49,6 +49,26 @@ export function ChooseSaveFile(title, defaultName) {
 }
 
 /**
+ * ChooseSaveFileIn shows a "save as" dialog starting in dir ("" = cancelled).
+ * @param {string} title
+ * @param {string} dir
+ * @param {string} defaultName
+ * @returns {$CancellablePromise<string>}
+ */
+export function ChooseSaveFileIn(title, dir, defaultName) {
+    return $Call.ByID(1704744195, title, dir, defaultName);
+}
+
+/**
+ * DefaultLogName is the suggested file name for "Save session log…".
+ * @param {string} name
+ * @returns {$CancellablePromise<string>}
+ */
+export function DefaultLogName(name) {
+    return $Call.ByID(2554691520, name);
+}
+
+/**
  * @returns {$CancellablePromise<boolean>}
  */
 export function IsLocked() {
@@ -116,13 +136,34 @@ export function Quit(force) {
 }
 
 /**
- * SaveScreenshot saves base64 PNG data into a 0600 temp file in configDir/screenshots (R6)
+ * SaveScreenshot stores a PNG of a terminal (base64, optionally a data URL) as
+ * "<name>_<date>_<time>.png" in ScreenshotsDir and returns its path. For a saved
+ * connection the file is also listed in its Info tab.
  * @param {string} connID
+ * @param {string} name
  * @param {string} base64PNG
  * @returns {$CancellablePromise<string>}
  */
-export function SaveScreenshot(connID, base64PNG) {
-    return $Call.ByID(2992908991, connID, base64PNG);
+export function SaveScreenshot(connID, name, base64PNG) {
+    return $Call.ByID(2992908991, connID, name, base64PNG);
+}
+
+/**
+ * ScreenshotsDir is the folder for terminal screenshots: Settings > Terminal
+ * Options > Screenshots, else <config dir>/screenshots.
+ * @returns {$CancellablePromise<string>}
+ */
+export function ScreenshotsDir() {
+    return $Call.ByID(4183214066);
+}
+
+/**
+ * SessionLogsDir is the folder for session logs: Settings > Terminal Options >
+ * Session Logs, else <config dir>/session_logs. "Save session log…" starts there.
+ * @returns {$CancellablePromise<string>}
+ */
+export function SessionLogsDir() {
+    return $Call.ByID(3862689160);
 }
 
 /**
