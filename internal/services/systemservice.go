@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
 	"github.com/Suvukaraz/leanterm/internal/platform"
@@ -47,49 +48,125 @@ func (ss *SystemService) LookupArpMAC(ip string) (string, error) {
 	return wol.LookupArpMAC(ip)
 }
 
-// SaveScreenshot saves base64 PNG data into a 0600 temp file in configDir/screenshots (R6)
-func (ss *SystemService) SaveScreenshot(connID string, base64PNG string) (string, error) {
-	idx := strings.Index(base64PNG, ",")
-	rawB64 := base64PNG
-	if idx >= 0 {
-		rawB64 = base64PNG[idx+1:]
+// ScreenshotsDir is the folder for terminal screenshots: Preferences > Terminal
+// Options > Screenshots, else <config dir>/screenshots.
+func (ss *SystemService) ScreenshotsDir() string {
+	return ss.folder(func(cfg *config.Config) string { return cfg.Terminal.ScreenshotsFolder }, "screenshots")
+}
+
+// SessionLogsDir is the folder for session logs: Preferences > Terminal Options >
+// Session Logs, else <config dir>/session_logs. "Save session log…" starts there.
+func (ss *SystemService) SessionLogsDir() string {
+	return ss.folder(func(cfg *config.Config) string { return cfg.Terminal.SessionLogs.Folder }, "session_logs")
+}
+
+func (ss *SystemService) folder(configured func(*config.Config) string, fallback string) string {
+	if ss.store == nil {
+		return os.TempDir()
 	}
-	data, err := base64.StdEncoding.DecodeString(rawB64)
+	if dir := expandHome(strings.TrimSpace(configured(ss.store.Config()))); dir != "" {
+		return dir
+	}
+	return filepath.Join(ss.store.ConfigDir(), fallback)
+}
+
+func expandHome(p string) string {
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, p[1:])
+		}
+	}
+	return p
+}
+
+// fileNamePart turns a session title into something usable in a file name.
+func fileNamePart(name string) string {
+	name = strings.Map(func(r rune) rune {
+		switch {
+		case r < 0x20, strings.ContainsRune(`<>:"/\|?*`, r):
+			return '_'
+		}
+		return r
+	}, strings.Join(strings.Fields(name), "_"))
+	name = strings.Trim(name, ". ")
+	if len(name) > 60 {
+		name = name[:60]
+	}
+	if name == "" {
+		return "terminal"
+	}
+	return name
+}
+
+// SaveScreenshot stores a PNG of a terminal (base64, optionally a data URL) as
+// "<name>_<date>_<time>.png" in ScreenshotsDir and returns its path. For a saved
+// connection the file is also listed in its Info tab.
+func (ss *SystemService) SaveScreenshot(connID, name, base64PNG string) (string, error) {
+	if idx := strings.Index(base64PNG, ","); idx >= 0 {
+		base64PNG = base64PNG[idx+1:]
+	}
+	data, err := base64.StdEncoding.DecodeString(base64PNG)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode screenshot base64: %w", err)
+		return "", fmt.Errorf("failed to decode screenshot: %w", err)
+	}
+	if len(data) == 0 {
+		return "", errors.New("the screenshot is empty")
 	}
 
-	dir := os.TempDir()
-	if ss.store != nil {
-		dir = filepath.Join(ss.store.ConfigDir(), "screenshots")
+	dir := ss.ScreenshotsDir()
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", fmt.Errorf("cannot create the screenshots folder %s: %w", dir, err)
 	}
-	_ = os.MkdirAll(dir, 0700)
-
-	tmpFile, err := os.CreateTemp(dir, "shot-*.png")
-	if err != nil {
-		return "", fmt.Errorf("failed to create screenshot file: %w", err)
+	base := fileNamePart(name) + "_" + time.Now().Format("20060102_150405")
+	filePath := filepath.Join(dir, base+".png")
+	for i := 2; ; i++ {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			break
+		}
+		filePath = filepath.Join(dir, fmt.Sprintf("%s_%d.png", base, i))
 	}
-	defer tmpFile.Close()
-
-	_ = tmpFile.Chmod(0600)
-	if _, err := tmpFile.Write(data); err != nil {
-		return "", fmt.Errorf("failed to write screenshot: %w", err)
+	// Terminal contents can be confidential: readable by the user only.
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
+		return "", fmt.Errorf("failed to write the screenshot: %w", err)
 	}
-
-	filePath := tmpFile.Name()
 
 	if ss.store != nil && connID != "" {
 		cfg := ss.store.Config()
 		for i := range cfg.Connections {
 			if cfg.Connections[i].ID == connID {
 				cfg.Connections[i].Screenshots = append(cfg.Connections[i].Screenshots, filePath)
-				_ = ss.store.Save()
+				ss.store.MarkDirty()
 				break
 			}
 		}
 	}
-
 	return filePath, nil
+}
+
+// ChooseSaveFileIn shows a "save as" dialog starting in dir ("" = cancelled).
+func (ss *SystemService) ChooseSaveFileIn(title, dir, defaultName string) (string, error) {
+	if ss.app == nil {
+		return "", errors.New("application not ready")
+	}
+	if dir != "" {
+		_ = os.MkdirAll(dir, 0700)
+	}
+	dlg := ss.app.Dialog.SaveFile().
+		SetMessage(title).
+		CanCreateDirectories(true).
+		SetFilename(defaultName)
+	if dir = startDirectory(dir); dir != "" {
+		dlg.SetDirectory(dir)
+	}
+	if win := ss.app.Window.Current(); win != nil {
+		dlg.AttachToWindow(win)
+	}
+	return dlg.PromptForSingleSelection()
+}
+
+// DefaultLogName is the suggested file name for "Save session log…".
+func (ss *SystemService) DefaultLogName(name string) string {
+	return fileNamePart(name) + "_" + time.Now().Format("20060102_150405") + ".log"
 }
 
 func (ss *SystemService) OpenURL(url string) error {

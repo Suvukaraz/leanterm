@@ -142,6 +142,7 @@ type TerminalConfig struct {
 	Colors                 TerminalColorsConfig `toml:"colors" comment:"Tab label status colors"`
 	Look                   TerminalLookConfig   `toml:"look" comment:"Terminal UI visual configuration"`
 	SessionLogs            SessionLogsConfig    `toml:"session_logs" comment:"Session logs auto save configuration"`
+	ScreenshotsFolder      string               `toml:"screenshots_folder" comment:"Folder for terminal screenshots (empty = <config dir>/screenshots)"`
 }
 
 // EditorConfig represents the built-in text editor (Preferences > Editor)

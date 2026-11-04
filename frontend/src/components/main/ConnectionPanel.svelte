@@ -315,7 +315,7 @@
                     <Button
                       label="Open Screenshots Folder"
                       icon="gtk-open"
-                      onclick={() => SystemService.OpenPath('screenshots')}
+                      onclick={async () => SystemService.OpenPath(await SystemService.ScreenshotsDir())}
                     />
                   </div>
                 </Frame>

@@ -100,10 +100,24 @@
     }
   });
 
-  function openLogsFolder() {
-    if (term.SessionLogs?.Folder) {
-      SystemService.OpenPath(term.SessionLogs.Folder);
-    }
+  // Empty folders mean the default folders in the configuration directory; the
+  // backend resolves them (also for "Open Folder").
+  async function openLogsFolder() {
+    SystemService.OpenPath(term.SessionLogs?.Folder || (await SystemService.SessionLogsDir()));
+  }
+
+  async function chooseLogsFolder() {
+    const dir = await SystemService.ChooseFile('Session logs folder', term.SessionLogs?.Folder || (await SystemService.SessionLogsDir()), true);
+    if (dir) term.SessionLogs.Folder = dir;
+  }
+
+  async function openScreenshotsFolder() {
+    SystemService.OpenPath(term.ScreenshotsFolder || (await SystemService.ScreenshotsDir()));
+  }
+
+  async function chooseScreenshotsFolder() {
+    const dir = await SystemService.ChooseFile('Screenshots folder', term.ScreenshotsFolder || (await SystemService.ScreenshotsDir()), true);
+    if (dir) term.ScreenshotsFolder = dir;
   }
 </script>
 
@@ -199,15 +213,15 @@
                   <span class="field-label">Save in:</span>
                   <Entry
                     bind:value={term.SessionLogs.Folder}
-                    placeholder="Session logs folder"
-                    disabled={!term.SessionLogs.Enabled}
+                    placeholder="Default"
                   />
-                  <Button
-                    label="Open Folder"
-                    disabled={!term.SessionLogs.Enabled}
-                    onclick={openLogsFolder}
-                  />
+                  <Button label="Choose…" onclick={chooseLogsFolder} />
+                  <Button label="Open Folder" onclick={openLogsFolder} />
                 </div>
+                <span class="hint-text">
+                  Empty: "session_logs" in the configuration folder. "Save session log…" in the terminal's
+                  context menu also starts here.
+                </span>
                 <div class="row-flex">
                   <span class="field-label">Logfile name pattern:</span>
                   <Entry
@@ -216,6 +230,24 @@
                     disabled={!term.SessionLogs.Enabled}
                   />
                 </div>
+              </div>
+            </Frame>
+
+            <Frame label="Screenshots">
+              <div class="col-flex">
+                <div class="row-flex">
+                  <span class="field-label">Save in:</span>
+                  <Entry
+                    bind:value={term.ScreenshotsFolder}
+                    placeholder="Default"
+                  />
+                  <Button label="Choose…" onclick={chooseScreenshotsFolder} />
+                  <Button label="Open Folder" onclick={openScreenshotsFolder} />
+                </div>
+                <span class="hint-text">
+                  "Take Screenshot" in the terminal's context menu saves a PNG here. Empty: "screenshots" in the
+                  configuration folder.
+                </span>
               </div>
             </Frame>
 

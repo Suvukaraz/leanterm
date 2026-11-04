@@ -2754,6 +2754,13 @@ export class TerminalConfig {
              */
             this["SessionLogs"] = (new SessionLogsConfig());
         }
+        if (!("ScreenshotsFolder" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["ScreenshotsFolder"] = "";
+        }
 
         Object.assign(this, $$source);
     }

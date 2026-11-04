@@ -49,6 +49,15 @@
   let menuY = $state(0);
   let findOpen = $state(false);
 
+  // Short feedback in the terminal (screenshot / session log saved, errors).
+  let notice = $state<{ text: string; folder?: string; error?: boolean } | null>(null);
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  function showNotice(text: string, folder?: string, error = false) {
+    clearTimeout(noticeTimer);
+    notice = { text, folder, error };
+    noticeTimer = setTimeout(() => (notice = null), error ? 10000 : 6000);
+  }
+
   // Zoom offset in points relative to the configured size.
   let zoomPt = 0;
 
@@ -202,6 +211,7 @@
 
   onDestroy(() => {
     destroyed = true;
+    clearTimeout(noticeTimer);
     cancelAnimationFrame(fitFrame);
     resizeObserver?.disconnect();
     stream?.destroy();
@@ -268,7 +278,20 @@
     {ondisconnect}
     oncloseTerm={onclose}
     oncloseMenu={() => (menuOpen = false)}
+    onnotice={showNotice}
   />
+
+  {#if notice}
+    <div class="terminal-notice" class:error={notice.error} role="status">
+      <span class="notice-text" title={notice.text}>{notice.text}</span>
+      {#if notice.folder}
+        <button type="button" class="notice-button" onclick={() => SystemService.OpenPath(notice!.folder!)}>
+          Open folder
+        </button>
+      {/if}
+      <button type="button" class="notice-button" aria-label="Close" onclick={() => (notice = null)}>×</button>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -283,6 +306,42 @@
   .terminal-container {
     position: absolute;
     inset: 4px 2px 2px 6px;
+  }
+
+  .terminal-notice {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 10px;
+    font-size: 12px;
+    color: var(--gtk-fg-color);
+    background: var(--gtk-bg-color);
+    border: 1px solid var(--gtk-border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    z-index: 5;
+  }
+  .terminal-notice.error {
+    border-color: var(--gtk-error-fg);
+  }
+  .notice-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .notice-button {
+    flex: none;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--gtk-border-color);
+    border-radius: 3px;
+    padding: 1px 6px;
+    cursor: pointer;
   }
 
   /* The engines draw their own cursor. Their input elements (the contenteditable

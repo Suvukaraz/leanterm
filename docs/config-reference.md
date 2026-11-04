@@ -149,8 +149,8 @@ window_height = 600
 start_maximized = false
 # Show status bar on every terminal
 show_status_bar = true
-# Terminal engine: rio | ghostty (applies to new terminals)
-engine = 'rio'
+# Terminal engine: ghostty | rio (applies to new terminals)
+engine = 'ghostty'
 # Change main window title with terminal title
 change_main_title = false
 # Show MACROS: never | combo | buttons
@@ -171,6 +171,8 @@ confirm_chains = true
 skip_first_chain_expect = true
 # Expect DEBUG
 debug = false
+# Folder for terminal screenshots (empty = <config dir>/screenshots)
+screenshots_folder = ''
 
 # Tab label status colors
 [terminal.colors]
