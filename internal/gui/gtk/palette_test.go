@@ -20,7 +20,8 @@ func TestPalettesMatchGtkCSS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	css := string(data)
+	// Git checks text files out with CRLF on Windows.
+	css := strings.ReplaceAll(string(data), "\r\n", "\n")
 	block := func(sel string) string {
 		i := strings.Index(css, sel)
 		if i < 0 {
