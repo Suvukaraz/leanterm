@@ -316,7 +316,9 @@ func (p *Prompter) dialog(gtx layout.Context, th *gtk.Theme, req session.PromptR
 		}
 	} else {
 		buttons = append(buttons,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return gtk.Button{Label: "Cancel", Default: false, MinWidth: 80}.Layout(gtx, th, &p.cancel) }),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return gtk.Button{Label: "Cancel", Default: false, MinWidth: 80}.Layout(gtx, th, &p.cancel)
+			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return gtk.Button{Label: "OK", Default: true, MinWidth: 80}.Layout(gtx, th, &p.ok)

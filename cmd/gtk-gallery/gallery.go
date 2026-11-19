@@ -112,7 +112,9 @@ func (g *gallery) basics(gtx layout.Context) layout.Dimensions {
 			func(gtx layout.Context) layout.Dimensions {
 				return th.Frame(gtx, "Frame label", func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return th.CheckButton(gtx, &g.frameChk, "Inside a frame", false) }),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return th.CheckButton(gtx, &g.frameChk, "Inside a frame", false)
+						}),
 						layout.Rigid(layout.Spacer{Height: 6}.Layout),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return gtk.Entry{}.Layout(gtx, th, &g.frameEd) }),
 					)

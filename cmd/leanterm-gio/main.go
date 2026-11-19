@@ -27,9 +27,9 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/gui/dialogs"
 	"github.com/Suvukaraz/leanterm/internal/gui/dnd"
 	"github.com/Suvukaraz/leanterm/internal/gui/fonts"
+	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/gui/term"
 	"github.com/Suvukaraz/leanterm/internal/gui/termview"
-	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/session"
 )
 
