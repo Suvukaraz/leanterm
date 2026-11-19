@@ -92,6 +92,11 @@ func (s *SFTPService) Rename(sftpID, from, to string) error {
 	return s.mgr.Rename(sftpID, from, to)
 }
 
+// RunningTransfers reports how many download/upload operations are in flight.
+func (s *SFTPService) RunningTransfers() int64 {
+	return s.mgr.RunningTransfers()
+}
+
 func (s *SFTPService) Chmod(sftpID string, paths []string, mode uint32, recursive bool, scope string) error {
 	return s.mgr.Chmod(sftpID, paths, mode, recursive, scope)
 }

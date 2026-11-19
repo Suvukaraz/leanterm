@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -55,6 +56,8 @@ type SFTPManager struct {
 	clients map[string]*SFTPClientInstance // sftpID -> instance
 	session map[string]string              // tmpID -> sftpID
 	slots   *slotLimiter                   // parallel_transfers across all sessions
+	// activeTransfers counts the downloads/uploads in flight.
+	activeTransfers atomic.Int64
 }
 
 func NewSFTPManager() *SFTPManager {
@@ -63,6 +66,11 @@ func NewSFTPManager() *SFTPManager {
 		session: make(map[string]string),
 		slots:   newSlotLimiter(),
 	}
+}
+
+// RunningTransfers reports how many download/upload operations are in flight.
+func (m *SFTPManager) RunningTransfers() int64 {
+	return m.activeTransfers.Load()
 }
 
 func (m *SFTPManager) OpenForSession(tmpID string, sshClient *ssh.Client) (string, error) {

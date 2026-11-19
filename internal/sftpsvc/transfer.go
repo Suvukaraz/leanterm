@@ -138,6 +138,8 @@ func (m *SFTPManager) runJobs(jobs []fileJob, opts TransferOptions, copyFile fun
 // DownloadWithOptions downloads files and folders. Errors of single files are
 // collected; the remaining files are still transferred.
 func (m *SFTPManager) DownloadWithOptions(sftpID string, remotePaths []string, localDir string, opts TransferOptions) error {
+	m.activeTransfers.Add(1)
+	defer m.activeTransfers.Add(-1)
 	client, err := m.getClient(sftpID)
 	if err != nil {
 		return err
@@ -237,6 +239,8 @@ func applyLocalMeta(local string, fi os.FileInfo, opts TransferOptions) {
 
 // UploadWithOptions uploads local files and folders into remoteDir.
 func (m *SFTPManager) UploadWithOptions(sftpID string, localPaths []string, remoteDir string, opts TransferOptions) error {
+	m.activeTransfers.Add(1)
+	defer m.activeTransfers.Add(-1)
 	client, err := m.getClient(sftpID)
 	if err != nil {
 		return err
