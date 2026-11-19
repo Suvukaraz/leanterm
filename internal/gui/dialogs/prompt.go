@@ -20,7 +20,7 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/Suvukaraz/leanterm/internal/gui/fonts"
-	"github.com/Suvukaraz/leanterm/internal/gui/theme"
+	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/session"
 )
 
@@ -112,7 +112,7 @@ func (p *Prompter) finish(pd *pending, r session.PromptResponse) {
 func isHostKey(req session.PromptRequest) bool { return strings.HasPrefix(req.Kind, "hostkey") }
 
 // Layout draws the dialog on top (if any) over the whole window.
-func (p *Prompter) Layout(gtx layout.Context, th *theme.Theme) layout.Dimensions {
+func (p *Prompter) Layout(gtx layout.Context, th *gtk.Theme) layout.Dimensions {
 	pd := p.top()
 	if pd == nil {
 		p.shown = nil
@@ -204,7 +204,7 @@ func (p *Prompter) Layout(gtx layout.Context, th *theme.Theme) layout.Dimensions
 	// Backdrop that swallows pointer input for the window below.
 	size := gtx.Constraints.Max
 	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
-	paint.FillShape(gtx.Ops, theme.Backdrop, clip.Rect{Max: size}.Op())
+	paint.FillShape(gtx.Ops, th.Pal.Backdrop, clip.Rect{Max: size}.Op())
 	event.Op(gtx.Ops, p)
 	for {
 		if _, ok := gtx.Event(pointer.Filter{Target: p, Kinds: pointer.Press | pointer.Release | pointer.Scroll, ScrollY: pointer.ScrollRange{Min: -1e6, Max: 1e6}}); !ok {
@@ -224,30 +224,30 @@ func (p *Prompter) Layout(gtx layout.Context, th *theme.Theme) layout.Dimensions
 		dims := p.dialog(gtx, th, req)
 		call := m.Stop()
 		r := image.Rectangle{Max: dims.Size}
-		paint.FillShape(gtx.Ops, theme.Border, clip.UniformRRect(r, gtx.Dp(6)).Op(gtx.Ops))
-		paint.FillShape(gtx.Ops, theme.Bg, clip.UniformRRect(r.Inset(max(1, gtx.Dp(1))), gtx.Dp(5)).Op(gtx.Ops))
+		paint.FillShape(gtx.Ops, th.Pal.BorderColor, clip.UniformRRect(r, gtx.Dp(6)).Op(gtx.Ops))
+		paint.FillShape(gtx.Ops, th.Pal.BgColor, clip.UniformRRect(r.Inset(max(1, gtx.Dp(1))), gtx.Dp(5)).Op(gtx.Ops))
 		call.Add(gtx.Ops)
 		return dims
 	})
 }
 
-func (p *Prompter) dialog(gtx layout.Context, th *theme.Theme, req session.PromptRequest) layout.Dimensions {
+func (p *Prompter) dialog(gtx layout.Context, th *gtk.Theme, req session.PromptRequest) layout.Dimensions {
 	title := req.Title
 	if title == "" {
 		title = "LeanTerm"
 	}
-	icon, iconColor := fonts.IconLock, theme.Warning
+	icon, iconColor := fonts.IconLock, th.Pal.WarningFg
 	switch req.Kind {
 	case "hostkey-changed":
-		icon, iconColor = fonts.IconWarning, theme.Error
+		icon, iconColor = fonts.IconWarning, th.Pal.ErrorFg
 	case "hostkey-unknown", "confirm":
-		icon, iconColor = '', theme.Accent // nf-fa-question_circle
+		icon, iconColor = '', th.Pal.Accent // nf-fa-question_circle
 	}
 
 	var body []layout.FlexChild
 	body = append(body, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		l := material.Label(th.Theme, theme.FontSize, req.Message)
-		l.Color = theme.Fg
+		l := material.Label(th.Theme, gtk.FontSize, req.Message)
+		l.Color = th.Pal.FgColor
 		return l.Layout(gtx)
 	}))
 	switch {
@@ -257,7 +257,7 @@ func (p *Prompter) dialog(gtx layout.Context, th *theme.Theme, req session.Promp
 			body = append(body, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					rb := material.RadioButton(th.Theme, &p.choice, opt, opt)
-					rb.Color, rb.IconColor = theme.Fg, theme.Accent
+					rb.Color, rb.IconColor = th.Pal.FgColor, th.Pal.Accent
 					return rb.Layout(gtx)
 				})
 			}))
@@ -270,14 +270,14 @@ func (p *Prompter) dialog(gtx layout.Context, th *theme.Theme, req session.Promp
 			body = append(body, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return theme.Label(gtx, th, f.Label, theme.Fg) }),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return th.Label(gtx, f.Label, th.Pal.FgColor) }),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if !p.focusDone && i == 0 {
 								gtx.Execute(key.FocusCmd{Tag: &p.values[0]})
 								p.focusDone = true
 							}
 							return layout.Inset{Top: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return theme.Entry(gtx, th, &p.values[i], "", f.Secret && !p.show.Value)
+								return gtk.Entry{Password: f.Secret && !p.show.Value, Width: -1}.Layout(gtx, th, &p.values[i])
 							})
 						}),
 					)
@@ -288,13 +288,13 @@ func (p *Prompter) dialog(gtx layout.Context, th *theme.Theme, req session.Promp
 			body = append(body, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return theme.CheckButton(gtx, th, &p.show, "Show") }),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return th.CheckButton(gtx, &p.show, "Show", false) }),
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if !req.Remember {
 								return layout.Dimensions{}
 							}
 							return layout.Inset{Left: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return theme.CheckButton(gtx, th, &p.remember, "Remember (store encrypted)")
+								return th.CheckButton(gtx, &p.remember, "Remember (store encrypted)", false)
 							})
 						}),
 					)
@@ -310,16 +310,16 @@ func (p *Prompter) dialog(gtx layout.Context, th *theme.Theme, req session.Promp
 			i, opt := i, opt
 			buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return theme.Button(gtx, th, &p.options[i], opt, i == 0 && req.Kind != "hostkey-changed")
+					return gtk.Button{Label: opt, Default: i == 0 && req.Kind != "hostkey-changed", MinWidth: 80}.Layout(gtx, th, &p.options[i])
 				})
 			}))
 		}
 	} else {
 		buttons = append(buttons,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return theme.Button(gtx, th, &p.cancel, "Cancel", false) }),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return gtk.Button{Label: "Cancel", Default: false, MinWidth: 80}.Layout(gtx, th, &p.cancel) }),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return theme.Button(gtx, th, &p.ok, "OK", true)
+					return gtk.Button{Label: "OK", Default: true, MinWidth: 80}.Layout(gtx, th, &p.ok)
 				})
 			}),
 		)
@@ -329,18 +329,18 @@ func (p *Prompter) dialog(gtx layout.Context, th *theme.Theme, req session.Promp
 		// Header bar with the title, like GTK dialogs.
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 10, Bottom: 10, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				l := material.Label(th.Theme, theme.FontSize, title)
-				l.Color, l.Font.Weight = theme.Fg, font.Bold
+				l := material.Label(th.Theme, gtk.FontSize, title)
+				l.Color, l.Font.Weight = th.Pal.FgColor, font.Bold
 				return layout.Center.Layout(gtx, l.Layout)
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return theme.HLine(gtx, theme.Border) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return gtk.HLine(gtx, th.Pal.BorderColor) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return theme.Icon(gtx, th, icon, unit.Sp(26), iconColor)
+							return th.Icon(gtx, icon, unit.Sp(26), iconColor)
 						})
 					}),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

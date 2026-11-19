@@ -12,14 +12,14 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 
-	"github.com/Suvukaraz/leanterm/internal/gui/theme"
+	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/session"
 )
 
 type harness struct {
 	r   input.Router
 	ops op.Ops
-	th  *theme.Theme
+	th  *gtk.Theme
 	p   *Prompter
 }
 
@@ -63,7 +63,7 @@ func wait(t *testing.T, ch chan result) result {
 }
 
 func TestPasswordTypedAndSubmittedWithEnter(t *testing.T) {
-	h := &harness{th: theme.New(), p: NewPrompter(func() {})}
+	h := &harness{th: gtk.New("dark"), p: NewPrompter(func() {})}
 	ch := ask(h.p, context.Background(), session.PromptRequest{
 		ID: "1", Kind: "password", Title: "Password", Message: "Password for alice@host",
 		Fields: []session.PromptField{{Name: "password", Label: "Password", Secret: true}}, Remember: true,
@@ -84,7 +84,7 @@ func TestPasswordTypedAndSubmittedWithEnter(t *testing.T) {
 }
 
 func TestEscapeCancelsAndQueueContinues(t *testing.T) {
-	h := &harness{th: theme.New(), p: NewPrompter(func() {})}
+	h := &harness{th: gtk.New("dark"), p: NewPrompter(func() {})}
 	first := ask(h.p, context.Background(), session.PromptRequest{ID: "1", Kind: "hostkey-unknown", Message: "Unknown host key", Options: []string{"Accept and save", "Accept once", "Reject"}})
 	second := ask(h.p, context.Background(), session.PromptRequest{ID: "2", Kind: "ask", Message: "Pick", Options: []string{"a", "b"}})
 	h.frame()
@@ -105,7 +105,7 @@ func TestEscapeCancelsAndQueueContinues(t *testing.T) {
 }
 
 func TestAbandonedPromptDisappears(t *testing.T) {
-	h := &harness{th: theme.New(), p: NewPrompter(func() {})}
+	h := &harness{th: gtk.New("dark"), p: NewPrompter(func() {})}
 	ctx, cancel := context.WithCancel(context.Background())
 	ch := ask(h.p, ctx, session.PromptRequest{ID: "1", Kind: "password", Message: "pw", Fields: []session.PromptField{{Name: "p", Secret: true}}})
 	h.frame()
@@ -120,7 +120,7 @@ func TestAbandonedPromptDisappears(t *testing.T) {
 }
 
 func TestEnterPicksTheDefaultHostKeyButton(t *testing.T) {
-	h := &harness{th: theme.New(), p: NewPrompter(func() {})}
+	h := &harness{th: gtk.New("dark"), p: NewPrompter(func() {})}
 	opts := []string{"Accept and save", "Accept once", "Reject"}
 	ch := ask(h.p, context.Background(), session.PromptRequest{ID: "1", Kind: "hostkey-unknown", Message: "Unknown host key", Options: opts})
 	h.frame()

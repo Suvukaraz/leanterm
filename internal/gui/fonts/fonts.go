@@ -5,8 +5,10 @@ package fonts
 import (
 	_ "embed"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"gioui.org/font"
@@ -32,7 +34,52 @@ type candidate struct {
 	paths    []string
 }
 
+// fontconfigCandidates asks fontconfig for the faces the web view would use
+// (system-ui, monospace), so both GUIs draw with the same fonts.
+func fontconfigCandidates() []candidate {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	fcMatch, err := exec.LookPath("fc-match")
+	if err != nil {
+		return nil
+	}
+	var out []candidate
+	seen := map[string]bool{}
+	for _, tf := range []struct {
+		typeface font.Typeface
+		pattern  string
+	}{{UI, "system-ui"}, {Monospace, "monospace"}} {
+		for _, v := range []struct {
+			suffix string
+			style  font.Style
+			weight font.Weight
+		}{
+			{"", font.Regular, font.Normal},
+			{":medium", font.Regular, font.Medium},
+			{":semibold", font.Regular, font.SemiBold},
+			{":bold", font.Regular, font.Bold},
+			{":italic", font.Italic, font.Normal},
+			{":bold:italic", font.Italic, font.Bold},
+		} {
+			b, err := exec.Command(fcMatch, "-f", "%{file}", tf.pattern+v.suffix).Output()
+			path := strings.TrimSpace(string(b))
+			// A weight the family lacks resolves to another face: skip it, the
+			// shaper picks the nearest one.
+			if err != nil || path == "" || seen[path] {
+				continue
+			}
+			seen[path] = true
+			out = append(out, candidate{tf.typeface, v.style, v.weight, []string{path}})
+		}
+	}
+	return out
+}
+
 func candidates() []candidate {
+	if c := fontconfigCandidates(); len(c) > 0 {
+		return c
+	}
 	if runtime.GOOS == "windows" {
 		dir := filepath.Join(os.Getenv("WINDIR"), "Fonts")
 		f := func(names ...string) []string {
@@ -44,6 +91,7 @@ func candidates() []candidate {
 		}
 		return []candidate{
 			{UI, font.Regular, font.Normal, f("segoeui.ttf")},
+			{UI, font.Regular, font.SemiBold, f("seguisb.ttf")},
 			{UI, font.Regular, font.Bold, f("segoeuib.ttf")},
 			{UI, font.Italic, font.Normal, f("segoeuii.ttf")},
 			{Monospace, font.Regular, font.Normal, f("CascadiaMono.ttf", "consola.ttf")},

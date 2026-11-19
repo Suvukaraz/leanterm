@@ -29,7 +29,7 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/gui/fonts"
 	"github.com/Suvukaraz/leanterm/internal/gui/term"
 	"github.com/Suvukaraz/leanterm/internal/gui/termview"
-	"github.com/Suvukaraz/leanterm/internal/gui/theme"
+	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/session"
 )
 
@@ -39,18 +39,18 @@ type tab struct {
 	view   *termview.View
 	engine string
 	kind   string
-	nb     *theme.Tab
+	nb     *gtk.Tab
 }
 
 type ui struct {
 	w        *app.Window
-	th       *theme.Theme
+	th       *gtk.Theme
 	core     *appcore.Core
 	prompter *dialogs.Prompter
-	nb       theme.Notebook
+	nb       gtk.Notebook
 	tabs     []*tab // terminal tabs; the editor tab is last in nb.Tabs
 	editor   *codeedit.Editor
-	edTab    *theme.Tab
+	edTab    *gtk.Tab
 
 	// Sessions opened and closed by the backend (any goroutine).
 	opened chan session.SessionInfo
@@ -84,7 +84,7 @@ func main() {
 	w := new(app.Window)
 	w.Option(app.Title("LeanTerm"), app.Size(unit.Dp(1100), unit.Dp(680)))
 	u := &ui{
-		w: w, th: theme.New(), core: core, prompter: dialogs.NewPrompter(w.Invalidate),
+		w: w, th: gtk.New(core.Store.Config().General.ColorScheme), core: core, prompter: dialogs.NewPrompter(w.Invalidate),
 		opened: make(chan session.SessionInfo, 16), closed: make(chan string, 16), engine: *engine,
 		drops: make(chan dnd.Drop, 4), statusCh: make(chan string, 4), focus: true, selfDrop: *selfDrop,
 	}
@@ -123,8 +123,8 @@ func main() {
 			log.Print(err)
 		}
 	}
-	u.edTab = &theme.Tab{Title: "LeanEdit · " + filepath.Base(u.editor.Path), Icon: fonts.IconFileCode, IconColor: theme.Accent}
-	u.nb.Tabs = []*theme.Tab{u.edTab}
+	u.edTab = &gtk.Tab{Title: "LeanEdit · " + filepath.Base(u.editor.Path), Icon: fonts.IconFileCode, IconColor: u.th.Pal.Accent}
+	u.nb.Tabs = []*gtk.Tab{u.edTab}
 
 	if err := dnd.Enable(0, nil); err != nil {
 		u.dropMsg = "File drop: " + err.Error()
@@ -208,7 +208,7 @@ func (u *ui) sessionEvents() {
 				log.Printf("%s: %v", info.Title, err)
 				continue
 			}
-			t := &tab{sess: s, view: termview.New(s.Engine), engine: s.Engine.Name(), kind: info.Kind, nb: &theme.Tab{Title: info.Title}}
+			t := &tab{sess: s, view: termview.New(s.Engine), engine: s.Engine.Name(), kind: info.Kind, nb: &gtk.Tab{Title: info.Title}}
 			t.view.OnResize = s.Resize
 			u.tabs = append(u.tabs, t)
 			// Terminal tabs come before the editor tab. A session opened later
@@ -270,9 +270,9 @@ func (u *ui) layout(gtx layout.Context) {
 	u.sessionEvents()
 	u.handleDrops()
 	for _, t := range u.tabs {
-		t.nb.Title, t.nb.Icon, t.nb.IconColor = tabLook(t)
+		t.nb.Title, t.nb.Icon, t.nb.IconColor = u.tabLook(t)
 	}
-	theme.Fill(gtx, theme.Bg)
+	gtk.Fill(gtx, u.th.Pal.BgColor)
 	prev := u.nb.Selected
 	layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
@@ -287,12 +287,20 @@ func (u *ui) layout(gtx layout.Context) {
 						}
 						return t.view.Layout(gtx, u.th.Shaper)
 					}
-					theme.Fill(gtx, theme.Base)
+					gtk.Fill(gtx, u.th.Pal.BaseColor)
 					return u.editor.Layout(gtx, u.th.Shaper)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					icon, c, left, right := u.status()
-					return theme.Statusbar(gtx, u.th, icon, c, left, right)
+					kids := []layout.FlexChild{}
+					if icon != 0 {
+						kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions { return u.th.IconBox(gtx, icon, 16, c) }))
+					}
+					kids = append(kids, layout.Flexed(1, u.th.StatusText(left)))
+					for _, r := range right {
+						kids = append(kids, layout.Rigid(u.th.StatusText(r)))
+					}
+					return u.th.Statusbar(gtx, kids...)
 				}),
 			)
 		}),
@@ -309,7 +317,7 @@ func (u *ui) layout(gtx layout.Context) {
 }
 
 // tabLook gives a terminal tab its title and an icon colored by the state.
-func tabLook(t *tab) (string, rune, color.NRGBA) {
+func (u *ui) tabLook(t *tab) (string, rune, color.NRGBA) {
 	icon := fonts.IconTerminal
 	switch t.kind {
 	case "ssh":
@@ -317,12 +325,12 @@ func tabLook(t *tab) (string, rune, color.NRGBA) {
 	case "telnet":
 		icon = fonts.IconPlug
 	}
-	c := theme.Warning
+	c := u.th.Pal.WarningFg
 	switch t.sess.State() {
 	case "connected":
-		c = theme.Success
+		c = u.th.Pal.SuccessFg
 	case "disconnected", "closed":
-		c = theme.Error
+		c = u.th.Pal.ErrorFg
 	}
 	title := t.sess.Title()
 	if t.kind == "local" {
@@ -334,7 +342,7 @@ func tabLook(t *tab) (string, rune, color.NRGBA) {
 func (u *ui) status() (rune, color.NRGBA, string, []string) {
 	if u.nb.Selected < len(u.tabs) {
 		t := u.tabs[u.nb.Selected]
-		_, _, c := tabLook(t)
+		_, _, c := u.tabLook(t)
 		icon := fonts.IconPlug
 		if st := t.sess.State(); st == "disconnected" || st == "closed" {
 			icon = fonts.IconPowerOff
