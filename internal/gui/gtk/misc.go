@@ -135,7 +135,10 @@ func (th *Theme) Statusbar(gtx layout.Context, children ...layout.FlexChild) lay
 				}
 				kids = append(kids, c)
 			}
-			return layout.Flex{Alignment: layout.Middle}.Layout(gtx, kids...)
+			// W centers the row vertically in the minimum height.
+			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx, kids...)
+			})
 		})
 	})
 	FillRect(gtx, image.Rectangle{Max: d.Size}, p.HeaderBg)

@@ -32,6 +32,9 @@ type Button struct {
 	Variant  ButtonVariant
 	// Active shows a toggle button pressed (ToggleButton.svelte).
 	Active bool
+	// Primary colors the button like the main answer of a message dialog
+	// (.btn-primary: the selection colors).
+	Primary bool
 	// MinWidth widens the button (dialog buttons).
 	MinWidth unit.Dp
 }
@@ -51,6 +54,9 @@ func (b Button) layout(gtx layout.Context, th *Theme, c *widget.Clickable) layou
 	return c.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		p := th.Pal
 		fg := p.FgColor
+		if b.Primary {
+			fg = p.SelectedFg
+		}
 		weight := font.Normal
 		if b.Default {
 			weight = font.Medium
@@ -88,14 +94,19 @@ func (b Button) layout(gtx layout.Context, th *Theme, c *widget.Clickable) layou
 		if b.Default {
 			border = p.Accent
 		}
+		if b.Primary {
+			bg = p.SelectedBg
+		}
 		hovered := c.Hovered() && !b.Disabled
 		switch {
 		case b.Active:
 			bg, border = p.BtnFocusBg, p.BorderColor
 		case c.Pressed() && !b.Disabled:
 			bg = p.BtnActiveBg
-		case hovered:
+		case hovered && !b.Primary:
 			bg, border = p.BtnHoverBg, p.BtnHoverBorder
+		case hovered:
+			border = p.BtnHoverBorder
 		}
 		radius := gtx.Dp(4)
 		switch b.Variant {

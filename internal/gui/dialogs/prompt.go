@@ -241,7 +241,7 @@ func (p *Prompter) dialog(gtx layout.Context, th *gtk.Theme, req session.PromptR
 	case "hostkey-changed":
 		icon, iconColor = fonts.IconWarning, th.Pal.ErrorFg
 	case "hostkey-unknown", "confirm":
-		icon, iconColor = '', th.Pal.Accent // nf-fa-question_circle
+		icon, iconColor = '\uf059', th.Pal.Accent // nf-fa-question_circle
 	}
 
 	var body []layout.FlexChild

@@ -110,6 +110,9 @@ func (t Text) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 	if size == 0 {
 		size = FontSize
 	}
+	// A label takes its own size: parents center it (a Flex passes its
+	// minimum cross size on, which would put the text at the top).
+	gtx.Constraints.Min = image.Point{}
 	// Gio shapes text at whole pixel sizes (10pt = 13.33px becomes 13px,
 	// 2.5% narrower than the web view). Shape at k times the size where that
 	// is (nearly) whole, and scale the result down: glyphs are vector paths.

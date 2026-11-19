@@ -28,6 +28,9 @@ type gallery struct {
 	frameEd  widget.Editor
 	scale    widget.Float
 	nb       gtk.Notebook
+	tree     gtk.Tree
+	menu     gtk.Menu
+	msg      gtk.MessageDialog
 }
 
 func newGallery(section string, th *gtk.Theme) *gallery {
@@ -47,6 +50,30 @@ func newGallery(section string, th *gtk.Theme) *gallery {
 		{Title: "db-prod-01", Closable: true},
 	}
 	g.nb.Selected = 1
+	g.tree = gtk.Tree{
+		Root: &gtk.TreeNode{ID: "__root__", Name: "My Connections", Group: true, Children: []*gtk.TreeNode{
+			{ID: "g1", Name: "Customers", Group: true, Children: []*gtk.TreeNode{
+				{ID: "c1", Name: "acme-backup", Method: "ssh"},
+				{ID: "c2", Name: "acme-erp", Method: "ssh", Protected: true},
+			}},
+			{ID: "g2", Name: "Home Lab", Group: true},
+			{ID: "c3", Name: "web-prod-01", Method: "ssh", Favourite: true},
+			{ID: "c4", Name: "switch-01", Method: "telnet"},
+		}},
+		Expanded:       map[string]bool{"__root__": true, "g1": true},
+		Selected:       map[string]bool{"c3": true},
+		ProtectedColor: color.NRGBA{R: 0xf5, G: 0xa6, B: 0x23, A: 0xff},
+	}
+	g.menu.Items = []gtk.MenuItem{
+		{ID: "a", Label: "Connect", Icon: '\uf0ec'},
+		{ID: "b", Label: "Edit", Shortcut: "F2"},
+		{Separator: true},
+		{ID: "c", Label: "Favourite", Checked: true},
+		{ID: "d", Label: "Disabled", Disabled: true},
+		{ID: "e", Label: "More", Submenu: []gtk.MenuItem{{ID: "f", Label: "Sub item"}}},
+	}
+	g.menu.Open(image.Pt(20, 20))
+	g.msg = gtk.MessageDialog{Type: gtk.MessageQuestion, Title: "Quit", Primary: "Close all connections?", Secondary: "3 connections are still open.", Buttons: gtk.ButtonsYesNo}
 	return g
 }
 
@@ -55,6 +82,13 @@ func (g *gallery) Layout(gtx layout.Context) layout.Dimensions {
 	switch g.section {
 	case "basics":
 		return g.basics(gtx)
+	case "tree":
+		gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(300), gtx.Dp(260)))
+		return g.tree.Layout(gtx, g.th)
+	case "menu":
+		return g.menu.Layout(gtx, g.th)
+	case "message":
+		return g.msg.Layout(gtx, g.th)
 	}
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
@@ -88,7 +122,7 @@ func (g *gallery) basics(gtx layout.Context) layout.Dimensions {
 			btn(0, gtk.Button{Label: "Normal"}),
 			btn(1, gtk.Button{Label: "Default", Default: true}),
 			btn(2, gtk.Button{Label: "Disabled", Disabled: true}),
-			btn(3, gtk.Button{Label: "With icon", Icon: ''}), // nf-fa-exchange
+			btn(3, gtk.Button{Label: "With icon", Icon: '\uf0ec'}), // nf-fa-exchange
 			btn(4, gtk.Button{Label: "Toggle off"}),
 			btn(5, gtk.Button{Label: "Toggle on", Active: true}),
 		),
