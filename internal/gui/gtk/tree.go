@@ -36,18 +36,25 @@ const (
 	TreeMiddleClick
 	TreeContextClick
 	TreeExpand
+	// TreeDrop is emitted when a drag ends on a group (or the root):
+	// ID is the drop target, IDs the dragged nodes.
+	TreeDrop
 )
 
 // TreeEvent is an event of a Tree.
 type TreeEvent struct {
 	Kind TreeEventKind
 	ID   string
+	// IDs carries the dragged nodes of a TreeDrop event.
+	IDs []string
 	// Pos is where a context click happened, relative to the tree.
 	Pos image.Point
 }
 
 // Tree is the connection tree (TreeView.svelte): 22px rows indented 16px per
 // level, an expander, an icon, the name (groups bold) and the favourite star.
+// Rows can be dragged onto a group (or the root) to move them, like in the
+// web GUI.
 type Tree struct {
 	Root     *TreeNode
 	Expanded map[string]bool
@@ -55,11 +62,34 @@ type Tree struct {
 	// ProtectedColor highlights protected entries (zero: none).
 	ProtectedColor color.NRGBA
 
-	list   layout.List
-	rows   map[string]*treeRow
-	events []TreeEvent
-	focus  string
-	tag    int
+	list    layout.List
+	rows    map[string]*treeRow
+	events  []TreeEvent
+	focus   string
+	tag     int
+	dragTag int
+
+	drag treeDrag
+}
+
+// treeDrag is the state of an ongoing drag in a Tree.
+type treeDrag struct {
+	// armed is a press that may become a drag (set on Press, cleared on
+	// release or when the drag is over).
+	armed  bool
+	fromID string
+	pid    pointer.ID
+	start  image.Point
+	// active means the pointer has moved far enough to drag.
+	active bool
+	cur    image.Point
+	// target is the group (or root) under the cursor; targetOn is false
+	// when there is no valid drop target.
+	target   string
+	targetOn bool
+	ids      []string
+	// desc caches the descendants of the dragged nodes (invalid targets).
+	desc map[string]bool
 }
 
 type treeRow struct {
@@ -140,6 +170,10 @@ func (t *Tree) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 	defer o.Pop()
 	cl := clipRect(inner, inner.Constraints.Max)
 	defer cl.Pop()
+	// The drag area covers the list and sits before its rows, so the rows
+	// are its children; while a drag is active (or the press may become
+	// one) all pointer events for it come to this tag.
+	event.Op(gtx.Ops, &t.dragTag)
 	t.list.Axis = layout.Vertical
 	return t.list.Layout(inner, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 		return t.row(gtx, th, rows[i].n, rows[i].depth)
@@ -199,6 +233,9 @@ func (t *Tree) input(gtx layout.Context, rows []struct {
 			}
 		}
 	}
+	// Drag & drop: arm on press, track while dragging, drop on a group.
+	t.dragInput(gtx, rows)
+
 	// Keyboard: Up/Down move, Left/Right collapse/expand, Enter activates.
 	for {
 		ev, ok := gtx.Event(
@@ -248,6 +285,166 @@ func (t *Tree) input(gtx layout.Context, rows []struct {
 	}
 }
 
+// nodeMap indexes the whole tree by node id.
+func (t *Tree) nodeMap() map[string]*TreeNode {
+	m := map[string]*TreeNode{}
+	var walk func(n *TreeNode)
+	walk = func(n *TreeNode) {
+		m[n.ID] = n
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	if t.Root != nil {
+		walk(t.Root)
+	}
+	return m
+}
+
+// dragDescendants reports whether id is a descendant of one of the dragged
+// nodes (such nodes cannot be a drop target).
+func (t *Tree) dragDescendants(ids []string) map[string]bool {
+	m := t.nodeMap()
+	desc := map[string]bool{}
+	var walk func(n *TreeNode)
+	walk = func(n *TreeNode) {
+		for _, c := range n.Children {
+			if !desc[c.ID] {
+				desc[c.ID] = true
+				walk(c)
+			}
+		}
+	}
+	for _, id := range ids {
+		if n, ok := m[id]; ok {
+			walk(n)
+		}
+	}
+	return desc
+}
+
+// indexAt maps a y coordinate (in the list's coordinate system) to a global
+// row index, or -1 when the point is not over a row.
+func (t *Tree) indexAt(gtx layout.Context, rows []struct {
+	n     *TreeNode
+	depth int
+}, y int) int {
+	rowH := gtx.Dp(22)
+	yy := t.list.Position.Offset
+	for i := t.list.Position.First; i < len(rows); i++ {
+		if y < yy {
+			return -1
+		}
+		if y < yy+rowH {
+			return i
+		}
+		yy += rowH
+	}
+	return -1
+}
+
+// dragIds are the nodes a drag moves: the selection when the pressed row is
+// in it, else the row alone.
+func (t *Tree) dragIds(rows []struct {
+	n     *TreeNode
+	depth int
+}, fromID string) []string {
+	if t.Selected[fromID] {
+		ids := []string{}
+		for _, r := range rows {
+			if t.Selected[r.n.ID] {
+				ids = append(ids, r.n.ID)
+			}
+		}
+		return ids
+	}
+	return []string{fromID}
+}
+
+// dragInput implements the drag & drop of rows onto a group (or the root).
+func (t *Tree) dragInput(gtx layout.Context, rows []struct {
+	n     *TreeNode
+	depth int
+}) {
+	for {
+		ev, ok := gtx.Event(pointer.Filter{Target: &t.dragTag, Kinds: pointer.Press | pointer.Drag | pointer.Release | pointer.Cancel})
+		if !ok {
+			break
+		}
+		e, ok := ev.(pointer.Event)
+		if !ok || e.Source == pointer.Touch {
+			continue
+		}
+		switch e.Kind {
+		case pointer.Press:
+			if !e.Buttons.Contain(pointer.ButtonPrimary) || t.drag.armed {
+				break
+			}
+			idx := t.indexAt(gtx, rows, int(e.Position.Y))
+			if idx < 0 {
+				break
+			}
+			n := rows[idx].n
+			// The root cannot be dragged, protected nodes neither (the web GUI).
+			if n.ID == "" || n.Protected {
+				break
+			}
+			t.drag = treeDrag{
+				armed:  true,
+				fromID: n.ID,
+				pid:    e.PointerID,
+				start:  image.Pt(int(e.Position.X), int(e.Position.Y)),
+				ids:    t.dragIds(rows, n.ID),
+			}
+		case pointer.Drag:
+			if !t.drag.armed || e.PointerID != t.drag.pid {
+				break
+			}
+			p := image.Pt(int(e.Position.X), int(e.Position.Y))
+			if !t.drag.active {
+				dx, dy := float32(p.X-t.drag.start.X), float32(p.Y-t.drag.start.Y)
+				if slop := float32(gtx.Dp(4)); dx*dx+dy*dy < slop*slop {
+					break
+				}
+				t.drag.active = true
+				gtx.Execute(pointer.GrabCmd{Tag: &t.dragTag, ID: e.PointerID})
+			}
+			t.drag.cur = p
+			t.drag.target, t.drag.targetOn = "", false
+			if t.drag.desc == nil {
+				t.drag.desc = t.dragDescendants(t.drag.ids)
+			}
+			if idx := t.indexAt(gtx, rows, p.Y); idx >= 0 {
+				n := rows[idx].n
+				if n.Group && !t.drag.desc[n.ID] && !containsID(t.drag.ids, n.ID) {
+					t.drag.target, t.drag.targetOn = n.ID, true
+				}
+			}
+		case pointer.Release:
+			if !t.drag.armed || e.PointerID != t.drag.pid {
+				break
+			}
+			if t.drag.active && t.drag.targetOn {
+				t.events = append(t.events, TreeEvent{Kind: TreeDrop, ID: t.drag.target, IDs: t.drag.ids})
+			}
+			t.drag = treeDrag{}
+		case pointer.Cancel:
+			if e.PointerID == t.drag.pid {
+				t.drag = treeDrag{}
+			}
+		}
+	}
+}
+
+func containsID(ids []string, id string) bool {
+	for _, i := range ids {
+		if i == id {
+			return true
+		}
+	}
+	return false
+}
+
 // Icons and colors of the tree (the SVG icons of the web GUI as Nerd Fonts).
 var (
 	treeGroupColor = color.NRGBA{R: 0xff, G: 0xd0, B: 0x1a, A: 0xff}
@@ -288,10 +485,21 @@ func (t *Tree) row(gtx layout.Context, th *Theme, n *TreeNode, depth int) layout
 		pointer.CursorPointer.Add(gtx.Ops)
 		area.Pop()
 		switch {
+		case t.drag.active && t.drag.targetOn && n.ID == t.drag.target:
+			// The drop target of a drag (a group or the root).
+			FillRect(gtx, image.Rectangle{Max: size}, faded(p.Accent, 0.35))
 		case selected:
 			FillRect(gtx, image.Rectangle{Max: size}, p.SelectedBg)
 		case hovered:
 			FillRect(gtx, image.Rectangle{Max: size}, p.RowHover)
+		}
+		if t.drag.active {
+			switch {
+			case n.Group && t.drag.desc != nil && !t.drag.desc[n.ID] && !containsID(t.drag.ids, n.ID):
+				pointer.CursorGrab.Add(gtx.Ops)
+			default:
+				pointer.CursorNotAllowed.Add(gtx.Ops)
+			}
 		}
 		fg := p.TextColor
 		if selected {

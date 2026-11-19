@@ -367,3 +367,98 @@ func TestColorChooserHexEntry(t *testing.T) {
 		t.Fatal("ParseHex accepted 5 digits")
 	}
 }
+
+func TestTreeDragDropMovesOntoGroup(t *testing.T) {
+	u := newUI(t)
+	tr := Tree{Root: &TreeNode{ID: "root", Name: "My Connections", Group: true, Children: []*TreeNode{
+		{ID: "g", Name: "Group", Group: true, Children: []*TreeNode{{ID: "c1", Name: "inner", Method: "ssh"}}},
+		{ID: "c2", Name: "web", Method: "ssh"},
+	}}, Expanded: map[string]bool{"root": true, "g": true}}
+	u.size = image.Pt(300, 200)
+	w := func(gtx layout.Context) layout.Dimensions { return tr.Layout(gtx, u.th) }
+	u.frame(w)
+	row := func(i int) float32 { return float32(1 + 22*i + 11) }
+	// Rows: 0 root, 1 Group, 2 inner, 3 web. Drag "web" onto "Group".
+	u.pointer(pointer.Move, 100, row(3), 0)
+	u.pointer(pointer.Press, 100, row(3), pointer.ButtonPrimary)
+	u.frame(w)
+	for y := row(3); y >= row(1); y -= 6 {
+		u.pointer(pointer.Move, 100, y, pointer.ButtonPrimary)
+		u.frame(w)
+	}
+	u.pointer(pointer.Release, 100, row(1), 0)
+	u.frame(w)
+	found := false
+	for _, e := range tr.Events() {
+		if e.Kind == TreeDrop && e.ID == "g" && len(e.IDs) == 1 && e.IDs[0] == "c2" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no drop event onto the group: %v", tr.Events())
+	}
+}
+
+func TestTreeDragDropRejectsConnectionTargets(t *testing.T) {
+	u := newUI(t)
+	tr := Tree{Root: &TreeNode{ID: "root", Name: "My Connections", Group: true, Children: []*TreeNode{
+		{ID: "c1", Name: "inner", Method: "ssh"},
+		{ID: "c2", Name: "web", Method: "ssh"},
+	}}, Expanded: map[string]bool{"root": true}}
+	u.size = image.Pt(300, 200)
+	w := func(gtx layout.Context) layout.Dimensions { return tr.Layout(gtx, u.th) }
+	u.frame(w)
+	row := func(i int) float32 { return float32(1 + 22*i + 11) }
+	// Rows: 0 root, 1 inner, 2 web. Drag "web" onto "inner": no drop.
+	u.pointer(pointer.Move, 100, row(2), 0)
+	u.pointer(pointer.Press, 100, row(2), pointer.ButtonPrimary)
+	u.frame(w)
+	for y := row(2); y >= row(1); y -= 6 {
+		u.pointer(pointer.Move, 100, y, pointer.ButtonPrimary)
+		u.frame(w)
+	}
+	u.pointer(pointer.Release, 100, row(1), 0)
+	u.frame(w)
+	for _, e := range tr.Events() {
+		if e.Kind == TreeDrop {
+			t.Fatalf("drop onto a connection was accepted: %v", e)
+		}
+	}
+	// And the press must not have selected "web" (it was a drag).
+	if tr.Selected["c2"] {
+		t.Fatal("the drag selected the row")
+	}
+}
+
+func TestNotebookReorder(t *testing.T) {
+	u := newUI(t)
+	n := Notebook{Reorderable: true, Tabs: []*Tab{{Title: "AAA"}, {Title: "BBB"}, {Title: "CCC"}}}
+	w := func(gtx layout.Context) layout.Dimensions { return n.Layout(gtx, u.th) }
+	u.frame(w)
+	if len(n.rects) != 3 {
+		t.Fatalf("rects %v", n.rects)
+	}
+	right := float32(n.rects[2].Max.X - 4)
+	u.pointer(pointer.Move, right, 13, 0)
+	u.pointer(pointer.Press, right, 13, pointer.ButtonPrimary)
+	u.frame(w)
+	for x := right; x >= 2; x -= 8 {
+		u.pointer(pointer.Move, x, 13, pointer.ButtonPrimary)
+		u.frame(w)
+	}
+	u.pointer(pointer.Release, 2, 13, 0)
+	u.frame(w)
+	var moved *NotebookEvent
+	for _, e := range n.Events() {
+		e := e
+		if e.Kind == TabMoved {
+			moved = &e
+		}
+	}
+	if moved == nil || moved.From != 2 || moved.To != 0 {
+		t.Fatalf("TabMoved %+v, events above", moved)
+	}
+	if n.Tabs[0].Title != "CCC" || n.Tabs[1].Title != "AAA" || n.Tabs[2].Title != "BBB" {
+		t.Fatalf("tab order %v %v %v", n.Tabs[0].Title, n.Tabs[1].Title, n.Tabs[2].Title)
+	}
+}

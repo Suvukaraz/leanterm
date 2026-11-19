@@ -5,6 +5,7 @@ import (
 	"image/color"
 
 	"gioui.org/font"
+	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -30,6 +31,9 @@ type Tab struct {
 type NotebookEvent struct {
 	Kind NotebookEventKind
 	Tab  int
+	// From and To are the indices of a TabMoved event (the final index of
+	// the tab that was dragged to another position).
+	From, To int
 	// Pos is where a context click happened (window coordinates of the tab
 	// row's origin plus the offset in the tab).
 	Pos image.Point
@@ -44,16 +48,37 @@ const (
 	TabMiddleClick
 	TabContextClick
 	TabDoubleClick
+	// TabMoved is emitted when a tab was dragged to another position in
+	// the row (only when Notebook.Reorderable).
+	TabMoved
 )
 
 // Notebook is the header of a GTK notebook (Notebook.svelte): a row of tabs on
 // the header color, the selected tab in the window color with an accent line
-// on top.
+// on top. With Reorderable the tabs can be dragged to another position in
+// the row (the web GUI does not have this; LeanTerm's tabs can be moved).
 type Notebook struct {
 	Tabs     []*Tab
 	Selected int
+	// Reorderable enables dragging tabs to another position.
+	Reorderable bool
 
-	events []NotebookEvent
+	events  []NotebookEvent
+	dragTag int
+	drag    tabDrag
+	rects   []image.Rectangle // tab row-local rectangles, from the last layout
+	sizes   []int             // tab widths of the last layout, in order
+	height  int               // measured height of the tab row
+}
+
+// tabDrag is the state of an ongoing tab drag.
+type tabDrag struct {
+	armed  bool
+	pid    pointer.ID
+	from   int
+	startX int
+	active bool
+	x      int
 }
 
 // Events returns and clears what happened since the last call.
@@ -103,7 +128,20 @@ func (n *Notebook) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 		}
 	}
 
+	n.dragInput(gtx)
+
+	// The drag area covers the tab row and sits before the tabs, so they
+	// are its children; while a drag is active all pointer events for it
+	// come to this tag.
+	h0 := n.height
+	if h0 <= 0 {
+		h0 = gtx.Dp(27)
+	}
+	row := clipRect(gtx, image.Pt(gtx.Constraints.Max.X, h0))
+	event.Op(gtx.Ops, &n.dragTag)
+
 	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	n.sizes = n.sizes[:0]
 	call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {
 		var kids []layout.FlexChild
 		for i, t := range n.Tabs {
@@ -115,11 +153,23 @@ func (n *Notebook) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 		return layout.Flex{}.Layout(gtx, kids...)
 	})
 	h := max(d.Size.Y, gtx.Dp(26)) + gtx.Dp(1)
+	n.height = h
+	// Tab rectangles (row-local) for the drag handling of the next frame.
+	n.rects = n.rects[:0]
+	x := 0
+	for _, w := range n.sizes {
+		n.rects = append(n.rects, image.Rect(x, 0, x+w, h))
+		x += w
+	}
 	FillRect(gtx, image.Rect(0, 0, gtx.Constraints.Max.X, h), p.HeaderBg)
 	call.Add(gtx.Ops)
+	if n.drag.active {
+		n.dragIndicator(gtx, p)
+	}
 	o := offset(gtx, 0, h-gtx.Dp(1))
 	HLine(gtx, p.BorderColor)
 	o.Pop()
+	row.Pop()
 	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, h)}
 }
 
@@ -183,6 +233,7 @@ func (n *Notebook) tab(gtx layout.Context, th *Theme, t *Tab, selected bool) lay
 		}
 		FillRect(gtx, image.Rect(size.X-gtx.Dp(1), 0, size.X, size.Y), p.BorderColor)
 		call.Add(gtx.Ops)
+		n.sizes = append(n.sizes, size.X)
 		return layout.Dimensions{Size: size}
 	})
 }
@@ -210,6 +261,142 @@ func (th *Theme) tabClose(gtx layout.Context, c *widget.Clickable) layout.Dimens
 		call.Add(gtx.Ops)
 		return d
 	})
+}
+
+// dragInput arms, tracks and finishes a tab drag.
+func (n *Notebook) dragInput(gtx layout.Context) {
+	if !n.Reorderable {
+		if n.drag.armed || n.drag.active {
+			n.drag = tabDrag{}
+		}
+		return
+	}
+	for {
+		ev, ok := gtx.Event(pointer.Filter{Target: &n.dragTag, Kinds: pointer.Press | pointer.Drag | pointer.Release | pointer.Cancel})
+		if !ok {
+			break
+		}
+		e, ok := ev.(pointer.Event)
+		if !ok {
+			continue
+		}
+		switch e.Kind {
+		case pointer.Press:
+			if !e.Buttons.Contain(pointer.ButtonPrimary) {
+				break
+			}
+			if i := n.tabAt(int(e.Position.X)); i >= 0 {
+				n.drag = tabDrag{armed: true, pid: e.PointerID, from: i, startX: int(e.Position.X)}
+			}
+		case pointer.Drag:
+			if !n.drag.armed || e.PointerID != n.drag.pid {
+				break
+			}
+			x := int(e.Position.X)
+			if !n.drag.active {
+				dx := x - n.drag.startX
+				slop := gtx.Dp(4)
+				if dx*dx < slop*slop {
+					break
+				}
+				n.drag.active = true
+				gtx.Execute(pointer.GrabCmd{Tag: &n.dragTag, ID: e.PointerID})
+			}
+			n.drag.x = x
+		case pointer.Release:
+			if !n.drag.armed || e.PointerID != n.drag.pid {
+				break
+			}
+			if n.drag.active {
+				n.moveTab(n.drag.from, n.dropIndex(n.drag.x))
+			}
+			n.drag = tabDrag{}
+		case pointer.Cancel:
+			if e.PointerID == n.drag.pid {
+				n.drag = tabDrag{}
+			}
+		}
+	}
+}
+
+// tabAt maps an x coordinate (tab row local) to a tab index, or -1.
+func (n *Notebook) tabAt(x int) int {
+	for i, r := range n.rects {
+		if x >= r.Min.X && x < r.Max.X {
+			return i
+		}
+	}
+	return -1
+}
+
+// dropIndex is the index the dragged tab would land on (the tabs around it
+// shift); it is also used for the insertion indicator.
+func (n *Notebook) dropIndex(x int) int {
+	from := n.drag.from
+	to := 0
+	for i, r := range n.rects {
+		if i == from {
+			continue
+		}
+		if x > (r.Min.X+r.Max.X)/2 {
+			to++
+		}
+	}
+	if to >= len(n.Tabs) {
+		to = len(n.Tabs) - 1
+	}
+	return to
+}
+
+// moveTab moves the tab from to the index to and makes it the selected tab
+// of the notebook (the web GUI switches to a newly opened tab).
+func (n *Notebook) moveTab(from, to int) {
+	if from < 0 || from >= len(n.Tabs) || to < 0 || to >= len(n.Tabs) || from == to {
+		return
+	}
+	t := n.Tabs[from]
+	sel := -1
+	if n.Selected >= 0 && n.Selected < len(n.Tabs) {
+		sel = indexOfTab(n.Tabs, n.Tabs[n.Selected])
+	}
+	rest := append([]*Tab{}, n.Tabs[:from]...)
+	rest = append(rest, n.Tabs[from+1:]...)
+	n.Tabs = append(rest[:to], append([]*Tab{t}, rest[to:]...)...)
+	if sel == from {
+		n.Selected = to
+	} else if sel > from && sel <= to {
+		n.Selected = sel - 1
+	} else if sel < from && sel >= to {
+		n.Selected = sel + 1
+	}
+	n.events = append(n.events, NotebookEvent{Kind: TabMoved, Tab: to, From: from, To: to})
+}
+
+func indexOfTab(tabs []*Tab, t *Tab) int {
+	for i, x := range tabs {
+		if x == t {
+			return i
+		}
+	}
+	return -1
+}
+
+// dragIndicator draws the insertion line of an ongoing tab drag.
+func (n *Notebook) dragIndicator(gtx layout.Context, p *Palette) {
+	to := n.dropIndex(n.drag.x)
+	x := 0
+	count := 0
+	for i, r := range n.rects {
+		if count == to {
+			break
+		}
+		if i == n.drag.from {
+			continue
+		}
+		count++
+		x = r.Max.X
+	}
+	FillRect(gtx, image.Rect(x-gtx.Dp(1), 0, x+gtx.Dp(2), n.height-gtx.Dp(1)), p.Accent)
 }
 
 // Paned splits its space between two widgets with a 6px handle
