@@ -188,11 +188,12 @@ func TestKeys(t *testing.T) {
 func TestBracketedPaste(t *testing.T) {
 	forEachEngine(t, func(t *testing.T, name string) {
 		h := newHarness(t, name, 80, 24)
-		h.eng.Paste("ls")
-		h.waitOutput("ls")
+		// Without bracketed paste a line break is Enter (CR).
+		h.eng.Paste("ls\nid")
+		h.waitOutput("ls\rid")
 		h.eng.Feed([]byte("\x1b[?2004h"))
 		h.eng.Paste("echo 1\necho 2")
-		h.waitOutput("\x1b[200~echo 1\recho 2\x1b[201~")
+		h.waitOutput("\x1b[200~echo 1\necho 2\x1b[201~")
 	})
 }
 

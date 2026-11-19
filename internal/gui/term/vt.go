@@ -22,6 +22,8 @@ type vtEngine struct {
 	colors Colors
 	cb     Callbacks
 	offset int // lines scrolled up into the history
+	// bracketed is set while the program asked for bracketed paste.
+	bracketed bool
 }
 
 func newVT(o Options) (Engine, error) {
@@ -47,6 +49,17 @@ func newVT(o Options) (Engine, error) {
 		Bell: func() {
 			if e.cb.Bell != nil {
 				e.cb.Bell()
+			}
+		},
+		// Called during Feed, with e.mu held.
+		EnableMode: func(m ansi.Mode) {
+			if m == ansi.ModeBracketedPaste {
+				e.bracketed = true
+			}
+		},
+		DisableMode: func(m ansi.Mode) {
+			if m == ansi.ModeBracketedPaste {
+				e.bracketed = false
 			}
 		},
 	})
@@ -137,13 +150,17 @@ func (e *vtEngine) SendText(text string) {
 }
 
 func (e *vtEngine) Paste(text string) {
-	// As in xterm and Ghostty, line breaks are sent as Enter (CR), and the
-	// end-of-paste sequence is removed so pasted text cannot end the paste.
-	text = strings.ReplaceAll(text, "\r\n", "\r")
-	text = strings.ReplaceAll(text, "\n", "\r")
-	text = strings.ReplaceAll(text, ansi.BracketedPasteEnd, "")
+	// As in Ghostty: without bracketed paste line breaks are sent as Enter
+	// (CR); with it they stay, and the end-of-paste sequence is removed so
+	// pasted text cannot end the paste.
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.bracketed {
+		text = strings.ReplaceAll(text, ansi.BracketedPasteEnd, "")
+	} else {
+		text = strings.ReplaceAll(text, "\r\n", "\r")
+		text = strings.ReplaceAll(text, "\n", "\r")
+	}
 	e.offset = 0
 	e.em.Paste(text)
 }
