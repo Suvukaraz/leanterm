@@ -42,6 +42,7 @@ type ui struct {
 	editor *codeedit.Editor
 
 	drops    chan dnd.Drop
+	statusCh chan string
 	dropMsg  string
 	focus    bool
 	selfDrop string
@@ -55,7 +56,7 @@ func main() {
 
 	w := new(app.Window)
 	w.Option(app.Title("LeanTerm"), app.Size(unit.Dp(1100), unit.Dp(680)))
-	u := &ui{w: w, th: theme.New(), drops: make(chan dnd.Drop, 4), focus: true, selfDrop: *selfDrop}
+	u := &ui{w: w, th: theme.New(), drops: make(chan dnd.Drop, 4), statusCh: make(chan string, 4), focus: true, selfDrop: *selfDrop}
 	if *quitAfter > 0 {
 		time.AfterFunc(*quitAfter, func() {
 			log.Print("self-test: quitting")
@@ -142,6 +143,8 @@ func (u *ui) onDrop(d dnd.Drop) {
 func (u *ui) handleDrops() {
 	for {
 		select {
+		case s := <-u.statusCh:
+			u.dropMsg = s
 		case d := <-u.drops:
 			u.dropMsg = fmt.Sprintf("Dropped at %d,%d: %s", d.X, d.Y, strings.Join(d.Paths, ", "))
 			log.Print(u.dropMsg)

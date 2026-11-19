@@ -9,26 +9,42 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/gui/dnd"
 )
 
-// hwndOf is set per platform: the native window handle for dnd.Enable.
+// enableDrop makes the window accept dropped files. On Windows the window's
+// thread waits while an event is handled here, and enabling drops sends it
+// messages synchronously, so that happens on its own goroutine once the event
+// is back with Gio; the result comes through u.statusCh.
 func (u *ui) enableDrop(e app.ViewEvent) {
 	log.Printf("view event %T (valid %v)", e, e.Valid())
-	if h := hwndOf(e); h != 0 {
+	h := hwndOf(e)
+	if h == 0 {
+		return
+	}
+	selfDrop := u.selfDrop
+	u.selfDrop = ""
+	go func() {
 		if err := dnd.Enable(h, u.onDrop); err != nil {
-			u.dropMsg = "File drop: " + err.Error()
-			log.Print(u.dropMsg)
+			u.setStatus("File drop: " + err.Error())
 			return
 		}
-		u.dropMsg = ""
 		log.Print("file drop enabled")
-		if u.selfDrop != "" {
-			path := u.selfDrop
-			u.selfDrop = ""
-			go func() {
-				time.Sleep(time.Second)
-				if err := dnd.SimulateDrop(h, []string{path}, 40, 60); err != nil {
-					log.Print("self-test drop: ", err)
-				}
-			}()
+		u.setStatus("")
+		if selfDrop != "" {
+			time.Sleep(time.Second)
+			if err := dnd.SimulateDrop(h, []string{selfDrop}, 40, 60); err != nil {
+				log.Print("self-test drop: ", err)
+			}
 		}
+	}()
+}
+
+// setStatus hands a drop status message to the GUI goroutine.
+func (u *ui) setStatus(s string) {
+	if s != "" {
+		log.Print(s)
 	}
+	select {
+	case u.statusCh <- s:
+	default:
+	}
+	u.w.Invalidate()
 }

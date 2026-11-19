@@ -76,7 +76,10 @@ cross-compiled with `zig cc -target x86_64-windows-gnu` (see the workflow).
 - **Drag and drop from the desktop**: Gio 0.10 does not deliver dropped files
   on any desktop platform (its X11/Wayland handlers are empty). Windows works
   by subclassing the window (`internal/gui/dnd`, checked in CI with a real
-  `WM_DROPFILES`). **X11 and Wayland need a change in Gio itself** (XDND client
+  `WM_DROPFILES`). On Windows Gio's window thread waits while the program
+  handles an event, so Win32 calls that message the window (subclassing,
+  `DragAcceptFiles`) must run outside event handling, else both block.
+  **X11 and Wayland need a change in Gio itself** (XDND client
   messages; `wl_data_device` drop), as a fork via `replace` or upstream.
 - **Fonts**: Gio does not use fontconfig; LeanTerm loads the system UI and
   monospace fonts itself. CJK and emoji need fallback faces from the system
