@@ -1,0 +1,185 @@
+# Stage 0 of the move to a pure Go GUI (Gio): builds and tests the prototype
+# (cmd/leanterm-gio) with both terminal engines - Ghostty's core via
+# libghostty-vt (cgo, built with Zig) and charmbracelet/x/vt - on Linux and
+# Windows, and runs it under a virtual display / on the Windows desktop.
+name: Gio prototype
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+  pull_request:
+    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+  workflow_dispatch:
+
+env:
+  ZIG_VERSION: 0.17.1
+  GHOSTTY_COMMIT: 5813c9461d5af78b6307a1254d00b1bc190eaccd
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: System packages (Gio, virtual display)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
+            libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev \
+            xvfb xdotool x11-apps imagemagick fonts-dejavu-core
+
+      - name: Zig
+        run: |
+          pip install ziglang==$ZIG_VERSION
+          mkdir -p "$HOME/bin"
+          printf '#!/bin/sh\nexec python3 -m ziglang "$@"\n' > "$HOME/bin/zig"
+          chmod +x "$HOME/bin/zig"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ghostty
+          key: libghostty-vt-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
+
+      - name: Build libghostty-vt (Linux and Windows)
+        run: |
+          test -f "$RUNNER_TEMP/ghostty/linux/lib/pkgconfig/libghostty-vt-static.pc" ||
+            GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-linux-gnu.2.34 "$RUNNER_TEMP/ghostty/linux"
+          test -f "$RUNNER_TEMP/ghostty/windows/lib/pkgconfig/libghostty-vt-static.pc" ||
+            GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-windows-gnu "$RUNNER_TEMP/ghostty/windows"
+
+      - name: Tests (both engines)
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
+        run: |
+          go vet -tags ghostty ./internal/gui/... ./internal/session/ ./cmd/leanterm-gio/
+          go test -race -tags ghostty -v ./internal/gui/term/ 2>&1 | tee term-tests.txt
+          grep -q -- '--- PASS: TestKeys/ghostty' term-tests.txt
+          go test -race -tags ghostty ./internal/gui/... ./internal/session/
+
+      - name: Build prototype
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
+        run: |
+          go build -tags ghostty -trimpath -o bin/leanterm-gio ./cmd/leanterm-gio
+          # The binary must not need a newer glibc than 2.34.
+          objdump -T bin/leanterm-gio | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
+
+      - name: Cross-build for Windows (Ghostty engine via zig cc)
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/windows/lib/pkgconfig
+          CGO_ENABLED: '1'
+          GOOS: windows
+          GOARCH: amd64
+          CC: zig cc -target x86_64-windows-gnu
+          CXX: zig c++ -target x86_64-windows-gnu
+          CGO_LDFLAGS_ALLOW: '.*[.]lib$'
+        run: |
+          mkdir -p bin/windows
+          go build -tags ghostty -trimpath -o bin/windows/leanterm-gio.exe ./cmd/leanterm-gio
+          go test -c -tags ghostty -o bin/windows/term.test.exe ./internal/gui/term/
+          go test -c -tags ghostty -o bin/windows/termview.test.exe ./internal/gui/termview/
+          go test -c -tags ghostty -o bin/windows/codeedit.test.exe ./internal/gui/codeedit/
+          go test -c -tags ghostty -o bin/windows/fonts.test.exe ./internal/gui/fonts/
+          ls -la bin/windows
+
+      - name: Run under a virtual display
+        run: |
+          export DISPLAY=:99 LANG=C.UTF-8
+          Xvfb :99 -screen 0 1280x800x24 & sleep 2
+          SHELL=/bin/bash bin/leanterm-gio > gui.log 2>&1 & APP=$!
+          sleep 4
+          xdotool mousemove 500 300 click 1; sleep 0.5
+          xdotool type --delay 15 'printf "\e[1;32mghostty engine\e[0m  \n"; ls -la /usr | head -6'
+          xdotool key Return; sleep 2
+          xwd -root -silent | convert xwd:- screenshot-ghostty.png
+          # Second tab: the vt engine.
+          xdotool mousemove 230 15 click 1; sleep 1
+          xdotool mousemove 500 300 click 1; sleep 0.5
+          xdotool type --delay 15 'printf "\e[1;34mvt engine\e[0m\n"; sleep 30'
+          xdotool key Return; sleep 1; xdotool key ctrl+c; sleep 1
+          xdotool type --delay 15 'echo after-ctrl-c-$?'; xdotool key Return; sleep 1
+          xwd -root -silent | convert xwd:- screenshot-vt.png
+          kill -0 $APP
+          kill $APP
+          cat gui.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gio-prototype-linux
+          path: |
+            bin/leanterm-gio
+            screenshot-*.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gio-prototype-windows-build
+          path: bin/windows/
+
+  windows:
+    needs: linux
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Native, without cgo: vt engine, ConPTY shells (x/xpty), widgets.
+      - name: Tests (vt engine, pure Go)
+        run: |
+          go vet ./internal/gui/... ./internal/session/ ./cmd/leanterm-gio/
+          go test ./internal/gui/... ./internal/session/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: gio-prototype-windows-build
+          path: bin
+
+      # The test binaries cross-compiled with libghostty-vt, run in their
+      # package folders.
+      - name: Tests (both engines, cross-compiled)
+        run: |
+          (cd internal/gui/term && ../../../bin/term.test.exe -test.v | tee ../../../term-tests.txt)
+          grep -q -- '--- PASS: TestKeys/ghostty' term-tests.txt
+          (cd internal/gui/termview && ../../../bin/termview.test.exe)
+          (cd internal/gui/codeedit && ../../../bin/codeedit.test.exe)
+          (cd internal/gui/fonts && ../../../bin/fonts.test.exe)
+
+      - name: Run on the desktop, drop a file onto the window
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath bin\leanterm-gio.exe -ArgumentList '-selftest-drop', "$PWD\go.mod", '-quit-after', '14s' `
+            -RedirectStandardError gui.log -RedirectStandardOutput gui.out -PassThru
+          Start-Sleep -Seconds 8
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\screenshot-windows.png")
+          $p.WaitForExit(20000) | Out-Null
+          Get-Content gui.log
+          if (-not (Select-String -Path gui.log -Pattern 'file drop enabled')) { throw 'file drop was not enabled' }
+          if (-not (Select-String -Path gui.log -Pattern 'Dropped at .*go\.mod')) { throw 'the dropped file did not arrive' }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gio-prototype-windows
+          path: |
+            bin/leanterm-gio.exe
+            screenshot-windows.png
+            gui.log

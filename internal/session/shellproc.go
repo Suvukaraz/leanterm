@@ -34,3 +34,23 @@ type shellSpec struct {
 func startShell(ctx context.Context, spec shellSpec) (shellProcess, error) {
 	return startShellOS(ctx, spec)
 }
+
+// ShellProcess is a shell running in a pseudo terminal (see shellProcess).
+type ShellProcess = shellProcess
+
+// ShellSpec describes a shell to start with [StartShell].
+type ShellSpec = shellSpec
+
+// StartShell starts spec in a new pseudo terminal; cancelling ctx ends the shell.
+func StartShell(ctx context.Context, spec ShellSpec) (ShellProcess, error) {
+	return startShell(ctx, spec)
+}
+
+// DefaultShell is the shell used when none is configured.
+func DefaultShell() string { return defaultShell() }
+
+// WithCwdReporting adds the options that make a shell report its working
+// directory, where LeanTerm knows how (PowerShell and cmd on Windows).
+func WithCwdReporting(shell string, args, env []string) ([]string, []string) {
+	return withCwdReporting(shell, args, env)
+}

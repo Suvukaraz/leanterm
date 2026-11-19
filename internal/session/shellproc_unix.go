@@ -3,38 +3,49 @@
 package session
 
 import (
-	"context"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 
-	"github.com/creack/pty"
+	"github.com/charmbracelet/x/xpty"
 )
 
-type unixShell struct {
-	cmd *exec.Cmd
-	pty *os.File
-}
-
-func startShellOS(ctx context.Context, spec shellSpec) (shellProcess, error) {
-	cmd := exec.CommandContext(ctx, spec.Path, spec.Args...)
-	cmd.Dir = spec.Dir
-	cmd.Env = spec.Env
-	f, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: uint16(spec.Rows), Cols: uint16(spec.Cols)})
-	if err != nil {
-		return nil, err
+// Signals that were ignored when LeanTerm started (e.g. SIGINT for a program
+// started with & or nohup) stay ignored across exec, so Ctrl+C would not work
+// in local shells. Catching them makes exec reset them to the default for
+// the shells; LeanTerm itself keeps ignoring them.
+func init() {
+	for _, sig := range []os.Signal{syscall.SIGINT, syscall.SIGQUIT} {
+		if signal.Ignored(sig) {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, sig)
+			go func() {
+				for range c {
+				}
+			}()
+		}
 	}
-	return &unixShell{cmd: cmd, pty: f}, nil
 }
 
-func (s *unixShell) Read(p []byte) (int, error)  { return s.pty.Read(p) }
-func (s *unixShell) Write(p []byte) (int, error) { return s.pty.Write(p) }
-func (s *unixShell) Close() error                { return s.pty.Close() }
-func (s *unixShell) Wait() error                 { return s.cmd.Wait() }
-func (s *unixShell) Pid() int                    { return s.cmd.Process.Pid }
-
-func (s *unixShell) Resize(cols, rows int) error {
-	return pty.Setsize(s.pty, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
+// prepareCmd makes the shell a session leader with the PTY as its controlling
+// terminal, so job control and Ctrl+C reach it.
+func prepareCmd(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
 }
+
+// afterStart closes our copy of the PTY's child side: the shell has its own, and
+// reads of the terminal only fail (ending the session) once it is gone.
+func afterStart(p xpty.Pty) {
+	if u, ok := p.(*xpty.UnixPty); ok {
+		_ = u.Slave().Close()
+	}
+}
+
+// killOnClose: see xptyShell.Close.
+const killOnClose = false
+
+func checkPtySupport() error { return nil }
 
 // defaultShell is used when no shell is configured: $SHELL, else bash.
 func defaultShell() string {
