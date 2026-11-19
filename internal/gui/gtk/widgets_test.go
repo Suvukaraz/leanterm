@@ -462,3 +462,60 @@ func TestNotebookReorder(t *testing.T) {
 		t.Fatalf("tab order %v %v %v", n.Tabs[0].Title, n.Tabs[1].Title, n.Tabs[2].Title)
 	}
 }
+
+func TestTextAreaTypesAndTakesMax(t *testing.T) {
+	u := newUI(t)
+	var e widget.Editor
+	ta := TextArea{Placeholder: "Notes", Mono: true}
+	w := func(gtx layout.Context) layout.Dimensions { return ta.Layout(gtx, u.th, &e) }
+	u.size = image.Pt(320, 120)
+	u.frame(w)
+	d := func() layout.Dimensions {
+		u.ops.Reset()
+		gtx := layout.Context{Ops: &u.ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Constraints{Max: u.size}, Source: u.r.Source(), Now: u.now}
+		return ta.Layout(gtx, u.th, &e)
+	}()
+	if d.Size != u.size {
+		t.Fatalf("text area size %v, want %v", d.Size, u.size)
+	}
+	u.click(w, 100, 60)
+	u.r.Queue(key.EditEvent{Text: "hello world"})
+	u.frame(w)
+	if got := e.Text(); got != "hello world" {
+		t.Fatalf("text %q", got)
+	}
+	u.r.Queue(key.EditEvent{Range: key.Range{Start: 11, End: 11}, Text: "\nsecond"})
+	u.frame(w)
+	if got := e.Text(); got != "hello world\nsecond" {
+		t.Fatalf("text %q", got)
+	}
+}
+
+func TestTextAreaDisabledTakesNoInput(t *testing.T) {
+	u := newUI(t)
+	var e widget.Editor
+	ta := TextArea{Disabled: true}
+	w := func(gtx layout.Context) layout.Dimensions { return ta.Layout(gtx, u.th, &e) }
+	u.size = image.Pt(320, 120)
+	u.frame(w)
+	u.click(w, 100, 60)
+	u.r.Queue(key.EditEvent{Text: "nope"})
+	u.frame(w)
+	if got := e.Text(); got != "" {
+		t.Fatalf("disabled text area got %q", got)
+	}
+}
+
+func TestLogoRendersSquare(t *testing.T) {
+	u := newUI(t)
+	u.size = image.Pt(300, 100)
+	var logo Logo
+	w := func(gtx layout.Context) layout.Dimensions { return logo.Layout(gtx) }
+	u.frame(w)
+	gtx := layout.Context{Ops: &u.ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Constraints{Max: u.size}, Source: u.r.Source(), Now: u.now}
+	u.ops.Reset()
+	d := logo.Layout(gtx)
+	if d.Size != image.Pt(100, 100) {
+		t.Fatalf("logo size %v, want 100x100", d.Size)
+	}
+}

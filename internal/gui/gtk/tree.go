@@ -209,6 +209,13 @@ func (t *Tree) input(gtx layout.Context, rows []struct {
 				t.Selected[n.ID] = !t.Selected[n.ID]
 				t.focus = n.ID
 				t.events = append(t.events, TreeEvent{Kind: TreeSelect, ID: n.ID})
+			case c.Modifiers.Contain(key.ModShift):
+				// Shift adds to the selection without toggling (the web GUI).
+				if !t.Selected[n.ID] {
+					t.Selected[n.ID] = true
+					t.focus = n.ID
+					t.events = append(t.events, TreeEvent{Kind: TreeSelect, ID: n.ID})
+				}
 			default:
 				t.selectOnly(n.ID)
 			}
