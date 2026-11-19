@@ -36,13 +36,16 @@ type result struct {
 }
 
 func ask(p *Prompter, ctx context.Context, req session.PromptRequest) chan result {
+	queued := func() int { p.mu.Lock(); defer p.mu.Unlock(); return len(p.queue) }
+	before := queued()
 	ch := make(chan result, 1)
 	go func() {
 		r, err := p.Prompt(ctx, req)
 		ch <- result{r, err}
 	}()
+	// Wait until this request is queued (not just any).
 	deadline := time.Now().Add(2 * time.Second)
-	for !p.Active() && time.Now().Before(deadline) {
+	for queued() <= before && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
 	return ch
