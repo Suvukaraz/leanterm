@@ -13,7 +13,7 @@ the same time:
 | Editor (LeanEdit) | CodeMirror 6 | [gvcode](https://github.com/oligo/gvcode) + chroma |
 | Icons | SVG icon themes | [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) symbols (embedded) |
 
-## Stage 0: prototype (this stage)
+## Stage 0: prototype
 
 `cmd/leanterm-gio` is a prototype window with a local shell tab per terminal
 engine and a LeanEdit tab. It checks the risky parts before the GUI is
@@ -27,7 +27,7 @@ rebuilt:
   title and OSC 7, scrollback and resize.
 - `internal/gui/termview`: the Gio terminal widget (cell grid, glyphs snapped to
   the grid, cursor shapes, keyboard and IME text, wheel scrolling, middle-click
-  and Ctrl+Shift+V paste, resize) and `Local`, a local shell for it.
+  and Ctrl+Shift+V paste, resize).
 - `internal/session`: local shells now run on x/xpty (PTY and ConPTY), used by
   the current app as well.
 - `internal/gui/codeedit`: gvcode editor with chroma highlighting in LeanTerm's
@@ -84,3 +84,31 @@ cross-compiled with `zig cc -target x86_64-windows-gnu` (see the workflow).
 - **Fonts**: Gio does not use fontconfig; LeanTerm loads the system UI and
   monospace fonts itself. CJK and emoji need fallback faces from the system
   (not done yet). Nerd Font glyphs fall back to the embedded symbols font.
+
+## Stage 1: the backend without the web layer
+
+The backend no longer depends on Wails; the web GUI and the native GUI use it
+the same way. The Gio workflow fails if anything under `internal/` imports
+Wails again.
+
+- `internal/events`: the event bus and the list of all events with their
+  payloads. `main.go` subscribes the web frontend to every event
+  (`forwardToWails`); native GUIs subscribe to what they show.
+- Terminal I/O for native GUIs: `SessionManager.Subscribe` delivers a
+  session's output as bytes (the ring buffer first, then live), without the
+  web GUI's base64 events and acknowledgements; `WriteBytes` and `Resize`
+  take input and size.
+- `services.Host` (dialogs, quit) and `services.EditorWindows` (LeanEdit's
+  windows) are what the services need from a GUI; the Wails implementation is
+  `wailsgui.go`.
+- `internal/gui/appcore` builds the backend for a GUI (configuration,
+  secrets, event bus, sessions, clusters, KeePass) as `main.go` does for
+  Wails.
+- `internal/gui/termview.Session` binds a terminal tab to a session;
+  `internal/gui/dialogs.Prompter` answers the backend's questions (passwords,
+  host keys, choices) with modal dialogs. The prototype opens local shells
+  and saved connections (`-connect name,...`, `-config-dir`) through the real
+  session manager; an SSH login with a password dialog was checked against
+  a local sshd.
+- `internal/gui/theme`: first GTK widgets (button, entry, check button) as
+  the base for stage 2.
