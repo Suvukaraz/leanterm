@@ -11,9 +11,11 @@ import (
 
 // hwndOf is set per platform: the native window handle for dnd.Enable.
 func (u *ui) enableDrop(e app.ViewEvent) {
+	log.Printf("view event %T (valid %v)", e, e.Valid())
 	if h := hwndOf(e); h != 0 {
 		if err := dnd.Enable(h, u.onDrop); err != nil {
 			u.dropMsg = "File drop: " + err.Error()
+			log.Print(u.dropMsg)
 			return
 		}
 		u.dropMsg = ""

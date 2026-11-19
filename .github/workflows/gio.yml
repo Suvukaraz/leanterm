@@ -45,17 +45,27 @@ jobs:
           chmod +x "$HOME/bin/zig"
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: ghostty-cache
         with:
           path: ${{ runner.temp }}/ghostty
           key: libghostty-vt-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
 
       - name: Build libghostty-vt (Linux and Windows)
+        if: steps.ghostty-cache.outputs.cache-hit != 'true'
         run: |
           test -f "$RUNNER_TEMP/ghostty/linux/lib/pkgconfig/libghostty-vt-static.pc" ||
             GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-linux-gnu.2.34 "$RUNNER_TEMP/ghostty/linux"
           test -f "$RUNNER_TEMP/ghostty/windows/lib/pkgconfig/libghostty-vt-static.pc" ||
             GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-windows-gnu "$RUNNER_TEMP/ghostty/windows"
+
+      # Saved right away, so a later failing step does not cost the next run
+      # the Zig build.
+      - uses: actions/cache/save@v4
+        if: steps.ghostty-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/ghostty
+          key: libghostty-vt-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
 
       - name: Tests (both engines)
         env:

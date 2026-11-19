@@ -32,42 +32,45 @@ type target struct {
 }
 
 var (
-	mu      sync.Mutex
-	targets = map[uintptr]*target{}
-	wndProc = syscall.NewCallback(dropWndProc)
+	// targets maps HWND to *target. It is read by the window procedure on the
+	// window's thread, so no lock may be held while calling into Windows:
+	// SetWindowLongPtr and DragAcceptFiles send messages (WM_STYLECHANGING,
+	// ...) synchronously to that thread.
+	targets       sync.Map
+	procGetWndPtr = user32.NewProc("GetWindowLongPtrW")
+	wndProc       = syscall.NewCallback(dropWndProc)
 )
 
 // Enable makes the window accept dropped files; onDrop runs on the window's
 // thread, so it should only hand the drop over (and invalidate the window).
 // hwnd is the HWND from app.Win32ViewEvent.
 func Enable(hwnd uintptr, onDrop func(Drop)) error {
-	mu.Lock()
-	defer mu.Unlock()
-	if t, ok := targets[hwnd]; ok {
-		t.onDrop = onDrop
+	if v, ok := targets.Load(hwnd); ok {
+		v.(*target).onDrop = onDrop
 		return nil
 	}
-	t := &target{onDrop: onDrop}
-	targets[hwnd] = t
 	// Window subclassing by replacing the window procedure; it works from any
-	// thread of the process (SetWindowSubclass would need the window's thread).
-	prev, _, err := procSetWindowLong.Call(hwnd, gwlpWndProc, wndProc)
+	// thread of the process (SetWindowSubclass would need the window's
+	// thread). The previous procedure is known before ours can run.
+	prev, _, err := procGetWndPtr.Call(hwnd, gwlpWndProc)
 	if prev == 0 {
-		delete(targets, hwnd)
 		return err
 	}
-	t.prev = prev
+	targets.Store(hwnd, &target{prev: prev, onDrop: onDrop})
+	if old, _, err := procSetWindowLong.Call(hwnd, gwlpWndProc, wndProc); old == 0 {
+		targets.Delete(hwnd)
+		return err
+	}
 	procDragAccept.Call(hwnd, 1)
 	return nil
 }
 
 func dropWndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
-	mu.Lock()
-	t := targets[hwnd]
-	mu.Unlock()
-	if t == nil {
+	v, ok := targets.Load(hwnd)
+	if !ok {
 		return 0
 	}
+	t := v.(*target)
 	if msg == wmDropFiles {
 		hdrop := wparam
 		n, _, _ := procDragQueryFile.Call(hdrop, 0xFFFFFFFF, 0, 0)
