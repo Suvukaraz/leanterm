@@ -34,7 +34,8 @@ func TestSessionTabOnLocalShell(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, engine := range term.Available() {
+	for i, engine := range term.Available() {
+		first := i == 0
 		t.Run(engine, func(t *testing.T) {
 			s, err := Attach(core.Sessions, core.Bus, tmpID, engine, func() {})
 			if err != nil {
@@ -63,8 +64,14 @@ func TestSessionTabOnLocalShell(t *testing.T) {
 					time.Sleep(20 * time.Millisecond)
 				}
 			}
-			// The greeting comes from the replay of the session's output.
-			wait("greeting", func() bool { return strings.Contains(screen(), "CONNECTINGWITH") })
+			// The first tab sees the greeting from the replay of the session's
+			// output. A later one replays everything since, which on Windows
+			// includes ConPTY clearing the screen: there it only sees output.
+			if first {
+				wait("greeting", func() bool { return strings.Contains(screen(), "CONNECTINGWITH") })
+			} else {
+				wait("replayed output", func() bool { return strings.TrimSpace(screen()) != "" })
+			}
 			wait("connected state", func() bool { return s.State() == "connected" })
 			s.Engine.SendText(cmd)
 			wait(want, func() bool { return strings.Contains(screen(), want) })
