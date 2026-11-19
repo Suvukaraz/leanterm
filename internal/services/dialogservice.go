@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/session"
 )
 
@@ -67,13 +68,13 @@ func (ds *DialogBroker) Prompt(ctx context.Context, req session.PromptRequest) (
 	if emitter == nil {
 		return session.PromptResponse{Cancelled: true}, session.ErrPromptCancelled
 	}
-	emitter.Emit("dialog:request", req)
+	emitter.Emit(events.DialogRequest, req)
 
 	select {
 	case resp := <-ch:
 		return resp, nil
 	case <-ctx.Done():
-		emitter.Emit("dialog:cancel", map[string]any{"id": req.ID})
+		emitter.Emit(events.DialogCancel, map[string]any{"id": req.ID})
 		return session.PromptResponse{Cancelled: true}, ctx.Err()
 	}
 }

@@ -9,9 +9,10 @@ import (
 
 	"github.com/Suvukaraz/leanterm/internal/app"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/services"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
+	wailsevents "github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed build/linux/icons/leanedit-256.png
@@ -32,18 +33,13 @@ const leanEditAppID = "org.leanterm.LeanEdit"
 func runLeanEdit(flags *app.CLIFlags, cfgStore *config.Store) {
 	app.SetAppUserModelID(leanEditAppID)
 
-	emitter := &wailsEmitter{}
+	emitter := events.New()
 	systemSvc := services.NewSystemService(nil)
 	systemSvc.SetStore(cfgStore)
 	editorSvc := services.NewEditorService(cfgStore, nil, emitter)
 	editorSvc.SetStandalone(true)
-	editorSvc.SetWindowSetup(func(w *application.WebviewWindow) {
-		w.OnWindowEvent(events.Common.WindowShow, func(*application.WindowEvent) {
-			app.SetWindowIcon(w.NativeWindow(), leanEditIcon)
-		})
-	})
 	// Settings saved by LeanTerm or another LeanEdit window apply right away.
-	cfgStore.OnReload = func() { emitter.Emit("settings:changed", nil) }
+	cfgStore.OnReload = func() { emitter.Emit(events.SettingsChanged, nil) }
 
 	var singleInstance *application.SingleInstanceOptions
 	if cfgStore.Config().Editor.SingleInstance && !flags.NewWindow && app.SingleInstancePossible() {
@@ -78,9 +74,17 @@ func runLeanEdit(flags *app.CLIFlags, cfgStore *config.Store) {
 		},
 		SingleInstance: singleInstance,
 	})
-	emitter.app = wailsApp
-	systemSvc.SetApp(wailsApp)
-	editorSvc.SetApp(wailsApp, systemSvc.IsQuitting)
+	forwardToWails(emitter, wailsApp)
+	gui := &wailsGUI{
+		app: wailsApp, store: cfgStore, editor: editorSvc, isQuitting: systemSvc.IsQuitting,
+		windowSetup: func(w *application.WebviewWindow) {
+			w.OnWindowEvent(wailsevents.Common.WindowShow, func(*application.WindowEvent) {
+				app.SetWindowIcon(w.NativeWindow(), leanEditIcon)
+			})
+		},
+	}
+	systemSvc.SetHost(gui)
+	editorSvc.SetGUI(gui, gui)
 
 	workDir, _ := os.Getwd()
 	openLeanEditFiles(editorSvc, flags, workDir)

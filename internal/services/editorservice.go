@@ -9,8 +9,7 @@ import (
 
 	"github.com/Suvukaraz/leanterm/internal/config"
 	"github.com/Suvukaraz/leanterm/internal/editor"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/Suvukaraz/leanterm/internal/events"
 )
 
 // EditorFile identifies a file opened in the editor window.
@@ -27,12 +26,8 @@ type EditorFile struct {
 	Path string `json:"path"`
 }
 
-const (
-	editorWindowName      = "editor"
-	editorPrefsWindowName = "editor-prefs"
-	// EditorAppName is the editor's name, also when it runs inside LeanTerm.
-	EditorAppName = "LeanEdit"
-)
+// EditorAppName is the editor's name, also when it runs inside LeanTerm.
+const EditorAppName = "LeanEdit"
 
 // EditorService backs the text editor (LeanEdit): one window with a tab per
 // file, fed by Open from the file browsers or the command line. File contents
@@ -43,36 +38,29 @@ const (
 // (leanterm --leanedit) it is the only window of a separate process: closing it
 // quits that process, and its settings are written straight to config.toml.
 type EditorService struct {
-	mu         sync.Mutex
-	app        *application.App
-	store      *config.Store
-	sftp       *SFTPService
-	emitter    settingsEmitter
-	isQuitting func() bool
-	files      *editor.Manager
+	mu      sync.Mutex
+	host    Host
+	windows EditorWindows
+	store   *config.Store
+	sftp    *SFTPService
+	emitter settingsEmitter
+	files   *editor.Manager
 
-	window      *application.WebviewWindow
-	prefsWindow *application.WebviewWindow
-	allowClose  bool
-	pending     []EditorFile
-	unsaved     bool
-	standalone  bool
-	// windowSetup is called for every window the service creates (LeanEdit sets
-	// its own icon on Windows with it).
-	windowSetup func(*application.WebviewWindow)
+	pending    []EditorFile
+	unsaved    bool
+	standalone bool
 }
 
 func NewEditorService(store *config.Store, sftp *SFTPService, emitter settingsEmitter) *EditorService {
 	return &EditorService{store: store, sftp: sftp, emitter: emitter, files: editor.NewManager()}
 }
 
-// SetApp gives the service the application (for creating the window and dialogs).
-// isQuitting reports whether LeanTerm is shutting down (closing is not intercepted then).
-func (es *EditorService) SetApp(app *application.App, isQuitting func() bool) {
+// SetGUI gives the service the GUI it runs in: dialogs and its windows.
+func (es *EditorService) SetGUI(host Host, windows EditorWindows) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
-	es.app = app
-	es.isQuitting = isQuitting
+	es.host = host
+	es.windows = windows
 }
 
 // SetStandalone switches the service to LeanEdit's own process (see the type).
@@ -82,20 +70,12 @@ func (es *EditorService) SetStandalone(standalone bool) {
 	es.standalone = standalone
 }
 
-// SetWindowSetup registers a function that is called for every new window.
-func (es *EditorService) SetWindowSetup(setup func(*application.WebviewWindow)) {
+// Standalone reports whether LeanEdit runs as its own process: closing the
+// editor window then quits.
+func (es *EditorService) Standalone() bool {
 	es.mu.Lock()
 	defer es.mu.Unlock()
-	es.windowSetup = setup
-}
-
-func (es *EditorService) setupWindow(win *application.WebviewWindow) {
-	es.mu.Lock()
-	setup := es.windowSetup
-	es.mu.Unlock()
-	if setup != nil {
-		setup(win)
-	}
+	return es.standalone
 }
 
 // ---- Window -----------------------------------------------------------------
@@ -122,106 +102,27 @@ func (es *EditorService) ShowWindow() error {
 
 func (es *EditorService) showWindow(notify bool) error {
 	es.mu.Lock()
-	app := es.app
-	win := es.window
+	windows := es.windows
 	es.mu.Unlock()
-	if app == nil {
+	if windows == nil {
 		return errors.New("application not ready")
 	}
-	if win == nil {
-		win = es.createWindow(app)
-	} else {
-		win.Show()
-		win.UnMinimise()
-		win.Focus()
+	if err := windows.ShowEditor(); err != nil {
+		return err
 	}
 	if notify && es.emitter != nil {
-		es.emitter.Emit("editor:pending", nil)
+		es.emitter.Emit(events.EditorPending, nil)
 	}
 	return nil
 }
 
-func (es *EditorService) createWindow(app *application.App) *application.WebviewWindow {
-	geom := config.UIState{}.EditorWindow
-	scheme := ""
-	if es.store != nil {
-		geom = es.store.LoadUIState().EditorWindow
-		scheme = es.store.Config().General.ColorScheme
-	}
-	bg := application.NewRGB(0x2b, 0x2b, 0x2b)
-	if scheme == "light" {
-		bg = application.NewRGB(0xf0, 0xf0, 0xf0)
-	}
-	opts := application.WebviewWindowOptions{
-		Name:             editorWindowName,
-		Title:            EditorAppName,
-		Width:            900,
-		Height:           640,
-		MinWidth:         480,
-		MinHeight:        320,
-		URL:              "/#/editor",
-		BackgroundColour: bg,
-	}
-	if geom.Width >= 480 && geom.Height >= 320 {
-		opts.Width, opts.Height = geom.Width, geom.Height
-	}
-	if geom.Maximized {
-		opts.StartState = application.WindowStateMaximised
-	}
-
-	win := app.Window.NewWithOptions(opts)
-	// The window checks its files for changes on disk whenever it gets the focus.
-	win.OnWindowEvent(events.Common.WindowFocus, func(*application.WindowEvent) {
-		win.EmitEvent("editor:focused")
-	})
-	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		es.mu.Lock()
-		quitting := es.isQuitting != nil && es.isQuitting()
-		allowed := es.allowClose || quitting
-		es.mu.Unlock()
-
-		if !allowed {
-			// The window asks about unsaved changes first and then calls CloseWindow.
-			e.Cancel()
-			win.EmitEvent("editor:close-requested")
-			return
-		}
-		es.saveGeometry(win)
-		es.mu.Lock()
-		es.window = nil
-		es.allowClose = false
-		es.unsaved = false
-		es.pending = nil
-		standalone, prefs := es.standalone, es.prefsWindow
-		es.mu.Unlock()
-
-		// LeanEdit on its own: the editor window is the application, so closing
-		// it also closes an open preferences window and quits.
-		if standalone {
-			if prefs != nil {
-				prefs.Close()
-			}
-			go app.Quit()
-		}
-	})
-
+// WindowClosed is called by the GUI when the editor window has closed: queued
+// files and the unsaved state belong to that window.
+func (es *EditorService) WindowClosed() {
 	es.mu.Lock()
-	es.window = win
-	es.mu.Unlock()
-	es.setupWindow(win)
-	return win
-}
-
-func (es *EditorService) saveGeometry(win *application.WebviewWindow) {
-	if es.store == nil {
-		return
-	}
-	st := es.store.LoadUIState()
-	st.EditorWindow.Maximized = win.IsMaximised()
-	if !st.EditorWindow.Maximized {
-		st.EditorWindow.Width, st.EditorWindow.Height = win.Size()
-	}
-	_ = es.store.SaveUIState(st)
+	defer es.mu.Unlock()
+	es.unsaved = false
+	es.pending = nil
 }
 
 // TakePending returns and clears the files queued by Open.
@@ -259,11 +160,10 @@ func (es *EditorService) NewWindow() error {
 // already dealt with unsaved changes).
 func (es *EditorService) CloseWindow() {
 	es.mu.Lock()
-	win := es.window
-	es.allowClose = true
+	windows := es.windows
 	es.mu.Unlock()
-	if win != nil {
-		win.Close()
+	if windows != nil {
+		windows.CloseEditor()
 	}
 }
 
@@ -271,58 +171,21 @@ func (es *EditorService) CloseWindow() {
 // settings) or raises it when it is already open.
 func (es *EditorService) ShowPreferences() error {
 	es.mu.Lock()
-	app, win := es.app, es.prefsWindow
+	windows := es.windows
 	es.mu.Unlock()
-	if app == nil {
+	if windows == nil {
 		return errors.New("application not ready")
 	}
-	if win != nil {
-		win.Show()
-		win.UnMinimise()
-		win.Focus()
-		return nil
-	}
-
-	scheme := ""
-	if es.store != nil {
-		scheme = es.store.Config().General.ColorScheme
-	}
-	bg := application.NewRGB(0x2b, 0x2b, 0x2b)
-	if scheme == "light" {
-		bg = application.NewRGB(0xf0, 0xf0, 0xf0)
-	}
-	win = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             editorPrefsWindowName,
-		Title:            EditorAppName + " Settings",
-		Width:            560,
-		Height:           620,
-		MinWidth:         420,
-		MinHeight:        360,
-		URL:              "/#/editor-prefs",
-		BackgroundColour: bg,
-		InitialPosition:  application.WindowCentered,
-	})
-	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		es.mu.Lock()
-		if es.prefsWindow == win {
-			es.prefsWindow = nil
-		}
-		es.mu.Unlock()
-	})
-	es.mu.Lock()
-	es.prefsWindow = win
-	es.mu.Unlock()
-	es.setupWindow(win)
-	return nil
+	return windows.ShowEditorPrefs()
 }
 
 // ClosePreferences closes the settings window (OK / Cancel).
 func (es *EditorService) ClosePreferences() {
 	es.mu.Lock()
-	win := es.prefsWindow
+	windows := es.windows
 	es.mu.Unlock()
-	if win != nil {
-		win.Close()
+	if windows != nil {
+		windows.CloseEditorPrefs()
 	}
 }
 
@@ -378,7 +241,7 @@ func (es *EditorService) SaveEditorSettings(ed config.EditorConfig) error {
 		es.store.MarkDirty()
 	}
 	if es.emitter != nil {
-		es.emitter.Emit("settings:changed", nil)
+		es.emitter.Emit(events.SettingsChanged, nil)
 	}
 	return nil
 }
@@ -394,38 +257,31 @@ func (es *EditorService) SetUnsaved(unsaved bool) {
 // the main window before LeanTerm quits).
 func (es *EditorService) HasUnsaved() bool {
 	es.mu.Lock()
-	defer es.mu.Unlock()
-	return es.window != nil && es.unsaved
+	windows, unsaved := es.windows, es.unsaved
+	es.mu.Unlock()
+	return unsaved && windows != nil && windows.EditorShown()
 }
 
 // ChooseOpenFile shows a file chooser on the editor window ("" = cancelled).
 func (es *EditorService) ChooseOpenFile(startDir string) (string, error) {
 	es.mu.Lock()
-	app, win := es.app, es.window
+	host := es.host
 	es.mu.Unlock()
-	if app == nil {
+	if host == nil {
 		return "", errors.New("application not ready")
 	}
-	dlg := app.Dialog.OpenFile().SetTitle("Open File").CanChooseFiles(true).ShowHiddenFiles(true)
-	if dir := startDirectory(startDir); dir != "" {
-		dlg.SetDirectory(dir)
-	}
-	if win != nil {
-		dlg.AttachToWindow(win)
-	}
-	return dlg.PromptForSingleSelection()
+	return host.ChooseFile(FileDialog{Title: "Open File", Directory: startDirectory(startDir), ShowHidden: true, Window: EditorWindowName})
 }
 
 // ChooseSaveFile shows a "save as" dialog on the editor window ("" = cancelled).
 // The dialog itself asks before replacing an existing file.
 func (es *EditorService) ChooseSaveFile(suggested string) (string, error) {
 	es.mu.Lock()
-	app, win := es.app, es.window
+	host := es.host
 	es.mu.Unlock()
-	if app == nil {
+	if host == nil {
 		return "", errors.New("application not ready")
 	}
-	dlg := app.Dialog.SaveFile().SetMessage("Save As").CanCreateDirectories(true)
 	dir, name := "", suggested
 	if suggested != "" && filepath.IsAbs(suggested) {
 		dir, name = filepath.Dir(suggested), filepath.Base(suggested)
@@ -433,16 +289,7 @@ func (es *EditorService) ChooseSaveFile(suggested string) (string, error) {
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
-	if dir != "" {
-		dlg.SetDirectory(dir)
-	}
-	if name != "" {
-		dlg.SetFilename(name)
-	}
-	if win != nil {
-		dlg.AttachToWindow(win)
-	}
-	return dlg.PromptForSingleSelection()
+	return host.ChooseFile(FileDialog{Title: "Save As", Directory: dir, Filename: name, Save: true, Window: EditorWindowName})
 }
 
 // ---- Files ------------------------------------------------------------------

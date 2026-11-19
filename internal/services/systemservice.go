@@ -13,23 +13,23 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/config"
 	"github.com/Suvukaraz/leanterm/internal/platform"
 	"github.com/Suvukaraz/leanterm/internal/wol"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type SystemService struct {
-	app           *application.App
+	host          Host
 	store         *config.Store
 	isLocked      bool
 	unlockHandler func(pwd string) error
 	quitting      atomic.Bool
 }
 
-func NewSystemService(app *application.App) *SystemService {
-	return &SystemService{app: app}
+func NewSystemService(host Host) *SystemService {
+	return &SystemService{host: host}
 }
 
-func (ss *SystemService) SetApp(app *application.App) {
-	ss.app = app
+// SetHost gives the service the GUI it runs in (dialogs, quitting).
+func (ss *SystemService) SetHost(host Host) {
+	ss.host = host
 }
 
 func (ss *SystemService) SetStore(store *config.Store) {
@@ -145,23 +145,13 @@ func (ss *SystemService) SaveScreenshot(connID, name, base64PNG string) (string,
 
 // ChooseSaveFileIn shows a "save as" dialog starting in dir ("" = cancelled).
 func (ss *SystemService) ChooseSaveFileIn(title, dir, defaultName string) (string, error) {
-	if ss.app == nil {
+	if ss.host == nil {
 		return "", errors.New("application not ready")
 	}
 	if dir != "" {
 		_ = os.MkdirAll(dir, 0700)
 	}
-	dlg := ss.app.Dialog.SaveFile().
-		SetMessage(title).
-		CanCreateDirectories(true).
-		SetFilename(defaultName)
-	if dir = startDirectory(dir); dir != "" {
-		dlg.SetDirectory(dir)
-	}
-	if win := ss.app.Window.Current(); win != nil {
-		dlg.AttachToWindow(win)
-	}
-	return dlg.PromptForSingleSelection()
+	return ss.host.ChooseFile(FileDialog{Title: title, Directory: startDirectory(dir), Filename: defaultName, Save: true})
 }
 
 // DefaultLogName is the suggested file name for "Save session log…".
@@ -182,7 +172,7 @@ func (ss *SystemService) AppInfo() map[string]string {
 		"name":        "LeanTerm",
 		"version":     "1.2.1",
 		"license":     "GPLv3",
-		"description": "SSH, Telnet and SFTP connection manager for Linux and Windows (Go + Wails + Svelte)",
+		"description": "SSH, Telnet and SFTP connection manager for Linux and Windows (Go)",
 	}
 }
 
@@ -206,8 +196,8 @@ func (ss *SystemService) IsLocked() bool {
 
 func (ss *SystemService) Quit(force bool) {
 	ss.quitting.Store(true)
-	if ss.app != nil {
-		ss.app.Quit()
+	if ss.host != nil {
+		ss.host.Quit()
 	}
 }
 
@@ -220,38 +210,19 @@ func (ss *SystemService) IsQuitting() bool {
 // ChooseFile shows a native file (or folder) chooser and returns the selected
 // absolute path, or "" if the user cancelled.
 func (ss *SystemService) ChooseFile(title, startPath string, folder bool) (string, error) {
-	if ss.app == nil {
+	if ss.host == nil {
 		return "", errors.New("application not ready")
 	}
-	dlg := ss.app.Dialog.OpenFile().
-		SetTitle(title).
-		CanChooseFiles(!folder).
-		CanChooseDirectories(folder).
-		CanCreateDirectories(true).
-		ShowHiddenFiles(true)
-	if dir := startDirectory(startPath); dir != "" {
-		dlg.SetDirectory(dir)
-	}
-	path, err := dlg.PromptForSingleSelection()
-	if err != nil {
-		return "", err
-	}
-	return path, nil
+	return ss.host.ChooseFile(FileDialog{Title: title, Directory: startDirectory(startPath), Folder: folder, ShowHidden: true})
 }
 
 // ChooseSaveFile shows a native "save as" dialog and returns the chosen path ("" = cancelled).
 func (ss *SystemService) ChooseSaveFile(title, defaultName string) (string, error) {
-	if ss.app == nil {
+	if ss.host == nil {
 		return "", errors.New("application not ready")
 	}
-	dlg := ss.app.Dialog.SaveFile().
-		SetMessage(title).
-		CanCreateDirectories(true).
-		SetFilename(defaultName)
-	if home, err := os.UserHomeDir(); err == nil {
-		dlg.SetDirectory(home)
-	}
-	return dlg.PromptForSingleSelection()
+	home, _ := os.UserHomeDir()
+	return ss.host.ChooseFile(FileDialog{Title: title, Directory: home, Filename: defaultName, Save: true})
 }
 
 // startDirectory picks a sensible start folder for a chooser from a current value.

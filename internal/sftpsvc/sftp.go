@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
@@ -451,7 +452,7 @@ func (m *SFTPManager) OpenWithDefaultApp(sftpID string, remotePath string, emitt
 
 	watchForEdits(tempDir, localPath, func() {
 		if emitter != nil {
-			emitter.Emit("sftp:file:modified", map[string]string{
+			emitter.Emit(events.SFTPFileModified, map[string]string{
 				"sftpID":     sftpID,
 				"remotePath": remotePath,
 				"localPath":  localPath,

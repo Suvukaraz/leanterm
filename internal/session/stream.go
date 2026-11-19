@@ -216,7 +216,11 @@ func (s *Stream) Write(p []byte) (int, error) {
 	s.ring.Write(p)
 	s.written += uint64(len(p))
 	end := s.written
-	s.pending = append(s.pending, p...)
+	// Detached (native GUIs read through listeners): nothing is batched for
+	// the web GUI; Attach replays the ring buffer instead.
+	if s.attached {
+		s.pending = append(s.pending, p...)
+	}
 
 	// Notify listeners (expect engine, loggers, idle timers) outside s.mu.
 	s.mu.Unlock()
@@ -305,12 +309,14 @@ func (s *Stream) Attach() (replayB64 string, lastSeq uint64) {
 	return replayB64, lastSeq
 }
 
-// Detach pauses event emission and resets backpressure so background reads don't block.
+// Detach pauses event emission and resets backpressure so background reads
+// don't block. Native GUIs detach and read the output through listeners.
 func (s *Stream) Detach() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.attached = false
+	s.pending = nil
 	s.unackBytes = 0
 	s.seqBytes = make(map[uint64]int)
 	s.cond.Broadcast()

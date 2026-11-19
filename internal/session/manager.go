@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/platform"
 	"github.com/Suvukaraz/leanterm/internal/secrets"
 	"github.com/Suvukaraz/leanterm/internal/stats"
@@ -301,7 +302,7 @@ func (sm *SessionManager) Open(req OpenRequest) ([]string, error) {
 			}
 
 			if sm.emitter != nil {
-				sm.emitter.Emit("session:opened", map[string]any{
+				sm.emitter.Emit(events.SessionOpened, map[string]any{
 					"session": info,
 					"where":   req.Where,
 				})
@@ -339,7 +340,7 @@ func (sm *SessionManager) OpenLocalShell(where string) (string, error) {
 	}()
 
 	if sm.emitter != nil {
-		sm.emitter.Emit("session:opened", map[string]any{
+		sm.emitter.Emit(events.SessionOpened, map[string]any{
 			"session": info,
 			"where":   where,
 		})
@@ -421,7 +422,7 @@ func (sm *SessionManager) OpenQuick(quickID, title, method, host string, port in
 	sm.infos[tmpID] = info
 
 	if sm.emitter != nil {
-		sm.emitter.Emit("session:opened", map[string]any{
+		sm.emitter.Emit(events.SessionOpened, map[string]any{
 			"session": info,
 			"where":   "tab",
 		})
@@ -430,18 +431,24 @@ func (sm *SessionManager) OpenQuick(quickID, title, method, host string, port in
 	return tmpID, nil
 }
 
+// Write sends base64-encoded input (web GUI) to a session; see WriteBytes.
 func (sm *SessionManager) Write(tmpID string, dataB64 string) error {
+	data, err := base64.StdEncoding.DecodeString(dataB64)
+	if err != nil {
+		return err
+	}
+	return sm.WriteBytes(tmpID, data)
+}
+
+// WriteBytes sends keyboard input to a session and, while it is part of a
+// cluster that broadcasts, to the other members.
+func (sm *SessionManager) WriteBytes(tmpID string, data []byte) error {
 	sess := sm.Get(tmpID)
 	if sess == nil {
 		return fmt.Errorf("session %s not found", tmpID)
 	}
 
-	data, err := base64.StdEncoding.DecodeString(dataB64)
-	if err != nil {
-		return err
-	}
-
-	err = sess.Write(data)
+	err := sess.Write(data)
 	if a := sm.automationFor(tmpID); a != nil {
 		a.userInput()
 	}
@@ -665,9 +672,25 @@ func (sm *SessionManager) Close(tmpID string) error {
 		auto.close()
 	}
 	if sm.emitter != nil {
-		sm.emitter.Emit("session:closed", map[string]any{"tmpID": tmpID})
+		sm.emitter.Emit(events.SessionClosed, map[string]any{"tmpID": tmpID})
 	}
 	return err
+}
+
+// Subscribe hands the terminal output of a session to fn as raw bytes, for
+// native GUIs: first everything the ring buffer still holds, then each chunk as
+// it arrives. fn runs on the session's reader goroutine and should only hand
+// the bytes over (it holds up the session while it runs). The session stops
+// sending base64 events for the web GUI. The returned function unsubscribes.
+func (sm *SessionManager) Subscribe(tmpID string, fn func([]byte)) (unsubscribe func(), err error) {
+	sess := sm.Get(tmpID)
+	if sess == nil {
+		return nil, fmt.Errorf("session %s not found", tmpID)
+	}
+	stream := sess.Stream()
+	stream.Detach()
+	id := stream.AddListenerFrom(fn, 0)
+	return func() { stream.RemoveListener(id) }, nil
 }
 
 func (sm *SessionManager) Attach(tmpID string) (string, uint64, error) {
@@ -853,7 +876,7 @@ func (sm *SessionManager) ExecuteChain(targetTmpID string, chainConnID string, s
 		},
 		StatusFunc: func(status string) {
 			if sm.emitter != nil {
-				sm.emitter.Emit("session:status", map[string]any{
+				sm.emitter.Emit(events.SessionStatus, map[string]any{
 					"tmpID": targetTmpID,
 					"text":  status,
 				})
@@ -861,7 +884,7 @@ func (sm *SessionManager) ExecuteChain(targetTmpID string, chainConnID string, s
 		},
 		ExpectProgFunc: func(index int, total int, state string) {
 			if sm.emitter != nil {
-				sm.emitter.Emit("session:expect", map[string]any{
+				sm.emitter.Emit(events.SessionExpect, map[string]any{
 					"tmpID": targetTmpID,
 					"index": index,
 					"total": total,
@@ -883,7 +906,7 @@ func (sm *SessionManager) ExecuteChain(targetTmpID string, chainConnID string, s
 		defer stream.RemoveListener(listenerID)
 
 		if sm.emitter != nil {
-			sm.emitter.Emit("session:chain:started", map[string]any{
+			sm.emitter.Emit(events.SessionChainStarted, map[string]any{
 				"targetTmpID": targetTmpID,
 				"chainConnID": chainConnID,
 				"chainTitle":  chainConn.Title,
@@ -893,7 +916,7 @@ func (sm *SessionManager) ExecuteChain(targetTmpID string, chainConnID string, s
 		runner.Run(ctx)
 
 		if sm.emitter != nil {
-			sm.emitter.Emit("session:chain:finished", map[string]any{
+			sm.emitter.Emit(events.SessionChainFinished, map[string]any{
 				"targetTmpID": targetTmpID,
 				"chainConnID": chainConnID,
 			})

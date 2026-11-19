@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/telnet"
 )
 
@@ -71,7 +72,7 @@ func NewTelnetSession(opts TelnetSessionOptions) *TelnetSession {
 	}
 
 	sink := &eventSink{
-		event:   fmt.Sprintf("term:data:%s", tmpID),
+		event:   events.Session(events.TermDataPrefix, tmpID),
 		emitter: opts.Emitter,
 	}
 
@@ -421,7 +422,7 @@ func (s *TelnetSession) handleErrorLocked(errMsg string) {
 
 func (s *TelnetSession) notifyStateLocked(state string) {
 	if s.emitter != nil {
-		s.emitter.Emit("session:state", map[string]any{
+		s.emitter.Emit(events.SessionState, map[string]any{
 			"tmpID": s.tmpID,
 			"state": state,
 			"title": s.conn.Title,
@@ -431,7 +432,7 @@ func (s *TelnetSession) notifyStateLocked(state string) {
 
 func (s *TelnetSession) notifyStatusLocked(code string) {
 	if s.emitter != nil {
-		s.emitter.Emit("session:status", map[string]any{
+		s.emitter.Emit(events.SessionStatus, map[string]any{
 			"tmpID": s.tmpID,
 			"code":  code,
 			"text":  code,

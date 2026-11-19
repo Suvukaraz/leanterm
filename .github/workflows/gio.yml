@@ -7,9 +7,9 @@ name: Gio prototype
 on:
   push:
     branches: [main, 'claude/**']
-    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
   pull_request:
-    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
   workflow_dispatch:
 
 env:
@@ -67,14 +67,21 @@ jobs:
           path: ${{ runner.temp }}/ghostty
           key: libghostty-vt-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
 
+      # The backend must stay usable without the web layer (Etappe 1).
+      - name: No Wails in internal/
+        run: |
+          if go list -deps ./internal/... | grep -i wails; then
+            echo "internal/ must not depend on Wails"; exit 1
+          fi
+
       - name: Tests (both engines)
         env:
           PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
         run: |
-          go vet -tags ghostty ./internal/gui/... ./internal/session/ ./cmd/leanterm-gio/
+          go vet -tags ghostty ./internal/... ./cmd/leanterm-gio/
           go test -race -tags ghostty -v ./internal/gui/term/ 2>&1 | tee term-tests.txt
           grep -q -- '--- PASS: TestKeys/ghostty' term-tests.txt
-          go test -race -tags ghostty ./internal/gui/... ./internal/session/
+          go test -race -tags ghostty ./internal/...
 
       - name: Build prototype
         env:
@@ -151,8 +158,8 @@ jobs:
       # Native, without cgo: vt engine, ConPTY shells (x/xpty), widgets.
       - name: Tests (vt engine, pure Go)
         run: |
-          go vet ./internal/gui/... ./internal/session/ ./cmd/leanterm-gio/
-          go test ./internal/gui/... ./internal/session/
+          go vet ./internal/... ./cmd/leanterm-gio/
+          go test ./internal/...
 
       - uses: actions/download-artifact@v4
         with:

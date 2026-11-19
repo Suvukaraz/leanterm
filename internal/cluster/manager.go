@@ -6,6 +6,7 @@ import (
 
 	"github.com/dlclark/regexp2"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 )
 
 // EventEmitter defines the interface to emit events to frontend or listeners.
@@ -239,6 +240,6 @@ func regexMatches(pattern, text string) bool {
 func (m *Manager) emitChangedLocked() {
 	if m.emitter != nil {
 		list := m.listLocked()
-		m.emitter.Emit("cluster:changed", list)
+		m.emitter.Emit(events.ClusterChanged, list)
 	}
 }

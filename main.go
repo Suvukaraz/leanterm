@@ -13,35 +13,25 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/app"
 	"github.com/Suvukaraz/leanterm/internal/cluster"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/keepass"
 	"github.com/Suvukaraz/leanterm/internal/secrets"
 	"github.com/Suvukaraz/leanterm/internal/services"
 	"github.com/Suvukaraz/leanterm/internal/session"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
+	wailsevents "github.com/wailsapp/wails/v3/pkg/events"
 )
 
-// windowBackground avoids a white flash before the frontend has painted.
-func windowBackground(scheme string) application.RGBA {
-	if scheme == "light" {
-		return application.NewRGB(0xf0, 0xf0, 0xf0)
-	}
-	return application.NewRGB(0x2b, 0x2b, 0x2b)
+// forwardToWails hands every event of the bus to the web frontend.
+func forwardToWails(bus *events.Bus, wailsApp *application.App) {
+	bus.OnPrefix("", func(name string, data any) {
+		if wailsApp.Event != nil {
+			wailsApp.Event.Emit(name, data)
+		}
+	})
 }
 
-type wailsEmitter struct {
-	app *application.App
-}
-
-func (we *wailsEmitter) Emit(event string, data any) {
-	if we.app != nil && we.app.Event != nil {
-		we.app.Event.Emit(event, data)
-	}
-}
-
-// handleCLICommands runs the start options of this or of a second instance;
-// workDir resolves relative --edit paths (the second instance's folder).
-func handleCLICommands(flags *app.CLIFlags, workDir string, sessionMgr *session.SessionManager, cfgStore *config.Store, emitter *wailsEmitter, editorSvc *services.EditorService) {
+func handleCLICommands(flags *app.CLIFlags, workDir string, sessionMgr *session.SessionManager, cfgStore *config.Store, emitter *events.Bus, editorSvc *services.EditorService) {
 	if flags == nil {
 		return
 	}
@@ -68,17 +58,17 @@ func handleCLICommands(flags *app.CLIFlags, workDir string, sessionMgr *session.
 
 	// 3. Quick connect
 	if flags.QuickConn {
-		emitter.Emit("ui:open:quick-connect", nil)
+		emitter.Emit(events.UIOpenQuickConnect, nil)
 	}
 
 	// 4. Edit UUID
 	if flags.EditUUID != "" {
-		emitter.Emit("ui:open:edit", flags.EditUUID)
+		emitter.Emit(events.UIOpenEdit, flags.EditUUID)
 	}
 
 	// 5. Preferences
 	if flags.Preferences {
-		emitter.Emit("ui:open:preferences", nil)
+		emitter.Emit(events.UIOpenPreferences, nil)
 	}
 
 	// 6. Files for the editor
@@ -165,7 +155,7 @@ func main() {
 
 	treeMgr := config.NewTreeManager(cfgStore, vault)
 
-	emitter := &wailsEmitter{}
+	emitter := events.New()
 	clusterMgr := cluster.NewManager(cfgStore, emitter)
 	sessionMgr := session.NewSessionManager(cfgStore, vault, emitter)
 	sessionMgr.SetClusterManager(clusterMgr)
@@ -196,7 +186,7 @@ func main() {
 	configSvc.SetEmitter(emitter)
 	// config.toml changed on disk (e.g. LeanEdit saved its settings): show the
 	// reloaded settings in all windows.
-	cfgStore.OnReload = func() { emitter.Emit("settings:changed", nil) }
+	cfgStore.OnReload = func() { emitter.Emit(events.SettingsChanged, nil) }
 
 	var singleInstance *application.SingleInstanceOptions
 	if !cfgStore.Config().General.AllowMultipleInstances {
@@ -236,9 +226,10 @@ func main() {
 			ApplicationID: "org.leanterm.LeanTerm",
 		},
 	})
-	emitter.app = wailsApp
-	systemSvc.SetApp(wailsApp)
-	editorSvc.SetApp(wailsApp, systemSvc.IsQuitting)
+	forwardToWails(emitter, wailsApp)
+	gui := &wailsGUI{app: wailsApp, store: cfgStore, editor: editorSvc, isQuitting: systemSvc.IsQuitting}
+	systemSvc.SetHost(gui)
+	editorSvc.SetGUI(gui, gui)
 
 	title := "LeanTerm"
 	if flags.ReadOnly {
@@ -273,21 +264,21 @@ func main() {
 
 	mainWindow := wailsApp.Window.NewWithOptions(winOpts)
 
-	mainWindow.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
+	mainWindow.OnWindowEvent(wailsevents.Common.WindowFilesDropped, func(e *application.WindowEvent) {
 		ctx := e.Context()
 		payload := map[string]any{"files": ctx.DroppedFiles()}
 		if d := ctx.DropTargetDetails(); d != nil {
 			payload["attributes"] = d.Attributes
 			payload["id"] = d.ElementID
 		}
-		emitter.Emit("files:dropped", payload)
+		emitter.Emit(events.FilesDropped, payload)
 	})
 
 	// Remember the window geometry for the next start (merged with the panel layout
 	// the frontend stores in the same file).
 	// Closing the window (X) asks the frontend first, which confirms open
 	// connections/transfers and then calls SystemService.Quit.
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+	mainWindow.RegisterHook(wailsevents.Common.WindowClosing, func(e *application.WindowEvent) {
 		st := cfgStore.LoadUIState()
 		st.MainWindow.Maximized = mainWindow.IsMaximised()
 		if !st.MainWindow.Maximized {
@@ -297,7 +288,7 @@ func main() {
 		_ = cfgStore.SaveUIState(st)
 		if !systemSvc.IsQuitting() {
 			e.Cancel()
-			emitter.Emit("app:close-requested", nil)
+			emitter.Emit(events.AppCloseRequested, nil)
 		}
 	})
 

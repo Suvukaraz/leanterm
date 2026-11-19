@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sync"
 
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/platform"
 )
 
@@ -72,7 +73,7 @@ func (m *PipeTeeManager) StartTee(tmpID string, stream *Stream, filePath string)
 	}
 
 	if m.em != nil {
-		m.em.Emit("session:tee:status", map[string]any{
+		m.em.Emit(events.SessionTeeStatus, map[string]any{
 			"tmpID":    tmpID,
 			"filePath": filePath,
 			"active":   true,
@@ -97,7 +98,7 @@ func (m *PipeTeeManager) StopTee(tmpID string, stream *Stream) error {
 	delete(m.tees, tmpID)
 
 	if m.em != nil {
-		m.em.Emit("session:tee:status", map[string]any{
+		m.em.Emit(events.SessionTeeStatus, map[string]any{
 			"tmpID":  tmpID,
 			"active": false,
 		})
@@ -164,7 +165,7 @@ func (m *PipeTeeManager) StartPipe(ctx context.Context, tmpID string, stream *St
 
 	// Notify frontend that piped execution started
 	if m.em != nil {
-		m.em.Emit("session:pipe:started", map[string]any{
+		m.em.Emit(events.SessionPipeStarted, map[string]any{
 			"tmpID":   tmpID,
 			"command": command,
 			"prompt":  prompt,
@@ -178,7 +179,7 @@ func (m *PipeTeeManager) StartPipe(ctx context.Context, tmpID string, stream *St
 		for {
 			n, err := reader.Read(buf)
 			if n > 0 && m.em != nil {
-				m.em.Emit("session:pipe:output", map[string]any{
+				m.em.Emit(events.SessionPipeOutput, map[string]any{
 					"tmpID":   tmpID,
 					"command": command,
 					"data":    string(buf[:n]),
@@ -199,7 +200,7 @@ func (m *PipeTeeManager) StartPipe(ctx context.Context, tmpID string, stream *St
 		m.mu.Unlock()
 
 		if m.em != nil {
-			m.em.Emit("session:pipe:stopped", map[string]any{
+			m.em.Emit(events.SessionPipeStopped, map[string]any{
 				"tmpID":   tmpID,
 				"command": command,
 			})
@@ -225,7 +226,7 @@ func (m *PipeTeeManager) StopPipe(tmpID string, stream *Stream) error {
 	delete(m.pipes, tmpID)
 
 	if m.em != nil {
-		m.em.Emit("session:pipe:stopped", map[string]any{
+		m.em.Emit(events.SessionPipeStopped, map[string]any{
 			"tmpID": tmpID,
 		})
 	}

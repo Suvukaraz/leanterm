@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Suvukaraz/leanterm/internal/events"
 )
 
 // EventEmitter delivers events to the frontend.
@@ -104,7 +106,7 @@ func (t *Tracker) poll(tmpID string, stop chan struct{}) {
 			}
 			last = cwd
 			if t.emitter != nil {
-				t.emitter.Emit("session:cwd:"+tmpID, cwd)
+				t.emitter.Emit(events.Session(events.SessionCwdPrefix, tmpID), cwd)
 			}
 		}
 	}

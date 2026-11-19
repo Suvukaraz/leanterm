@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 )
 
 type EventEmitter interface {
@@ -42,7 +43,7 @@ func NewLocalSession(tmpID string, cfg config.LocalShellConfig, emitter EventEmi
 	}
 
 	sink := &eventSink{
-		event:   fmt.Sprintf("term:data:%s", tmpID),
+		event:   events.Session(events.TermDataPrefix, tmpID),
 		emitter: emitter,
 	}
 
@@ -203,7 +204,7 @@ func (ls *LocalSession) reportCwd(cwd string) {
 	ls.cwd = cwd
 	ls.mu.Unlock()
 	if changed && ls.emitter != nil {
-		ls.emitter.Emit("session:cwd:"+ls.tmpID, cwd)
+		ls.emitter.Emit(events.Session(events.SessionCwdPrefix, ls.tmpID), cwd)
 	}
 }
 
@@ -242,7 +243,7 @@ func (ls *LocalSession) waitLoop(proc shellProcess) {
 
 func (ls *LocalSession) notifyStateLocked(st string) {
 	if ls.emitter != nil {
-		ls.emitter.Emit("session:state", map[string]any{
+		ls.emitter.Emit(events.SessionState, map[string]any{
 			"tmpID": ls.tmpID,
 			"state": st,
 			"title": ls.title,

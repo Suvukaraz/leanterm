@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/secrets"
 )
 
@@ -51,7 +52,7 @@ func (cs *ConfigService) SetEmitter(e settingsEmitter) {
 
 func (cs *ConfigService) settingsChanged() {
 	if cs.emitter != nil {
-		cs.emitter.Emit("settings:changed", nil)
+		cs.emitter.Emit(events.SettingsChanged, nil)
 	}
 }
 

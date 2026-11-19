@@ -18,6 +18,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	"github.com/Suvukaraz/leanterm/internal/events"
 )
 
 // knownHostsMu serialises all reads/writes of known_hosts within this process.
@@ -140,7 +142,7 @@ func (hkm *HostKeyManager) check(hostname string, remote net.Addr, key ssh.Publi
 
 func (hkm *HostKeyManager) status(text string) {
 	if hkm.emitter != nil && hkm.tmpID != "" {
-		hkm.emitter.Emit("session:status", map[string]any{"tmpID": hkm.tmpID, "code": "HOSTKEY", "text": text})
+		hkm.emitter.Emit(events.SessionStatus, map[string]any{"tmpID": hkm.tmpID, "code": "HOSTKEY", "text": text})
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/forward"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -75,7 +76,7 @@ func NewSSHSession(opts SSHSessionOptions) *SSHSession {
 	}
 
 	sink := &eventSink{
-		event:   fmt.Sprintf("term:data:%s", tmpID),
+		event:   events.Session(events.TermDataPrefix, tmpID),
 		emitter: opts.Emitter,
 	}
 
@@ -399,7 +400,7 @@ func (s *SSHSession) readStream(r io.Reader) {
 		n, err := r.Read(buf)
 		if n > 0 {
 			if cwd := parseOSC7(buf[:n]); cwd != "" && s.emitter != nil {
-				s.emitter.Emit(fmt.Sprintf("session:cwd:%s", s.tmpID), cwd)
+				s.emitter.Emit(events.Session(events.SessionCwdPrefix, s.tmpID), cwd)
 			}
 			_, _ = s.stream.Write(buf[:n])
 		}
@@ -490,7 +491,7 @@ func (s *SSHSession) setStateLocked(st string) {
 	}
 	s.state = st
 	if s.emitter != nil {
-		s.emitter.Emit("session:state", map[string]any{
+		s.emitter.Emit(events.SessionState, map[string]any{
 			"tmpID": s.tmpID,
 			"state": st,
 			"title": s.conn.Title,
@@ -500,7 +501,7 @@ func (s *SSHSession) setStateLocked(st string) {
 
 func (s *SSHSession) emitStatus(code, text string) {
 	if s.emitter != nil {
-		s.emitter.Emit("session:status", map[string]any{
+		s.emitter.Emit(events.SessionStatus, map[string]any{
 			"tmpID": s.tmpID,
 			"code":  code,
 			"text":  text,

@@ -166,3 +166,45 @@ func TestStreamListenerFromMarkSeesBacklogOnce(t *testing.T) {
 
 	assert.Equal(t, "banner|after", got.String())
 }
+
+// A detached stream (native GUI) neither waits for acknowledgements nor
+// collects batches for the web GUI, and its listeners get every byte.
+func TestDetachedStreamFeedsListenersWithoutBackpressure(t *testing.T) {
+	sink := &countingSink{}
+	s := NewStream("t", sink)
+	s.Write([]byte("early "))
+	s.Detach()
+	var got []byte
+	s.AddListenerFrom(func(p []byte) { got = append(got, p...) }, 0)
+
+	chunk := make([]byte, 64*1024)
+	for i := range chunk {
+		chunk[i] = 'x'
+	}
+	done := make(chan struct{})
+	go func() {
+		// Far more than HighWatermark without a single Ack.
+		for i := 0; i < 64; i++ {
+			s.Write(chunk)
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("writes blocked on a detached stream")
+	}
+	if len(got) != len("early ")+64*len(chunk) || string(got[:6]) != "early " {
+		t.Fatalf("listener got %d bytes", len(got))
+	}
+	s.mu.Lock()
+	pending := len(s.pending)
+	s.mu.Unlock()
+	if pending != 0 {
+		t.Fatalf("%d bytes pending for the web GUI", pending)
+	}
+}
+
+type countingSink struct{ n int }
+
+func (c *countingSink) Send(uint64, string) { c.n++ }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/vars"
 )
 
@@ -208,7 +209,7 @@ func (a *automation) lineEnding() string {
 
 func (a *automation) status(text string) {
 	if a.inner != nil {
-		a.inner.Emit("session:status", map[string]any{"tmpID": a.tmpID, "text": text, "code": strings.SplitN(text, ":", 2)[0]})
+		a.inner.Emit(events.SessionStatus, map[string]any{"tmpID": a.tmpID, "text": text, "code": strings.SplitN(text, ":", 2)[0]})
 	}
 }
 
@@ -284,7 +285,7 @@ func (a *automation) startConnectedFeatures() {
 			StatusFunc:     a.status,
 			ExpectProgFunc: func(index, total int, state string) {
 				if a.inner != nil {
-					a.inner.Emit("session:expect", map[string]any{"tmpID": a.tmpID, "index": index, "total": total, "state": state})
+					a.inner.Emit(events.SessionExpect, map[string]any{"tmpID": a.tmpID, "index": index, "total": total, "state": state})
 				}
 			},
 			CloseFunc: func(reason string) {
