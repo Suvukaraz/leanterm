@@ -30,3 +30,19 @@ func TestCollectionHasOurTypefaces(t *testing.T) {
 		}
 	}
 }
+
+func TestFaceLoadsInstalledFamily(t *testing.T) {
+	fams := []string{"DejaVu Sans Mono", "Inter", "Consolas", "Segoe UI"}
+	for _, fam := range fams {
+		if f, ok := Face(fam, "Bold"); ok {
+			if f.Face == nil {
+				t.Fatalf("%s: no face", fam)
+			}
+			if _, ok := Face("No Such Font Family 42", "Regular"); ok {
+				t.Fatal("found a family that does not exist")
+			}
+			return
+		}
+	}
+	t.Skip("none of the test families is installed")
+}

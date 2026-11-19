@@ -21,6 +21,9 @@ type Dialog struct {
 	Title string
 	// Width of the dialog (0 = 500px), at most 96% of the window.
 	Width unit.Dp
+	// Height fixes the dialog's height (0 = as high as the content), at most
+	// 94% of the window; the body takes the room.
+	Height unit.Dp
 	// Closable allows Escape and the × button to close the dialog.
 	Closable bool
 
@@ -76,10 +79,16 @@ func (d *Dialog) Layout(gtx layout.Context, th *Theme, body layout.Widget, actio
 		gtx.Constraints.Min.X, gtx.Constraints.Max.X = px, px
 		gtx.Constraints.Min.Y = 0
 		gtx.Constraints.Max.Y = size.Y * 94 / 100
+		bodyChild := layout.Rigid
+		if d.Height > 0 {
+			h := min(gtx.Dp(d.Height), gtx.Constraints.Max.Y)
+			gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = h, h
+			bodyChild = func(w layout.Widget) layout.FlexChild { return layout.Flexed(1, w) }
+		}
 		call, dims := record(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.titlebar(gtx, th) }),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				bodyChild(func(gtx layout.Context) layout.Dimensions {
 					// .gtk-dialog-body: padding 12px 16px.
 					return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, body)
 				}),
@@ -108,9 +117,9 @@ func (d *Dialog) titlebar(gtx layout.Context, th *Theme) layout.Dimensions {
 	call, dims := record(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 6, Bottom: 7, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				layout.Flexed(1, FillWidth(func(gtx layout.Context) layout.Dimensions {
 					return Text{S: d.Title, Size: Em(0.95), Color: p.FgColor, Weight: font.Bold, MaxLines: 1}.Layout(gtx, th)
-				}),
+				})),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if !d.Closable {
 						return layout.Dimensions{}

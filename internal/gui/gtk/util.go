@@ -85,3 +85,13 @@ func (d *widgetDrag) update(gtx layout.Context, tag event.Tag, vertical bool) (i
 	}
 	return int(move), d.pressed
 }
+
+// FillWidth makes w take all the width it is given (a Flexed child must,
+// else the Flex puts the space after it).
+func FillWidth(w layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		d := w(gtx)
+		d.Size.X = max(d.Size.X, gtx.Constraints.Max.X)
+		return d
+	}
+}

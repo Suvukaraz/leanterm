@@ -296,7 +296,7 @@ func (u *ui) layout(gtx layout.Context) {
 					if icon != 0 {
 						kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions { return u.th.IconBox(gtx, icon, 16, c) }))
 					}
-					kids = append(kids, layout.Flexed(1, u.th.StatusText(left)))
+					kids = append(kids, layout.Flexed(1, gtk.FillWidth(u.th.StatusText(left))))
 					for _, r := range right {
 						kids = append(kids, layout.Rigid(u.th.StatusText(r)))
 					}

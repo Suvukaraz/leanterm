@@ -304,7 +304,7 @@ func (p *Prompter) dialog(gtx layout.Context, th *gtk.Theme, req session.PromptR
 	}
 
 	var buttons []layout.FlexChild
-	buttons = append(buttons, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }))
+	buttons = append(buttons, layout.Flexed(1, gtk.FillWidth(func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} })))
 	if isHostKey(req) {
 		for i, opt := range req.Options {
 			i, opt := i, opt

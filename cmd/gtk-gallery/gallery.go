@@ -10,6 +10,7 @@ import (
 
 	"github.com/Suvukaraz/leanterm/internal/gui/fonts"
 	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
+	"github.com/Suvukaraz/leanterm/internal/services"
 )
 
 // gallery holds the widgets' state, in the states of the reference page.
@@ -31,6 +32,10 @@ type gallery struct {
 	tree     gtk.Tree
 	menu     gtk.Menu
 	msg      gtk.MessageDialog
+	colors   gtk.ColorChooser
+	fonts    gtk.FontChooser
+	file     gtk.FileChooserButton
+	fontBtn  gtk.FontButton
 }
 
 func newGallery(section string, th *gtk.Theme) *gallery {
@@ -73,6 +78,14 @@ func newGallery(section string, th *gtk.Theme) *gallery {
 		{ID: "e", Label: "More", Submenu: []gtk.MenuItem{{ID: "f", Label: "Sub item"}}},
 	}
 	g.menu.Open(image.Pt(20, 20))
+	g.colors.Open(color.NRGBA{R: 0x35, G: 0x84, B: 0xe4, A: 0xff})
+	if fams, err := services.NewSystemService(nil).ListFonts(); err == nil {
+		for _, f := range fams {
+			g.fonts.Families = append(g.fonts.Families, gtk.FontFamily{Name: f.Name, Styles: f.Styles, Monospace: f.Monospace})
+		}
+	}
+	g.fonts.Open(gtk.FontSetting{Family: "DejaVu Sans Mono", Style: "Book", Size: 11}, true)
+	g.file = gtk.FileChooserButton{Path: "/home/user/.ssh/id_ed25519", ShowClear: true}
 	g.msg = gtk.MessageDialog{Type: gtk.MessageQuestion, Title: "Quit", Primary: "Close all connections?", Secondary: "3 connections are still open.", Buttons: gtk.ButtonsYesNo}
 	return g
 }
@@ -89,6 +102,17 @@ func (g *gallery) Layout(gtx layout.Context) layout.Dimensions {
 		return g.menu.Layout(gtx, g.th)
 	case "message":
 		return g.msg.Layout(gtx, g.th)
+	case "color":
+		return g.colors.Layout(gtx, g.th)
+	case "fonts":
+		return g.fonts.Layout(gtx, g.th)
+	case "choosers":
+		return layout.UniformInset(12).Layout(gtx, row(10,
+			func(gtx layout.Context) layout.Dimensions { return g.file.Layout(gtx, g.th, false) },
+			func(gtx layout.Context) layout.Dimensions {
+				return g.fontBtn.Layout(gtx, g.th, gtk.FontSetting{Family: "DejaVu Sans Mono", Style: "Bold", Size: 11}, false)
+			},
+		))
 	}
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
