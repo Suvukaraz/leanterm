@@ -19,6 +19,10 @@ import (
 // dialog box centered with a title bar, the body and an action bar.
 type Dialog struct {
 	Title string
+	// Banner replaces the title bar with the gradient banner (Dialog.svelte's
+	// bannerText): light themes gradient left-to-right #007aff to #2fedde,
+	// dark themes #1f5fa8 to #1a8f88, 2.2em bold #eee text.
+	Banner string
 	// Width of the dialog (0 = 500px), at most 96% of the window.
 	Width unit.Dp
 	// Height fixes the dialog's height (0 = as high as the content), at most
@@ -87,7 +91,7 @@ func (d *Dialog) Layout(gtx layout.Context, th *Theme, body layout.Widget, actio
 		}
 		call, dims := record(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.titlebar(gtx, th) }),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.header(gtx, th) }),
 				bodyChild(func(gtx layout.Context) layout.Dimensions {
 					// .gtk-dialog-body: padding 12px 16px.
 					return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, body)
@@ -107,6 +111,64 @@ func (d *Dialog) Layout(gtx layout.Context, th *Theme, body layout.Widget, actio
 		cl.Pop()
 		return dims
 	})
+}
+
+// header picks the banner or the title bar.
+func (d *Dialog) header(gtx layout.Context, th *Theme) layout.Dimensions {
+	if d.Banner != "" {
+		return d.banner(gtx, th)
+	}
+	return d.titlebar(gtx, th)
+}
+
+// banner: the .banner-fill gradient with the banner text (2.2em bold, #eee)
+// and the × close button.
+func (d *Dialog) banner(gtx layout.Context, th *Theme) layout.Dimensions {
+	p := th.Pal
+	left, right := c(0x007aff, 0xff), c(0x2fedde, 0xff)
+	if p.Name != "light" {
+		left, right = c(0x1f5fa8, 0xff), c(0x1a8f88, 0xff)
+	}
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	call, dims := record(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: 10, Bottom: 10, Left: 16, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, FillWidth(func(gtx layout.Context) layout.Dimensions {
+					return Text{S: d.Banner, Size: Em(2.2), Color: c(0xeeeeee, 0xff), Weight: font.Bold, MaxLines: 1, LineHeight: 1}.Layout(gtx, th)
+				})),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !d.Closable {
+						return layout.Dimensions{}
+					}
+					return d.close.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						call, cd := record(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Inset{Left: 6, Right: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return Text{S: "×", Size: Em(1.4), Color: c(0xeeeeee, 0xff), Weight: font.Bold, LineHeight: 1, MaxLines: 1}.Layout(gtx, th)
+							})
+						})
+						if d.close.Hovered() {
+							box(gtx, cd.Size, gtx.Dp(3), faded(c(0x000000, 0x55), 1), c(0, 0))
+						}
+						call.Add(gtx.Ops)
+						pointer.CursorPointer.Add(gtx.Ops)
+						return cd
+					})
+				}),
+			)
+		})
+	})
+	// Linear gradient left to right, one vertical strip per pixel column.
+	for x := 0; x < dims.Size.X; x++ {
+		t := float32(x) / float32(max(dims.Size.X-1, 1))
+		FillRect(gtx, image.Rectangle{Min: image.Pt(x, 0), Max: image.Pt(x+1, dims.Size.Y)}, lerp(left, right, t))
+	}
+	call.Add(gtx.Ops)
+	return dims
+}
+
+func lerp(a, b color.NRGBA, t float32) color.NRGBA {
+	mix := func(x, y uint8) uint8 { return uint8(float32(x) + (float32(y)-float32(x))*t + 0.5) }
+	return color.NRGBA{R: mix(a.R, b.R), G: mix(a.G, b.G), B: mix(a.B, b.B), A: mix(a.A, b.A)}
 }
 
 // titlebar: 6px 10px padding, header color, a border below, the title in

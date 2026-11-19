@@ -15,6 +15,10 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/wol"
 )
 
+// Version is the version of LeanTerm (About dialog). It matches
+// frontend/package.json.
+const Version = "1.2.1"
+
 type SystemService struct {
 	host          Host
 	store         *config.Store
@@ -26,6 +30,9 @@ type SystemService struct {
 func NewSystemService(host Host) *SystemService {
 	return &SystemService{host: host}
 }
+
+// Version reports the application version.
+func (ss *SystemService) Version() string { return Version }
 
 // SetHost gives the service the GUI it runs in (dialogs, quitting).
 func (ss *SystemService) SetHost(host Host) {
