@@ -257,9 +257,6 @@ func (m *MessageDialog) Layout(gtx layout.Context, th *Theme) layout.Dimensions 
 		}
 	}
 	m.dlg.Title, m.dlg.Width, m.dlg.Closable = m.Title, 440, true
-	if m.dlg.CloseRequested() {
-		m.response = "cancel"
-	}
 	icon, iconColor := m.icon(th)
 	body := func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 6, Bottom: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -294,5 +291,9 @@ func (m *MessageDialog) Layout(gtx layout.Context, th *Theme) layout.Dimensions 
 			return Button{Label: a.label, Primary: a.primary}.Layout(gtx, th, &m.btns[i])
 		})
 	}
-	return m.dlg.Layout(gtx, th, body, acts...)
+	d := m.dlg.Layout(gtx, th, body, acts...)
+	if m.dlg.CloseRequested() {
+		m.response = "cancel"
+	}
+	return d
 }

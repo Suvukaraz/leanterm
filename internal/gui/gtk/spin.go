@@ -89,15 +89,6 @@ func (s *SpinButton) Layout(gtx layout.Context, th *Theme, disabled bool) layout
 		gtx = gtx.Disabled()
 	}
 	for {
-		ev, ok := s.editor.Update(gtx)
-		if !ok {
-			break
-		}
-		if _, ok := ev.(widget.SubmitEvent); ok {
-			s.commit()
-		}
-	}
-	for {
 		ev, ok := gtx.Event(
 			key.Filter{Focus: &s.editor, Name: key.NameUpArrow},
 			key.Filter{Focus: &s.editor, Name: key.NameDownArrow},
@@ -129,6 +120,16 @@ func (s *SpinButton) Layout(gtx layout.Context, th *Theme, disabled bool) layout
 					s.step(-1)
 				}
 			}
+		}
+	}
+	// The editor's own events after ours: it would take Up/Down itself.
+	for {
+		ev, ok := s.editor.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := ev.(widget.SubmitEvent); ok {
+			s.commit()
 		}
 	}
 	focused := gtx.Focused(&s.editor)
@@ -167,11 +168,12 @@ func (s *SpinButton) Layout(gtx layout.Context, th *Theme, disabled bool) layout
 		fill, border = faded(fill, 0.5), faded(border, 0.5)
 	}
 	box(gtx, d.Size, 0, fill, border)
-	call.Add(gtx.Ops)
+	// Wheel and hover below the editor, which needs the clicks.
 	area := clipRect(gtx, d.Size)
 	pointer.CursorText.Add(gtx.Ops)
 	eventArea(gtx, s)
 	s.hover.Add(gtx)
 	area.Pop()
+	call.Add(gtx.Ops)
 	return d
 }

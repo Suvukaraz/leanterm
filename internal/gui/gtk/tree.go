@@ -202,6 +202,8 @@ func (t *Tree) input(gtx layout.Context, rows []struct {
 	// Keyboard: Up/Down move, Left/Right collapse/expand, Enter activates.
 	for {
 		ev, ok := gtx.Event(
+			// Only a tag with a FocusFilter can take the focus.
+			key.FocusFilter{Target: &t.tag},
 			key.Filter{Focus: &t.tag, Name: key.NameUpArrow},
 			key.Filter{Focus: &t.tag, Name: key.NameDownArrow},
 			key.Filter{Focus: &t.tag, Name: key.NameLeftArrow},
@@ -278,6 +280,13 @@ func (t *Tree) row(gtx layout.Context, th *Theme, n *TreeNode, depth int) layout
 	hovered := tr.hover.Update(gtx)
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(22))
 	return tr.click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		// The row's own input area (middle/context clicks, hover) goes below
+		// the content, so the expander gets its clicks.
+		area := clipRect(gtx, size)
+		event.Op(gtx.Ops, tr)
+		tr.hover.Add(gtx)
+		pointer.CursorPointer.Add(gtx.Ops)
+		area.Pop()
 		switch {
 		case selected:
 			FillRect(gtx, image.Rectangle{Max: size}, p.SelectedBg)
@@ -298,11 +307,6 @@ func (t *Tree) row(gtx layout.Context, th *Theme, n *TreeNode, depth int) layout
 				return t.rowContent(gtx, th, tr, n, selected, fg)
 			})
 		})
-		area := clipRect(gtx, size)
-		event.Op(gtx.Ops, tr)
-		tr.hover.Add(gtx)
-		pointer.CursorPointer.Add(gtx.Ops)
-		area.Pop()
 		return layout.Dimensions{Size: size}
 	})
 }

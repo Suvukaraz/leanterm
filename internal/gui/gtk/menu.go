@@ -42,12 +42,17 @@ type Menu struct {
 	activated string
 	dismiss   int
 	tag       int
+	grab      bool
+	hovered   int // 1 + the row under the pointer (0: none), to follow its changes
 }
 
 // Open shows the menu with its top left corner at pos (in the coordinates
 // of the place where Layout is called).
 func (m *Menu) Open(pos image.Point) {
 	m.pos, m.open, m.focus, m.sub = pos, true, -1, nil
+	// hovered stays: a pointer still resting on a row (the one that opened
+	// the menu again) has not entered it.
+	m.grab = true
 }
 
 // Close hides the menu.
@@ -115,6 +120,7 @@ func (m *Menu) update(gtx layout.Context) {
 	for i := range m.clicks {
 		if m.clicks[i].Clicked(gtx) && m.selectable(i) {
 			m.activate(i)
+			gtx.Execute(key.FocusCmd{Tag: &m.tag})
 		}
 	}
 	if m.sub != nil {
@@ -124,15 +130,21 @@ func (m *Menu) update(gtx layout.Context) {
 			return
 		}
 	}
+	// An open menu takes the keyboard (else the terminal below would).
+	if m.grab {
+		m.grab = false
+		gtx.Execute(key.FocusCmd{Tag: &m.tag})
+	}
 	for {
 		ev, ok := gtx.Event(
 			pointer.Filter{Target: &m.dismiss, Kinds: pointer.Press},
-			key.Filter{Name: key.NameEscape},
-			key.Filter{Name: key.NameUpArrow},
-			key.Filter{Name: key.NameDownArrow},
-			key.Filter{Name: key.NameReturn},
-			key.Filter{Name: key.NameRightArrow},
-			key.Filter{Name: key.NameLeftArrow},
+			key.FocusFilter{Target: &m.tag},
+			key.Filter{Focus: &m.tag, Name: key.NameEscape},
+			key.Filter{Focus: &m.tag, Name: key.NameUpArrow},
+			key.Filter{Focus: &m.tag, Name: key.NameDownArrow},
+			key.Filter{Focus: &m.tag, Name: key.NameReturn},
+			key.Filter{Focus: &m.tag, Name: key.NameRightArrow},
+			key.Filter{Focus: &m.tag, Name: key.NameLeftArrow},
 		)
 		if !ok {
 			break
@@ -163,7 +175,11 @@ func (m *Menu) key(name key.Name, root *Menu) {
 		if name == key.NameUpArrow {
 			step = -1
 		}
-		for i, n := m.focus+step, 0; n < len(m.Items); i, n = i+step, n+1 {
+		start := m.focus + step
+		if m.focus < 0 && step < 0 {
+			start = len(m.Items) - 1 // Up without a focused row: the last one
+		}
+		for i, n := start, 0; n < len(m.Items); i, n = i+step, n+1 {
 			i = (i + len(m.Items)) % len(m.Items)
 			if m.selectable(i) {
 				m.focus = i
@@ -194,6 +210,10 @@ func (m *Menu) key(name key.Name, root *Menu) {
 // draw lays the menu out at pos (and its open submenu next to its row).
 func (m *Menu) draw(gtx layout.Context, th *Theme, pos image.Point, root bool) {
 	p := th.Pal
+	// A submenu opened by a key this frame has not been updated yet.
+	if len(m.clicks) != len(m.Items) {
+		m.clicks = make([]widget.Clickable, len(m.Items))
+	}
 	o := offset(gtx, pos.X, pos.Y)
 	defer o.Pop()
 	// min-width 200px, max-width 420px, else as wide as the widest row.
@@ -256,13 +276,21 @@ func (m *Menu) draw(gtx layout.Context, th *Theme, pos image.Point, root bool) {
 // label, the shortcut (0.85em, muted) and the submenu arrow.
 func (m *Menu) row(gtx layout.Context, th *Theme, i int, it MenuItem) layout.Dimensions {
 	c := &m.clicks[i]
-	if c.Hovered() && m.selectable(i) {
-		m.focus = i
-		if len(it.Submenu) > 0 {
-			m.openSub(i)
-		} else if m.sub != nil {
-			m.sub = nil
+	// The pointer moves the focus when it enters a row; while it rests,
+	// the keyboard keeps the focus it moved.
+	switch h := c.Hovered(); {
+	case h && m.hovered != i+1:
+		m.hovered = i + 1
+		if m.selectable(i) {
+			m.focus = i
+			if len(it.Submenu) > 0 {
+				m.openSub(i)
+			} else {
+				m.sub = nil
+			}
 		}
+	case !h && m.hovered == i+1:
+		m.hovered = 0
 	}
 	hot := m.selectable(i) && (m.focus == i || (m.sub != nil && m.subIndex == i))
 	return c.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

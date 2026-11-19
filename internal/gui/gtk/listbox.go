@@ -60,6 +60,8 @@ func (l *ListBox) Layout(gtx layout.Context, th *Theme, n int, label func(i int)
 	page := max(1, gtx.Constraints.Max.Y/max(1, gtx.Dp(22)))
 	for {
 		ev, ok := gtx.Event(
+			// Only a tag with a FocusFilter can take the focus.
+			key.FocusFilter{Target: &l.tag},
 			key.Filter{Focus: &l.tag, Name: key.NameUpArrow},
 			key.Filter{Focus: &l.tag, Name: key.NameDownArrow},
 			key.Filter{Focus: &l.tag, Name: key.NamePageUp},

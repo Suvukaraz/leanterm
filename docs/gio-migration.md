@@ -32,7 +32,7 @@ rebuilt:
   the current app as well.
 - `internal/gui/codeedit`: gvcode editor with chroma highlighting in LeanTerm's
   editor colors and LeanEdit's status bar fields.
-- `internal/gui/fonts`, `internal/gui/theme`: system UI/monospace fonts, the
+- `internal/gui/fonts`, `internal/gui/gtk` (then `theme`): system UI/monospace fonts, the
   embedded Nerd Fonts symbols (`fonts.Icon*`), the GTK color tokens of
   `frontend/src/lib/theme/gtk.css`, notebook tabs and status bar.
 - `internal/gui/dnd`: files dropped from the desktop (Windows: `WM_DROPFILES`).
@@ -110,5 +110,43 @@ Wails again.
   and saved connections (`-connect name,...`, `-config-dir`) through the real
   session manager; an SSH login with a password dialog was checked against
   a local sshd.
-- `internal/gui/theme`: first GTK widgets (button, entry, check button) as
-  the base for stage 2.
+- First GTK widgets (button, entry, check button) as the base for stage 2.
+
+## Stage 2: the GTK widgets in Gio
+
+`internal/gui/gtk` draws the web GUI's GTK components
+(`frontend/src/components/gtk`) with Gio, in the colors of `gtk.css` (dark and
+light; `palette_test.go` checks the tokens against the stylesheet):
+
+- Basics: Button (normal, flat, primary, toggle, with icon), CheckButton,
+  RadioGroup, Entry (placeholder, password, read-only), SpinButton, Combo,
+  Frame, ProgressBar, Scale, Statusbar, Notebook with closable tabs, Paned.
+- Complex widgets: Dialog and MessageDialog with action bar, context Menu
+  with submenus, shortcuts and keyboard navigation, Tree (expanders, icons,
+  keyboard), ListBox, ColorButton/ColorChooser, FontButton/FontChooser,
+  FileChooserButton.
+- Icons are Nerd Fonts symbols; expander triangles are drawn as paths.
+
+### Side-by-side check
+
+`frontend/gallery.html` (Vite dev server only, not part of the build) shows
+the Svelte components; `cmd/gtk-gallery` shows the same sections with the Gio
+widgets (`-out file.png` renders headless, with `EGL_PLATFORM=surfaceless`).
+Measured on screenshots of both, heights match and positions differ by at
+most 1–3 px.
+
+### Findings
+
+- Gio shapes text at whole pixel sizes (10pt = 13.33px becomes 13px), so text
+  was 2.5% narrower than in the web view. `gtk.Text` shapes at a multiple of
+  the size that is (nearly) whole and scales the glyphs down.
+- Layout differs from CSS in ways that matter for a 1:1 look: an Inset does
+  not subtract its padding from the minimum size, a Flex passes its minimum
+  cross size on (which stretched labels), flexed children must fill their
+  width themselves. CSS `line-height` is emulated for single lines.
+- Input: a widget only gets the keyboard focus with a `key.FocusFilter`;
+  pointer events go to the topmost area, so a container's own area must come
+  before its children's. `widgets_test.go` drives every interactive widget
+  through Gio's input router and found several such bugs (disabled buttons
+  still clickable, a spin button's keys eaten by its editor, a dialog's Escape
+  one frame late, menus' hover overriding the keyboard).

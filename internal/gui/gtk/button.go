@@ -44,6 +44,11 @@ func (b Button) Layout(gtx layout.Context, th *Theme, c *widget.Clickable) layou
 	if b.Disabled {
 		gtx = gtx.Disabled()
 	}
+	// A disabled button gets no input area: the caller reads clicks with its
+	// own context, which a disabled one here would not stop.
+	if b.Disabled {
+		c = new(widget.Clickable)
+	}
 	// CSS: margin 1px around the button.
 	return layout.UniformInset(1).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return b.layout(gtx, th, c)

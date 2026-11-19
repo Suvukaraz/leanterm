@@ -163,6 +163,13 @@ func (n *Notebook) tab(gtx layout.Context, th *Theme, t *Tab, selected bool) lay
 			})
 		})
 		size := image.Pt(d.Size.X+gtx.Dp(1), d.Size.Y)
+		// The tab's own input area (middle/context clicks, hover) goes below
+		// the content, so the close button gets its clicks.
+		area := clipRect(gtx, size)
+		eventArea(gtx, t)
+		t.hover.Add(gtx)
+		pointer.CursorPointer.Add(gtx.Ops)
+		area.Pop()
 		switch {
 		case t.Bg != (color.NRGBA{}):
 			FillRect(gtx, image.Rectangle{Max: size}, t.Bg)
@@ -176,11 +183,6 @@ func (n *Notebook) tab(gtx layout.Context, th *Theme, t *Tab, selected bool) lay
 		}
 		FillRect(gtx, image.Rect(size.X-gtx.Dp(1), 0, size.X, size.Y), p.BorderColor)
 		call.Add(gtx.Ops)
-		area := clipRect(gtx, size)
-		eventArea(gtx, t)
-		t.hover.Add(gtx)
-		pointer.CursorPointer.Add(gtx.Ops)
-		area.Pop()
 		return layout.Dimensions{Size: size}
 	})
 }
