@@ -1,19 +1,20 @@
 // Package termview is the Gio widget that shows a terminal engine and turns
-// keyboard, mouse and clipboard input into input for it.
+// keyboard, mouse and clipboard input into input for it
+// (frontend/src/components/terminal/TerminalView.svelte with the engines'
+// own mouse handling).
 package termview
 
 import (
 	"image"
-	"io"
+	"image/color"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"gioui.org/font"
-	"gioui.org/io/clipboard"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
-	"gioui.org/io/transfer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -26,27 +27,72 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/gui/term"
 )
 
+// DefaultFontPt is the terminal font size in points without a setting.
+const DefaultFontPt = 11
+
 // View shows a terminal engine. Create it with [New]; it is laid out with
 // [View.Layout] on the GUI goroutine.
 type View struct {
 	Engine term.Engine
-	// FontSize is the text size (default 11pt as in LeanTerm).
+	// FontSize is the text size before zooming (default 11pt).
 	FontSize unit.Sp
-	// Padding around the grid.
-	Padding unit.Dp
+	// Typeface is the terminal font ("" = the system monospace font).
+	Typeface font.Typeface
+	// Inset is the space around the grid (the web GUI's container inset).
+	Inset layout.Inset
+	// CursorShape is the cursor as long as the program sets none
+	// (look.CursorShape); CursorBlink makes the focused cursor blink.
+	CursorShape term.CursorShape
+	CursorBlink bool
+	// WordChars are the characters besides letters and digits that a
+	// double click selects as part of a word.
+	WordChars string
+	// SelectionToClipboard copies every mouse selection.
+	SelectionToClipboard bool
+
 	// OnResize is called when the grid size changes, e.g. to resize the PTY.
 	OnResize func(cols, rows int)
+	// OnOpenLink opens a link Ctrl+clicked in the terminal.
+	OnOpenLink func(uri string)
+	// OnContextMenu is called on a right click, with the position in the
+	// view.
+	OnContextMenu func(pos image.Point)
+	// OnShortcut sees key presses first; it returns true for the keys the
+	// application handled (they do not reach the terminal).
+	OnShortcut func(e key.Event) bool
 
-	frame       term.Frame
-	cols, rows  int
-	cellW       int // px
-	cellH       int
-	ascent      int
-	metricsFor  fixed.Int26_6
-	focused     bool
+	frame      term.Frame
+	cols, rows int
+	cellW      int // px
+	cellH      int
+	ascent     int
+	metricsFor metricsKey
+	focused    bool
+	glyphs     []text.Glyph
+	sh         *text.Shaper
+	origin     image.Point // grid offset in the view, px
+
+	zoomPt      float32
 	scrollAccum float32
-	glyphs      []text.Glyph
-	sh          *text.Shaper
+	blinkStart  time.Time
+
+	// Mouse selection.
+	sel       *Selection
+	selecting bool
+	lastPress time.Time
+	lastCell  Pos
+	clicks    int
+	// Mouse reports: the buttons the program saw pressed.
+	reported map[int]bool
+	// The link under the pointer while Ctrl is held.
+	hover linkSpan
+
+	lineBuf []term.Cell
+}
+
+type metricsKey struct {
+	ppem fixed.Int26_6
+	face font.Typeface
 }
 
 // noWrap is a line width text never reaches, so runs are not wrapped or
@@ -55,11 +101,21 @@ const noWrap = 1 << 24
 
 // New creates a view for eng.
 func New(eng term.Engine) *View {
-	return &View{Engine: eng, FontSize: 11 * 96 / 72, Padding: 4}
+	return &View{
+		Engine:      eng,
+		FontSize:    DefaultFontPt * 96 / 72,
+		Inset:       layout.Inset{Top: 4, Right: 2, Bottom: 2, Left: 6},
+		CursorBlink: true,
+		WordChars:   DefaultWordChars,
+		blinkStart:  time.Now(),
+	}
 }
 
 func (v *View) face(attrs term.Attr) font.Font {
 	f := font.Font{Typeface: fonts.Monospace}
+	if v.Typeface != "" {
+		f.Typeface = v.Typeface + "," + fonts.Monospace
+	}
 	if attrs&term.AttrBold != 0 {
 		f.Weight = font.Bold
 	}
@@ -69,13 +125,29 @@ func (v *View) face(attrs term.Attr) font.Font {
 	return f
 }
 
-// metrics measures the cell size of the monospace face at the current size.
-func (v *View) metrics(gtx layout.Context, sh *text.Shaper) {
-	ppem := fixed.I(gtx.Sp(v.FontSize))
-	if ppem == v.metricsFor && v.cellW > 0 {
+// textSize is the font size with the zoom applied.
+func (v *View) textSize() unit.Sp {
+	return v.FontSize + unit.Sp(v.zoomPt*96/72)
+}
+
+// Zoom changes the font size by deltaPt points (0 resets it), within 6 to
+// 40 points like the web GUI.
+func (v *View) Zoom(deltaPt float32) {
+	if deltaPt == 0 {
+		v.zoomPt = 0
 		return
 	}
-	sh.LayoutString(text.Parameters{Font: v.face(0), PxPerEm: ppem, MaxWidth: noWrap}, "M")
+	base := float32(v.FontSize) * 72 / 96
+	v.zoomPt = max(6-base, min(40-base, v.zoomPt+deltaPt))
+}
+
+// metrics measures the cell size of the font at the current size.
+func (v *View) metrics(gtx layout.Context, sh *text.Shaper) {
+	k := metricsKey{fixed.I(gtx.Sp(v.textSize())), v.Typeface}
+	if k == v.metricsFor && v.cellW > 0 {
+		return
+	}
+	sh.LayoutString(text.Parameters{Font: v.face(0), PxPerEm: k.ppem, MaxWidth: noWrap}, "M")
 	g, ok := sh.NextGlyph()
 	for _, ok2 := sh.NextGlyph(); ok2; _, ok2 = sh.NextGlyph() {
 	}
@@ -85,22 +157,29 @@ func (v *View) metrics(gtx layout.Context, sh *text.Shaper) {
 	v.cellW = max(1, g.Advance.Round())
 	v.ascent = g.Ascent.Ceil()
 	v.cellH = max(1, g.Ascent.Ceil()+g.Descent.Ceil())
-	v.metricsFor = ppem
+	v.metricsFor = k
 }
 
 // Focus asks for the keyboard focus.
 func (v *View) Focus(gtx layout.Context) { gtx.Execute(key.FocusCmd{Tag: v}) }
+
+// Focused reports whether the terminal has the keyboard focus.
+func (v *View) Focused() bool { return v.focused }
+
+// Size is the grid size.
+func (v *View) Size() (cols, rows int) { return v.cols, v.rows }
 
 // Layout handles input and draws the terminal into the available space.
 func (v *View) Layout(gtx layout.Context, sh *text.Shaper) layout.Dimensions {
 	v.sh = sh
 	v.metrics(gtx, sh)
 	size := gtx.Constraints.Max
-	pad := gtx.Dp(v.Padding)
+	v.origin = image.Pt(gtx.Dp(v.Inset.Left), gtx.Dp(v.Inset.Top))
+	inner := size.Sub(v.origin).Sub(image.Pt(gtx.Dp(v.Inset.Right), gtx.Dp(v.Inset.Bottom)))
 
 	// Grid size from the available space.
-	cols := max(1, (size.X-2*pad)/v.cellW)
-	rows := max(1, (size.Y-2*pad)/v.cellH)
+	cols := max(1, inner.X/v.cellW)
+	rows := max(1, inner.Y/v.cellH)
 	if cols != v.cols || rows != v.rows {
 		v.cols, v.rows = cols, rows
 		v.Engine.Resize(cols, rows, v.cellW, v.cellH)
@@ -110,6 +189,7 @@ func (v *View) Layout(gtx layout.Context, sh *text.Shaper) layout.Dimensions {
 	}
 
 	v.events(gtx)
+	v.metrics(gtx, sh) // a zoom key changes the cell size
 
 	v.Engine.Snapshot(&v.frame)
 	f := &v.frame
@@ -119,14 +199,38 @@ func (v *View) Layout(gtx layout.Context, sh *text.Shaper) layout.Dimensions {
 	// Input area for pointer, keys and pastes.
 	event.Op(gtx.Ops, v)
 	key.InputHintOp{Tag: v, Hint: key.HintAny}.Add(gtx.Ops)
+	if v.hover.uri != "" {
+		pointer.CursorPointer.Add(gtx.Ops)
+	} else {
+		pointer.CursorText.Add(gtx.Ops)
+	}
 
-	off := op.Offset(image.Pt(pad, pad)).Push(gtx.Ops)
+	off := op.Offset(v.origin).Push(gtx.Ops)
 	v.paintBackgrounds(gtx, f)
-	v.paintCursor(gtx, f, false)
-	v.paintText(gtx, sh, f)
-	v.paintCursor(gtx, f, true)
+	v.paintSelection(gtx, f)
+	cursorOn := v.cursorOn(gtx)
+	v.paintCursor(gtx, f, false, cursorOn)
+	v.paintText(gtx, sh, f, cursorOn)
+	v.paintCursor(gtx, f, true, cursorOn)
+	v.paintHover(gtx, f)
 	off.Pop()
 	return layout.Dimensions{Size: size}
+}
+
+// cursorOn is the blink phase of the focused cursor (shown half of every
+// 1.2s, from the last input on); it asks for the frame of the next change.
+func (v *View) cursorOn(gtx layout.Context) bool {
+	if !v.CursorBlink || !v.focused {
+		return true
+	}
+	const half = 600 * time.Millisecond
+	el := gtx.Now.Sub(v.blinkStart)
+	if el < 0 {
+		return true
+	}
+	n := el / half
+	gtx.Execute(op.InvalidateCmd{At: v.blinkStart.Add((n + 1) * half)})
+	return n%2 == 0
 }
 
 func (v *View) paintBackgrounds(gtx layout.Context, f *term.Frame) {
@@ -147,15 +251,44 @@ func (v *View) paintBackgrounds(gtx layout.Context, f *term.Frame) {
 	}
 }
 
+// selectionColor is look.ts's selection tint, blended over the cells.
+var selectionColor = color.NRGBA{R: 120, G: 160, B: 220, A: 115}
+
+func (v *View) paintSelection(gtx layout.Context, f *term.Frame) {
+	if v.sel == nil {
+		return
+	}
+	from, to := v.sel.bounds(v.line, v.WordChars, f.Cols)
+	top := f.History - f.Offset
+	for y := 0; y < f.Rows; y++ {
+		sp, ok := v.sel.rowSpan(top+y, f.Cols, from, to)
+		if !ok {
+			continue
+		}
+		sp.Start, sp.End = max(0, sp.Start), min(f.Cols-1, sp.End)
+		if sp.Start > sp.End {
+			continue
+		}
+		r := image.Rect(sp.Start*v.cellW, y*v.cellH, (sp.End+1)*v.cellW, (y+1)*v.cellH)
+		paint.FillShape(gtx.Ops, selectionColor, clip.Rect(r).Op())
+	}
+}
+
+// line reads a buffer line (reusing a buffer: valid until the next call).
+func (v *View) line(row int) []term.Cell {
+	v.lineBuf = v.Engine.Line(row, v.lineBuf[:0])
+	return v.lineBuf
+}
+
 // paintText draws the text in runs of cells with the same style. ASCII runs
 // are shaped together (the face is monospace); other characters are placed
 // one by one on their column, as their glyphs may come from a fallback face
 // with other advances.
-func (v *View) paintText(gtx layout.Context, sh *text.Shaper, f *term.Frame) {
-	ppem := fixed.I(gtx.Sp(v.FontSize))
+func (v *View) paintText(gtx layout.Context, sh *text.Shaper, f *term.Frame, cursorOn bool) {
+	ppem := fixed.I(gtx.Sp(v.textSize()))
 	var sb strings.Builder
 	cursorCell := -1
-	if f.Cursor.Visible && v.focused && f.Cursor.Shape == term.CursorBlock {
+	if f.Cursor.Visible && v.focused && cursorOn && v.cursorShape(f) == term.CursorBlock {
 		cursorCell = f.Cursor.Y*f.Cols + f.Cursor.X
 	}
 	for y := 0; y < f.Rows; y++ {
@@ -220,6 +353,12 @@ func (v *View) drawRun(gtx layout.Context, sh *text.Shaper, ppem fixed.Int26_6, 
 	t.Pop()
 }
 
+func (v *View) underline(gtx layout.Context, c color.NRGBA, x0, x1, y int) {
+	thick := max(1, v.cellH/14)
+	yy := y*v.cellH + v.ascent + thick
+	paint.FillShape(gtx.Ops, c, clip.Rect(image.Rect(x0*v.cellW, yy, x1*v.cellW, yy+thick)).Op())
+}
+
 func (v *View) decorate(gtx layout.Context, c term.Cell, x0, x1, y int) {
 	thick := max(1, v.cellH/14)
 	line := func(yy int) {
@@ -228,7 +367,7 @@ func (v *View) decorate(gtx layout.Context, c term.Cell, x0, x1, y int) {
 	}
 	top := y * v.cellH
 	if c.Attrs&term.AttrUnderline != 0 {
-		line(top + v.ascent + thick)
+		v.underline(gtx, c.Fg, x0, x1, y)
 	}
 	if c.Attrs&term.AttrStrikethrough != 0 {
 		line(top + v.ascent*2/3)
@@ -238,10 +377,32 @@ func (v *View) decorate(gtx layout.Context, c term.Cell, x0, x1, y int) {
 	}
 }
 
+// paintHover underlines the link under the pointer while Ctrl is held.
+func (v *View) paintHover(gtx layout.Context, f *term.Frame) {
+	h := v.hover
+	if h.uri == "" {
+		return
+	}
+	y := h.row - (f.History - f.Offset)
+	if y < 0 || y >= f.Rows {
+		return
+	}
+	v.underline(gtx, f.Fg, h.start, h.end+1, y)
+}
+
+// cursorShape is the program's cursor shape, or the configured one while
+// the program keeps the default block.
+func (v *View) cursorShape(f *term.Frame) term.CursorShape {
+	if f.Cursor.Shape == term.CursorBlock {
+		return v.CursorShape
+	}
+	return f.Cursor.Shape
+}
+
 // paintCursor draws the cursor: before the text (block cursor background) or
 // after it (the character under a block cursor in the background color, and
 // the bar, underline and unfocused outline shapes).
-func (v *View) paintCursor(gtx layout.Context, f *term.Frame, after bool) {
+func (v *View) paintCursor(gtx layout.Context, f *term.Frame, after, on bool) {
 	c := f.Cursor
 	if !c.Visible || c.X >= f.Cols || c.Y >= f.Rows {
 		return
@@ -254,9 +415,11 @@ func (v *View) paintCursor(gtx layout.Context, f *term.Frame, after bool) {
 	r := image.Rect(c.X*v.cellW, c.Y*v.cellH, c.X*v.cellW+w, (c.Y+1)*v.cellH)
 	col := f.Fg
 	thick := max(1, v.cellH/12)
-	shape := c.Shape
+	shape := v.cursorShape(f)
 	if !v.focused {
 		shape = term.CursorBlockHollow
+	} else if !on {
+		return
 	}
 	switch shape {
 	case term.CursorBlock:
@@ -268,7 +431,7 @@ func (v *View) paintCursor(gtx layout.Context, f *term.Frame, after bool) {
 			inv := cell
 			inv.Fg = f.Bg
 			inv.Attrs &^= term.AttrFaint
-			v.drawRun(gtx, v.sh, fixed.I(gtx.Sp(v.FontSize)), cell.Text, inv, c.X, c.Y)
+			v.drawRun(gtx, v.sh, fixed.I(gtx.Sp(v.textSize())), cell.Text, inv, c.X, c.Y)
 		}
 	case term.CursorBar:
 		if after {
@@ -292,144 +455,4 @@ func isASCII(s string) bool {
 		}
 	}
 	return true
-}
-
-// events turns pending input into terminal input.
-func (v *View) events(gtx layout.Context) {
-	filters := []event.Filter{
-		key.FocusFilter{Target: v},
-		pointer.Filter{Target: v, Kinds: pointer.Press | pointer.Scroll, ScrollY: pointer.ScrollRange{Min: -1 << 20, Max: 1 << 20}},
-		transfer.TargetFilter{Target: v, Type: "application/text"},
-		// Without Optional modifiers a filter only matches unmodified keys.
-		key.Filter{Focus: v, Name: "", Optional: allMods},
-		// Keys with a system meaning are only delivered when named.
-		key.Filter{Focus: v, Name: key.NameTab, Optional: allMods},
-		key.Filter{Focus: v, Name: key.NameEscape, Optional: allMods},
-	}
-	for {
-		ev, ok := gtx.Event(filters...)
-		if !ok {
-			break
-		}
-		switch e := ev.(type) {
-		case key.FocusEvent:
-			v.focused = e.Focus
-		case pointer.Event:
-			switch e.Kind {
-			case pointer.Press:
-				gtx.Execute(key.FocusCmd{Tag: v})
-				if e.Buttons == pointer.ButtonTertiary {
-					gtx.Execute(clipboard.ReadCmd{Tag: v})
-				}
-			case pointer.Scroll:
-				// Positive Y scrolls down, towards the newest output.
-				v.scrollAccum += e.Scroll.Y
-				if lines := int(v.scrollAccum / float32(v.cellH)); lines != 0 {
-					v.scrollAccum -= float32(lines * v.cellH)
-					v.Engine.Scroll(lines)
-				}
-			}
-		case transfer.DataEvent:
-			r := e.Open()
-			data, _ := io.ReadAll(io.LimitReader(r, 16<<20))
-			r.Close()
-			v.Engine.Paste(string(data))
-		case key.EditEvent:
-			if e.Text != "" {
-				v.Engine.SendText(e.Text)
-			}
-		case key.Event:
-			if e.State == key.Press {
-				v.key(gtx, e)
-			}
-		}
-	}
-}
-
-const allMods = key.ModCtrl | key.ModShift | key.ModAlt | key.ModSuper | key.ModCommand
-
-var namedKeys = map[key.Name]term.Key{
-	key.NameReturn:         term.KeyEnter,
-	key.NameEnter:          term.KeyEnter,
-	key.NameTab:            term.KeyTab,
-	key.NameDeleteBackward: term.KeyBackspace,
-	key.NameEscape:         term.KeyEscape,
-	key.NameUpArrow:        term.KeyUp,
-	key.NameDownArrow:      term.KeyDown,
-	key.NameLeftArrow:      term.KeyLeft,
-	key.NameRightArrow:     term.KeyRight,
-	key.NameHome:           term.KeyHome,
-	key.NameEnd:            term.KeyEnd,
-	key.NamePageUp:         term.KeyPageUp,
-	key.NamePageDown:       term.KeyPageDown,
-	key.NameDeleteForward:  term.KeyDelete,
-	key.NameF1:             term.KeyF1,
-	key.NameF2:             term.KeyF2,
-	key.NameF3:             term.KeyF3,
-	key.NameF4:             term.KeyF4,
-	key.NameF5:             term.KeyF5,
-	key.NameF6:             term.KeyF6,
-	key.NameF7:             term.KeyF7,
-	key.NameF8:             term.KeyF8,
-	key.NameF9:             term.KeyF9,
-	key.NameF10:            term.KeyF10,
-	key.NameF11:            term.KeyF11,
-	key.NameF12:            term.KeyF12,
-}
-
-func (v *View) key(gtx layout.Context, e key.Event) {
-	var mods term.Mods
-	if e.Modifiers.Contain(key.ModShift) {
-		mods |= term.ModShift
-	}
-	if e.Modifiers.Contain(key.ModCtrl) {
-		mods |= term.ModCtrl
-	}
-	if e.Modifiers.Contain(key.ModAlt) {
-		mods |= term.ModAlt
-	}
-	if e.Modifiers.Contain(key.ModSuper) {
-		mods |= term.ModSuper
-	}
-
-	// LeanTerm shortcuts: Ctrl+Shift+V pastes, Shift+PageUp/Down scroll.
-	switch {
-	case mods == term.ModCtrl|term.ModShift && e.Name == "V":
-		gtx.Execute(clipboard.ReadCmd{Tag: v})
-		return
-	case mods == term.ModShift && e.Name == key.NamePageUp:
-		v.Engine.Scroll(-(v.rows - 1))
-		return
-	case mods == term.ModShift && e.Name == key.NamePageDown:
-		v.Engine.Scroll(v.rows - 1)
-		return
-	}
-
-	// Space also arrives as an EditEvent; it is only a key with Ctrl or Alt.
-	if e.Name == key.NameSpace {
-		if mods&(term.ModCtrl|term.ModAlt) != 0 {
-			v.Engine.SendKey(term.KeyEvent{Key: term.KeySpace, Mods: mods})
-		}
-		return
-	}
-	if k, ok := namedKeys[e.Name]; ok {
-		v.Engine.SendKey(term.KeyEvent{Key: k, Mods: mods})
-		return
-	}
-	// Characters arrive as EditEvents; only Ctrl/Alt combinations are keys.
-	if mods&(term.ModCtrl|term.ModAlt) == 0 {
-		return
-	}
-	r, size := utf8.DecodeRuneInString(string(e.Name))
-	if r == utf8.RuneError || size != len(e.Name) {
-		return
-	}
-	v.Engine.SendKey(term.KeyEvent{Rune: toLower(r), Mods: mods &^ term.ModShift})
-}
-
-func toLower(r rune) rune {
-	if r >= 'A' && r <= 'Z' {
-		return r + ('a' - 'A')
-	}
-	return r
 }
