@@ -18,6 +18,7 @@ require (
 	github.com/oligo/gvcode v0.8.2
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pkg/sftp v1.13.12
+	github.com/sahilm/fuzzy v0.1.3
 	github.com/stretchr/testify v1.12.1
 	github.com/wailsapp/wails/v3 v3.0.0
 	github.com/zalando/go-keyring v0.2.6

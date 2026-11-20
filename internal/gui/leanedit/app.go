@@ -20,6 +20,7 @@ import (
 	"gioui.org/text"
 
 	"github.com/Suvukaraz/leanterm/internal/editor"
+	"github.com/Suvukaraz/leanterm/internal/gui/picker"
 	"github.com/Suvukaraz/leanterm/internal/services"
 )
 
@@ -70,6 +71,7 @@ type App struct {
 	search       searchPanel
 	gotoLn       gotoPanel
 	quick        quickOpen
+	symPick      picker.Picker
 	align        alignPrompt
 	jumps, edits *history
 
@@ -221,6 +223,7 @@ func (a *App) closeTabNow(id int) {
 		return
 	}
 	a.tabs[idx].closeFolds()
+	a.tabs[idx].closeCompletion()
 	a.tabs = append(a.tabs[:idx:idx], a.tabs[idx+1:]...)
 	delete(a.ignored, id)
 	a.forgetTab(id)

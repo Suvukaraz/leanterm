@@ -293,6 +293,7 @@ func (a *App) goItems(hasDoc bool) []item {
 		{label: "Quick Open", shortcut: "Ctrl+Alt+O", disabled: len(a.tabs) == 0, action: act(a.openQuickOpen)},
 		sep(),
 		{label: "Go to Line…", shortcut: "Ctrl+G", disabled: !hasDoc, action: act(a.openGotoLine)},
+		{label: "Go to Symbol…", shortcut: "Ctrl+Shift+O", disabled: !hasDoc, action: act(a.openGotoSymbol)},
 		sep(),
 		{label: "Next Tab", shortcut: "Alt+Right", disabled: len(a.tabs) < 2, action: act(func() { a.cycleTab(1) })},
 		{label: "Previous Tab", shortcut: "Alt+Left", disabled: len(a.tabs) < 2, action: act(func() { a.cycleTab(-1) })},
@@ -383,6 +384,7 @@ func (a *App) commandShortcuts() []shortcut {
 		{"E", ctrl, f(a.prevEdit), true},
 		{"E", ctrl | shift, f(a.nextEdit), true},
 		{"O", ctrl | alt, f(a.openQuickOpen), true},
+		{"O", ctrl | shift, f(a.openGotoSymbol), true},
 		{key.NameF3, 0, f(func() { a.findNext(1) }), true},
 		{key.NameF3, shift, f(func() { a.findNext(-1) }), true},
 		// Folding (KTextEditor: Ctrl+Shift+- toggles, Ctrl+Alt+-/+ fold and

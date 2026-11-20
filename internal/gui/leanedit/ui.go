@@ -165,13 +165,16 @@ func (a *App) Layout(gtx layout.Context, th *gtk.Theme) layout.Dimensions {
 	if a.quick.open {
 		a.quickOpenLayout(gtx, th)
 	}
+	if a.symPick.Opened() {
+		a.symbolPickerLayout(gtx, th)
+	}
 	if a.align.open {
 		a.alignLayout(gtx, th)
 	}
 	if a.question != nil {
 		a.questionLayout(gtx, th)
 	}
-	if u.focusEditor && a.question == nil && !a.quick.open && !a.align.open {
+	if u.focusEditor && a.question == nil && !a.quick.open && !a.align.open && !a.symPick.Opened() {
 		u.focusEditor = false
 		if t := a.Active(); t != nil {
 			gtx.Execute(key.FocusCmd{Tag: t.ed})

@@ -17,6 +17,7 @@ import (
 
 	"github.com/Suvukaraz/leanterm/internal/gui/folding"
 	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
+	"github.com/Suvukaraz/leanterm/internal/gui/symbols"
 )
 
 // ---- code folding (KTextEditor's folding, with gotreesitter) --------------------------------------
@@ -41,6 +42,7 @@ type foldState struct {
 	applied int    // the manager version given to gvcode
 	gutter  *foldGutter
 	boxes   []foldBox
+	syms    []symbols.Symbol // Go to Symbol, from the same parse
 }
 
 // foldBox is the "⋯" after a folded header (clicking it unfolds).
@@ -84,6 +86,7 @@ func (t *Tab) syncFolds(invalidate func()) {
 		t.closeFolds()
 		f.m.UnfoldAll()
 		f.m.SetRanges(nil)
+		f.syms = nil
 		if lang != "" {
 			f.parser = folding.NewParser(lang, invalidate)
 			f.parser.Update(f.gen, text)
@@ -92,6 +95,7 @@ func (t *Tab) syncFolds(invalidate func()) {
 	if f.parser != nil {
 		if r, ok := f.parser.Result(); ok && r.Gen == f.gen {
 			f.m.SetRanges(r.Ranges)
+			f.syms = r.Symbols
 		}
 	}
 	t.keepCaretVisible()

@@ -57,6 +57,9 @@ type Tab struct {
 	tokens                     []syntax.Token // the highlighting (also the minimap's colors)
 	mini                       minimap
 	fold                       foldState
+	comp                       compState
+	center                     bool // center the caret line once laid out (a symbol jump)
+	typeface                   font.Typeface
 	invalidate                 func() // asks for a frame (from any goroutine)
 }
 
@@ -130,6 +133,7 @@ func (t *Tab) apply(l look, typeface font.Typeface) {
 		return
 	}
 	t.styled = key
+	t.typeface = typeface
 	t.ed.WithOptions(
 		gvcode.WithFont(font.Font{Typeface: typeface}),
 		// pt to px: 1pt = 4/3 px (sp at the window's scale).
@@ -195,7 +199,17 @@ func (t *Tab) layout(gtx layout.Context, sh *text.Shaper, th *gtk.Theme) (change
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	t.syncFolds(t.invalidate)
+	t.syncCompletion(gtx)
 	t.ed.Layout(gtx, sh)
+	if t.center {
+		t.center = false
+		t.centerCaret(gtx)
+	}
 	t.layoutFoldBoxes(gtx, th)
+	t.layoutCompletion(gtx, th, sh)
+	if t.comp.edited {
+		t.comp.edited = false
+		changed = true
+	}
 	return changed
 }

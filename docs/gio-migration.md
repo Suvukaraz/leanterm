@@ -456,6 +456,52 @@ LeanEdit folds code blocks like KWrite, with the syntax trees of
   unstripped binary (about 15 MB stripped); the `grammar_subset` build tags
   would save only about 1 MB, so the build does not use them.
 
+### Word completion and Go to Symbol
+
+Both use [sahilm/fuzzy](https://github.com/sahilm/fuzzy) (pure Go). Its
+`MatchedIndexes` are byte offsets; the packages turn them into rune indexes
+for highlighting.
+
+- `internal/gui/completion` (no UI): words are runs of letters, digits and
+  `_` of at least three runes that are not numbers. An `Indexer` counts the
+  document's words on a worker goroutine (coalesced, 200 ms) and leaves out
+  the cursor line; the editor counts that line live without the word at the
+  cursor, so a word typed for the first time never suggests itself (a
+  snapshot taken on another line has that line counted live too).
+  `Keywords` has lightweight keyword lists for the common languages (by
+  LeanEdit language id); other languages and plain text complete document
+  words only. Words that are keywords become one keyword candidate.
+  `Complete` ranks prefix matches first, then the fuzzy score, then shorter
+  words, leaves out the prefix itself and returns at most 20.
+- LeanEdit opens the popup below the word once three characters are typed
+  (Ctrl+Space at any length), updates it while typing and on Backspace, and
+  closes it on Escape, whitespace or punctuation, a caret move out of the
+  word, a selection, focus loss or when the word scrolls out of view. While
+  it is open, Up/Down (wrapping), Tab, Enter and Escape are commands on top
+  of gvcode's own (`RegisterCommand`); the editor keeps the focus. Enter
+  accepts only after Up/Down or Ctrl+Space, otherwise it is a line break.
+  Accepting replaces the word start up to the caret (one undo step; text
+  after the caret stays). 8 rows are visible, the popup flips above the line
+  when there is no room below and stays within the right edge; it is drawn
+  with the editor's shaper and font, matched characters bold in the accent
+  color and a `kw`/`abc` badge.
+- `internal/gui/symbols` (no UI) extracts declarations from the gotreesitter
+  tree that the folding parser already keeps: the parser publishes symbols
+  with the fold ranges of the same parse. A node-type table across the
+  grammars (functions, methods, classes, structs, interfaces, traits, impls,
+  enums, types, constants, top-level variables, modules, macros, Markdown
+  headings) with the names from the `name` field (or the C declarator
+  chain); functions inside classes, impls and traits are methods with their
+  container, Go methods get their receiver type. Locals and nested
+  functions are left out. Languages without a grammar have no symbols.
+  `Filter` matches names and `Container.Name`.
+- `internal/gui/picker` is a generic modal fuzzy picker (placeholder, items
+  with badge, highlighted label, detail and right-aligned note, select and
+  close callbacks), used by Go to Symbol (Go → Go to Symbol…,
+  Ctrl+Shift+O). The empty query lists all symbols in document order with
+  the one at or before the cursor chosen; the jump unfolds the folds around
+  the target line and centers it.
+
 ### Deviations
 
 - gvcode has one cursor: no block selection, no extra carets (Add Caret

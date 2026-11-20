@@ -5,12 +5,16 @@ import (
 	"time"
 
 	"github.com/odvcencio/gotreesitter"
+
+	"github.com/Suvukaraz/leanterm/internal/gui/symbols"
 )
 
-// Result is a parse's foldable ranges for the text of generation Gen.
+// Result is what a parse found in the text of generation Gen: the
+// foldable ranges and the symbols (Go to Symbol), from the same tree.
 type Result struct {
-	Gen    uint64
-	Ranges []Range
+	Gen     uint64
+	Ranges  []Range
+	Symbols []symbols.Symbol
 }
 
 // Parser parses a document in the background and finds its foldable
@@ -152,10 +156,12 @@ func (p *Parser) run() {
 		}
 		tree, oldText = next, src
 		var ranges []Range
+		var syms []symbols.Symbol
 		if tree != nil {
 			ranges = rangesOf(tree, lang)
+			syms = symbolsOf(tree, lang, src)
 		}
-		p.publish(Result{Gen: req.gen, Ranges: ranges})
+		p.publish(Result{Gen: req.gen, Ranges: ranges, Symbols: syms})
 	}
 }
 
@@ -191,6 +197,16 @@ func rangesOf(tree *gotreesitter.Tree, lang *gotreesitter.Language) (out []Range
 		}
 	}()
 	return Ranges(tree.RootNode(), lang)
+}
+
+// symbolsOf extracts the symbols; a panic in a grammar's tree means none.
+func symbolsOf(tree *gotreesitter.Tree, lang *gotreesitter.Language, src []byte) (out []symbols.Symbol) {
+	defer func() {
+		if recover() != nil {
+			out = nil
+		}
+	}()
+	return symbols.Extract(tree.RootNode(), lang, src)
 }
 
 // parse parses src, incrementally when there is a previous tree: the tree

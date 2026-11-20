@@ -108,6 +108,8 @@ type Text struct {
 	Weight font.Weight
 	Italic bool
 	Mono   bool
+	// Face overrides the typeface (a font family list), e.g. the editor's.
+	Face font.Typeface
 	// LineHeight scales the line like CSS line-height (0 = normal).
 	LineHeight float32
 	MaxLines   int
@@ -181,6 +183,9 @@ func (t Text) layout(gtx layout.Context, th *Theme, size unit.Sp, px float32) la
 	}
 	if t.Mono {
 		l.Font.Typeface = fonts.Monospace
+	}
+	if t.Face != "" {
+		l.Font.Typeface = t.Face
 	}
 	l.MaxLines = t.MaxLines
 	if t.LineHeight <= 0 {
