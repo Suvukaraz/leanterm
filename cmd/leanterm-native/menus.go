@@ -18,14 +18,12 @@ import (
 
 // ---- window-wide pointer position ---------------------------------------------
 
-// globalPointer registers a window-wide hit area that keeps track of the
-// pointer position in window coordinates (the context menus open there).
-func (u *ui) globalPointer(gtx layout.Context) layout.Dimensions {
-	rs := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-	event.Op(gtx.Ops, &u.rootTag)
-	rs.Pop()
+// trackPointer reads where the pointer is, in window coordinates (the
+// context menus open there). It runs first in a frame, before the handlers
+// that open menus; globalPointer registers its area.
+func (u *ui) trackPointer(gtx layout.Context) {
 	for {
-		e, ok := gtx.Event(pointer.Filter{Target: &u.rootTag, Kinds: pointer.Press | pointer.Release | pointer.Move | pointer.Scroll})
+		e, ok := gtx.Event(pointer.Filter{Target: &u.rootTag, Kinds: pointer.Press | pointer.Release | pointer.Move | pointer.Drag})
 		if !ok {
 			break
 		}
@@ -33,6 +31,17 @@ func (u *ui) globalPointer(gtx layout.Context) layout.Dimensions {
 			u.lastPtr = pe.Position.Round()
 		}
 	}
+}
+
+// globalPointer registers a window-wide area on top of everything that
+// passes all events on: the other areas are siblings, not its parents, so
+// only such an area sees the pointer everywhere.
+func (u *ui) globalPointer(gtx layout.Context) layout.Dimensions {
+	pass := pointer.PassOp{}.Push(gtx.Ops)
+	rs := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+	event.Op(gtx.Ops, &u.rootTag)
+	rs.Pop()
+	pass.Pop()
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
@@ -362,10 +371,9 @@ func (u *ui) openTreeMenu(_ layout.Context, _ string, _ image.Point) {
 		{ID: "collapse-all", Label: "Collapse all", Icon: fonts.IconMinus},
 		{Separator: true},
 		{ID: "protection", Label: protectLabel, Icon: protectIcon, Disabled: isRoot},
-		// The Edit Connection dialog is not ported yet.
-		{ID: "edit", Label: "Edit connection(s)", Icon: fonts.IconEdit, Disabled: true},
-		// The web GUI has this item as a stub too.
-		{ID: "copy-password", Label: "Copy Password", Icon: fonts.IconCopy, Disabled: true},
+		{ID: "edit", Label: "Edit connection(s)", Icon: fonts.IconEdit, Disabled: isRoot},
+		// The web GUI has this item as a stub too (enabled, no action).
+		{ID: "copy-password", Label: "Copy Password", Icon: fonts.IconCopy, Disabled: !isConn},
 		{Separator: true},
 	}
 
@@ -428,6 +436,9 @@ func (u *ui) handleTreeMenu() {
 	switch {
 	case id == "keybindings":
 		u.keys.open = true
+	case id == "edit":
+		// Stage 6 ports the Edit Connection window.
+		u.dropMsg = "The Edit Connection window is not implemented yet"
 	case id == "expand-all":
 		u.expandAll()
 	case id == "collapse-all":

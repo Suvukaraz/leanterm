@@ -236,6 +236,11 @@ func TestTreeSelectExpandActivate(t *testing.T) {
 	if !tr.Expanded["g"] {
 		t.Fatal("group not expanded")
 	}
+	// Its children are drawn in the frame of the click, not only in the next
+	// one (that waits for another event).
+	if tr.rows["c1"] == nil {
+		t.Fatal("expanded group's child not drawn in the click's frame")
+	}
 	// Keyboard: Up from "web" (now row 3) goes to "inner".
 	u.click(w, 100, row(3))
 	u.keys(w, key.NameUpArrow)

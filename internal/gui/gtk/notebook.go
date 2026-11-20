@@ -8,6 +8,7 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 )
@@ -127,8 +128,11 @@ func (n *Notebook) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 			}
 		}
 	}
-
 	n.dragInput(gtx)
+	// Callers read the events before Layout: ask for the frame that does.
+	if len(n.events) > 0 {
+		gtx.Execute(op.InvalidateCmd{})
+	}
 
 	// The drag area covers the tab row and sits before the tabs, so they
 	// are its children; while a drag is active all pointer events for it

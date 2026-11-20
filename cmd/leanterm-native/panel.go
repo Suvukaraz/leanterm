@@ -243,7 +243,8 @@ func (u *ui) expandAll() {
 }
 
 func (u *ui) collapseAll() {
-	u.tree.Expanded = map[string]bool{}
+	// The root stays open (TreeView.svelte's collapseAll).
+	u.tree.Expanded = map[string]bool{"": true}
 	u.saveExpandedSoon()
 }
 

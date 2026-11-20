@@ -27,6 +27,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 	if u.quitAfter.Load() { // the self-test of -quit-after
 		u.exitNow()
 	}
+	u.trackPointer(gtx)
 	u.sessionEvents()
 	u.handleTabEvents()
 	u.handleLeftNB()
@@ -65,9 +66,6 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 	u.globalKeys(gtx)
 
 	return layout.Stack{Alignment: layout.NW}.Layout(gtx,
-		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			return u.globalPointer(gtx)
-		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			kids := []layout.FlexChild{}
 			bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions { return u.buttonBar(gtx) })
@@ -109,6 +107,11 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			u.handleLock(gtx)
 			return layout.Dimensions{}
+		}),
+		// On top of everything, passing all events on: where the pointer is,
+		// for the context menus.
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			return u.globalPointer(gtx)
 		}),
 	)
 }

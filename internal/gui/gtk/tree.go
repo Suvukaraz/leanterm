@@ -10,6 +10,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -156,6 +157,12 @@ func (t *Tree) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 	}
 	rows := t.visible()
 	t.input(gtx, rows)
+	// Expanding or collapsing changes the rows of this very frame.
+	rows = t.visible()
+	// Callers read the events before Layout: ask for the frame that does.
+	if len(t.events) > 0 {
+		gtx.Execute(op.InvalidateCmd{})
+	}
 
 	size := gtx.Constraints.Max
 	// .gtk-treeview: base color, 1px border, 0.9em text.

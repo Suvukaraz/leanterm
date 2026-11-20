@@ -47,6 +47,9 @@ func (u *ui) loadUIState() {
 	if u.tree.Expanded == nil {
 		u.tree.Expanded = map[string]bool{}
 	}
+	// The root is always expanded at startup (TreeView.svelte); the saved
+	// state only lists groups.
+	u.tree.Expanded[""] = true
 	for _, g := range st.ExpandedGroups {
 		u.tree.Expanded[g] = true
 	}
