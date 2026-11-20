@@ -67,6 +67,9 @@ const (
 	IconFileO     = '\uf016'     // nf-fa-file_o (outline)
 	IconHomeO     = '\U000F07D1' // nf-md-home_outline
 	IconLinkArrow = '\uf064'     // nf-fa-share (symbolic links)
+	IconCogs      = '\uf085'     // nf-fa-cogs (gtk-execute)
+	IconSliders   = '\uf1de'     // nf-fa-sliders (gtk-properties)
+	IconKey       = '\uf084'     // nf-fa-key
 )
 
 // AllIcons lists the icons above (for tests and icon pickers).
@@ -80,4 +83,5 @@ var AllIcons = []rune{
 	IconSave, IconCopy, IconCut, IconPaste, IconPlay, IconStarOff,
 	IconList, IconMinus, IconEdit, IconExchange, IconQuestion, IconExternal,
 	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe, IconBriefcase, IconTools, IconBulb, IconBars, IconLinkArrow, IconChevLeft, IconChevRight, IconChevUp, IconChevDown, IconFolderO, IconFileO, IconHomeO,
+	IconCogs, IconSliders, IconKey,
 }

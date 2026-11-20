@@ -254,8 +254,12 @@ func (f *Form) IconButton(key any, icon rune, disabled bool, onClick func()) lay
 	}
 }
 
-// Grow lets w take the remaining width of a row (inside FlexRow).
-type Grow struct{ W layout.Widget }
+// Grow lets w take the remaining width of a row (inside FlexRow), shared
+// by Weight (0 = 1) with the other Grow children.
+type Grow struct {
+	W      layout.Widget
+	Weight float32
+}
 
 // FlexRow is Row where Grow children take the room left.
 func FlexRow(gap unit.Dp, children ...any) layout.Widget {
@@ -270,7 +274,11 @@ func FlexRow(gap unit.Dp, children ...any) layout.Widget {
 			}
 			switch w := c.(type) {
 			case Grow:
-				kids = append(kids, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				wt := w.Weight
+				if wt <= 0 {
+					wt = 1
+				}
+				kids = append(kids, layout.Flexed(wt, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					return w.W(gtx)
 				}))

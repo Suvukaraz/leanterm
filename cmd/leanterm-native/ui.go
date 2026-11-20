@@ -4,6 +4,7 @@ import (
 	"gioui.org/text"
 	"github.com/Suvukaraz/leanterm/internal/gui/editconn"
 	"github.com/Suvukaraz/leanterm/internal/gui/filebrowser"
+	"github.com/Suvukaraz/leanterm/internal/gui/prefs"
 	"image"
 	"sync/atomic"
 	"time"
@@ -190,6 +191,7 @@ type ui struct {
 
 	// The configuration dialogs (stage 6).
 	editConn editconn.Dialog
+	prefs    prefs.Dialog
 
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int

@@ -98,6 +98,7 @@ type Text struct {
 	Size   unit.Sp
 	Color  color.NRGBA
 	Weight font.Weight
+	Italic bool
 	Mono   bool
 	// LineHeight scales the line like CSS line-height (0 = normal).
 	LineHeight float32
@@ -167,6 +168,9 @@ func (t Text) layout(gtx layout.Context, th *Theme, size unit.Sp, px float32) la
 	l := material.Label(th.Theme, size, t.S)
 	l.Color = t.Color
 	l.Font.Weight = t.Weight
+	if t.Italic {
+		l.Font.Style = font.Italic
+	}
 	if t.Mono {
 		l.Font.Typeface = fonts.Monospace
 	}
@@ -231,4 +235,10 @@ func record(gtx layout.Context, w layout.Widget) (op.CallOp, layout.Dimensions) 
 	m := op.Record(gtx.Ops)
 	d := w(gtx)
 	return m.Stop(), d
+}
+
+// Box fills a rounded rectangle of size sz (radius in dp) with a 1dp border
+// (none when its alpha is 0).
+func Box(gtx layout.Context, sz image.Point, radius unit.Dp, fill, border color.NRGBA) {
+	box(gtx, sz, gtx.Dp(radius), fill, border)
 }

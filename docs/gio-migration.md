@@ -299,3 +299,37 @@ for local shells, with one UI.
 - Without a native file dialog yet (stage 6), "Upload files...", "Copy
   to..." and "Move to..." report the missing dialog; drops and downloads
   work.
+
+## Stage 6: dialogs and side windows
+
+- `internal/gui/filedialog` asks the system for files and folders: the
+  XDG desktop portal over D-Bus (GNOME, KDE, Wayland), else zenity or
+  kdialog; on Windows comdlg32 and the folder browser. The file browser's
+  upload, copy to and move to use it, as do all file fields.
+- `internal/gui/form` builds the settings dialogs from gtk widgets bound to
+  Go fields (entries, checks, spins, combos, radios, colors, fonts, files,
+  editable lists with Ctrl+Z, a CSS-like grid, two columns and wrapping
+  rows), so a dialog edits a config struct directly.
+- `internal/gui/editconn` is the Edit Connection dialog with all its tabs;
+  the tree toolbar opens it and adds, renames and deletes nodes.
+- `internal/gui/prefs` is the Settings window (`PreferencesWindow.svelte`):
+  the ten pages on a tab column on the left (`Notebook.LayoutSide`),
+  "Reset to defaults", "Export…", "Close without saving", "Save and Close"
+  with the restart hint for options marked (*), and the master password
+  dialog. It edits a copy of the settings; saving reloads the window
+  through `settings:changed` (colour scheme, looks, tree), and a changed
+  panel width replaces the dragged one.
+
+### Findings
+
+- The web window's sub notebooks (Main/Terminal Options) stack their tabs
+  vertically: the left notebook's `.pos-left .notebook-header` rule also
+  matches the nested top notebooks. The native window shows them on top,
+  as `position="top"` asks.
+- WebKitGTK draws `<input type=number>` with an up/down stepper; the native
+  spin buttons have it too (clickable). Check labels wrap in narrow grid
+  columns, select boxes and font buttons stretch in grid cells, like CSS.
+- Gio input areas that are siblings take events from each other: a hover
+  area must be inside the button's (else the tab column ignores clicks).
+- The terminal engine choice offers Ghostty and the pure Go VT engine; the
+  web GUI's "rio" value means VT.

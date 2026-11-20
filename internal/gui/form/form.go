@@ -91,7 +91,13 @@ func gapped(axis layout.Axis, gap unit.Dp, children []layout.Widget) layout.Widg
 			}
 			kids = append(kids, layout.Rigid(c))
 		}
-		return layout.Flex{Axis: axis, Alignment: layout.Middle}.Layout(gtx, kids...)
+		// Rows center their children vertically; columns put them at the
+		// start (CSS align-items: stretch / flex-start).
+		align := layout.Middle
+		if axis == layout.Vertical {
+			align = layout.Start
+		}
+		return layout.Flex{Axis: axis, Alignment: align}.Layout(gtx, kids...)
 	}
 }
 

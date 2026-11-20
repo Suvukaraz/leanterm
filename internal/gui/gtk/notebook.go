@@ -484,3 +484,109 @@ func (pn *Paned) Layout(gtx layout.Context, th *Theme, first, second layout.Widg
 	pane(rect(pn.Pos+handle, total), second)
 	return layout.Dimensions{Size: size}
 }
+
+// LayoutSide draws the tabs as a column (Notebook.svelte position="left"):
+// the tabs stacked and as wide as the widest, on the header color with a
+// border on the right; the selected tab in the window color with the accent
+// line on its left. Only selection is handled (no closing or dragging).
+func (n *Notebook) LayoutSide(gtx layout.Context, th *Theme) layout.Dimensions {
+	p := th.Pal
+	for i, t := range n.Tabs {
+		for {
+			if _, ok := t.click.Update(gtx); !ok {
+				break
+			}
+			if n.Selected != i {
+				n.Selected = i
+				n.events = append(n.events, NotebookEvent{Kind: TabSelected, Tab: i})
+			}
+		}
+	}
+	if len(n.events) > 0 {
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	// The column is as wide as the widest tab.
+	w := 0
+	for _, t := range n.Tabs {
+		mgtx := gtx
+		mgtx.Constraints.Min = image.Point{}
+		m := op.Record(gtx.Ops)
+		d := n.sideTab(mgtx, th, t, false, 0)
+		m.Stop()
+		w = max(w, d.Size.X)
+	}
+	h := gtx.Constraints.Max.Y
+	FillRect(gtx, image.Rect(0, 0, w+gtx.Dp(1), h), p.HeaderBg)
+	y := 0
+	for i, t := range n.Tabs {
+		o := offset(gtx, 0, y)
+		d := n.sideTab(gtx, th, t, i == n.Selected, w)
+		o.Pop()
+		y += d.Size.Y
+	}
+	FillRect(gtx, image.Rect(w, 0, w+gtx.Dp(1), h), p.BorderColor)
+	return layout.Dimensions{Size: image.Pt(w+gtx.Dp(1), h)}
+}
+
+func (n *Notebook) sideTab(gtx layout.Context, th *Theme, t *Tab, selected bool, width int) layout.Dimensions {
+	p := th.Pal
+	hovered := t.hover.Update(gtx)
+	weight := font.Normal
+	if selected {
+		weight = font.Medium
+	}
+	call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min = image.Point{}
+		if width > 0 {
+			// The tab is a stretched button: its content is centered.
+			gtx.Constraints.Min.X = width - gtx.Dp(1)
+		}
+		return layout.Inset{Left: 10, Right: 10, Top: 5, Bottom: 5}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return n.sideTabContent(gtx, th, t, weight)
+			})
+		})
+	})
+	// CSS border-right 1px on every tab.
+	size := image.Pt(max(width, d.Size.X+gtx.Dp(1)), d.Size.Y)
+	if width == 0 {
+		return layout.Dimensions{Size: size}
+	}
+	area := clipRect(gtx, size)
+	// The hover area is a child of the button's, so both get the events.
+	t.click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		t.hover.Add(gtx)
+		pointer.CursorPointer.Add(gtx.Ops)
+		return layout.Dimensions{Size: size}
+	})
+	area.Pop()
+	switch {
+	case selected:
+		FillRect(gtx, image.Rectangle{Max: size}, p.BgColor)
+		FillRect(gtx, image.Rect(0, 0, gtx.Dp(2), size.Y), p.SelectedBg)
+	case hovered:
+		FillRect(gtx, image.Rectangle{Max: size}, p.RowHover)
+	}
+	FillRect(gtx, image.Rect(size.X-gtx.Dp(1), 0, size.X, size.Y), p.BorderColor)
+	call.Add(gtx.Ops)
+	return layout.Dimensions{Size: size}
+}
+
+func (n *Notebook) sideTabContent(gtx layout.Context, th *Theme, t *Tab, weight font.Weight) layout.Dimensions {
+	p := th.Pal
+	var kids []layout.FlexChild
+	if t.Icon != 0 {
+		ic := t.IconColor
+		if ic == (color.NRGBA{}) {
+			ic = p.FgColor
+		}
+		kids = append(kids,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return th.IconBox(gtx, t.Icon, 16, ic) }),
+			layout.Rigid(layout.Spacer{Width: 6}.Layout))
+	}
+	kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.Y = gtx.Dp(16)
+		return layout.W.Layout(gtx, Text{S: t.Title, Size: Em(0.9), Color: p.FgColor, Weight: weight, MaxLines: 1}.Widget(th))
+	}))
+	return layout.Flex{Alignment: layout.Middle}.Layout(gtx, kids...)
+}

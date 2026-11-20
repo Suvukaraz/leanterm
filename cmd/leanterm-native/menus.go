@@ -81,7 +81,7 @@ func (u *ui) handleClicks(gtx layout.Context) {
 		u.dropMsg = "The Wake On LAN window is not implemented yet"
 	}
 	if clicked(&b.prefs) {
-		u.dropMsg = "The settings dialog is not implemented yet"
+		u.prefs.Open("")
 	}
 	if clicked(&b.lock) {
 		u.toggleLock()

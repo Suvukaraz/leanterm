@@ -97,8 +97,9 @@ func (th *Theme) checkButton(gtx layout.Context, b *widget.Bool, label string, d
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return th.checkbox(gtx, b.Value, disabled) }),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				// The box's margin-right (4px) is the gap to the label.
-				return Text{S: label, Color: th.Pal.FgColor, LineHeight: 1.2, MaxLines: 1}.Layout(gtx, th)
+				// The box's margin-right (4px) is the gap to the label; a label
+				// wraps when the room is short (a grid column).
+				return Text{S: label, Color: th.Pal.FgColor, LineHeight: 1.2}.Layout(gtx, th)
 			}),
 		)
 	})

@@ -117,6 +117,11 @@ func (c *Combo) Layout(gtx layout.Context, th *Theme, opts []ComboOption, disabl
 		widest = max(widest, d.Size.X)
 	}
 	chevron := gtx.Dp(27)
+	// A parent that stretches the box (a grid cell, a growing row child)
+	// passes its width as the minimum.
+	if extra := gtx.Constraints.Min.X - gtx.Dp(8); extra > widest+chevron {
+		widest = extra - chevron
+	}
 	dims := c.click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min = image.Point{}
 		call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {

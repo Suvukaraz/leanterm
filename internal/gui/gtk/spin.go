@@ -1,13 +1,18 @@
 package gtk
 
 import (
+	"image"
 	"math"
 	"strconv"
 	"strings"
 
+	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -28,6 +33,7 @@ type SpinButton struct {
 	focused bool
 	scroll  float32
 	hover   Hover
+	up, dn  widget.Clickable
 }
 
 // Changed reports whether the user changed the value since the last call.
@@ -132,6 +138,12 @@ func (s *SpinButton) Layout(gtx layout.Context, th *Theme, disabled bool) layout
 			s.commit()
 		}
 	}
+	if s.up.Clicked(gtx) && !disabled {
+		s.step(1)
+	}
+	if s.dn.Clicked(gtx) && !disabled {
+		s.step(-1)
+	}
 	focused := gtx.Focused(&s.editor)
 	if s.focused && !focused {
 		s.commit() // leaving the entry confirms the value
@@ -151,7 +163,8 @@ func (s *SpinButton) Layout(gtx layout.Context, th *Theme, disabled bool) layout
 	// CSS: padding 2px 4px, border 1px, no radius; header color, base on
 	// hover, the focus color while focused.
 	call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Left: 5, Right: 5, Top: 3, Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		// The right inset leaves room for WebKit's stepper.
+		return layout.Inset{Left: 5, Right: 19, Top: 3, Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return ed.Layout(gtx)
 		})
@@ -175,5 +188,51 @@ func (s *SpinButton) Layout(gtx layout.Context, th *Theme, disabled bool) layout
 	s.hover.Add(gtx)
 	area.Pop()
 	call.Add(gtx.Ops)
+	s.stepper(gtx, th, d.Size, disabled)
 	return d
+}
+
+// stepper draws the up/down arrows of an <input type=number> as WebKitGTK
+// shows them: a small bordered box at the right, split in two halves.
+func (s *SpinButton) stepper(gtx layout.Context, th *Theme, size image.Point, disabled bool) {
+	p := th.Pal
+	w, h := gtx.Dp(12), min(gtx.Dp(16), size.Y-gtx.Dp(4))
+	x, y := size.X-w-gtx.Dp(4), (size.Y-h)/2
+	defer op.Offset(image.Pt(x, y)).Push(gtx.Ops).Pop()
+	border, col := p.BorderColor, p.FgColor
+	if disabled {
+		border, col = faded(border, 0.5), faded(col, 0.5)
+	}
+	box(gtx, image.Pt(w, h), gtx.Dp(2), p.BaseColor, border)
+	half := h / 2
+	for i, c := range []*widget.Clickable{&s.up, &s.dn} {
+		top := i * half
+		o := op.Offset(image.Pt(0, top)).Push(gtx.Ops)
+		c.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			if !disabled {
+				pointer.CursorDefault.Add(gtx.Ops)
+			}
+			return layout.Dimensions{Size: image.Pt(w, half)}
+		})
+		if c.Hovered() && !disabled {
+			FillRect(gtx, image.Rect(gtx.Dp(1), 0, w-gtx.Dp(1), half), p.RowHover)
+		}
+		// A filled triangle, 6x3px, centered in the half.
+		cx, cy := float32(w)/2, float32(half)/2
+		tw, th2 := float32(gtx.Dp(3)), float32(gtx.Dp(unit.Dp(1.5)))
+		var path clip.Path
+		path.Begin(gtx.Ops)
+		if i == 0 {
+			path.MoveTo(f32.Pt(cx-tw, cy+th2))
+			path.LineTo(f32.Pt(cx+tw, cy+th2))
+			path.LineTo(f32.Pt(cx, cy-th2))
+		} else {
+			path.MoveTo(f32.Pt(cx-tw, cy-th2))
+			path.LineTo(f32.Pt(cx+tw, cy-th2))
+			path.LineTo(f32.Pt(cx, cy+th2))
+		}
+		path.Close()
+		paint.FillShape(gtx.Ops, col, clip.Outline{Path: path.End()}.Op())
+		o.Pop()
+	}
 }

@@ -276,11 +276,19 @@ type FontSetting struct {
 
 // Label is how font buttons show the font: "Family Style Size".
 func (f FontSetting) Label() string {
+	if f.Family == "" {
+		return "(Default system font)"
+	}
 	s := f.Family
-	if f.Style != "" && !strings.EqualFold(f.Style, "Regular") && !strings.EqualFold(f.Style, "Book") {
+	switch strings.ToLower(f.Style) {
+	case "", "regular", "book", "normal", "roman":
+	default:
 		s += " " + f.Style
 	}
-	return s + " " + strconv.FormatFloat(f.Size, 'f', -1, 64)
+	if f.Size != 0 {
+		s += " " + strconv.FormatFloat(f.Size, 'f', -1, 64)
+	}
+	return s
 }
 
 // previewShaper shapes text in one installed face (font previews).
@@ -309,7 +317,8 @@ func (ps *previewShaper) get(family, style string) (*text.Shaper, font.Font, boo
 func (th *Theme) previewLabel(gtx layout.Context, ps *previewShaper, f FontSetting, size unit.Sp, s string, c color.NRGBA, maxLines int) layout.Dimensions {
 	sh, face, ok := ps.get(f.Family, f.Style)
 	if !ok {
-		return Text{S: s, Size: size, Color: c, MaxLines: maxLines}.Layout(gtx, th)
+		// FontButton.svelte falls back to monospace.
+		return Text{S: s, Size: size, Color: c, MaxLines: maxLines, Mono: true}.Layout(gtx, th)
 	}
 	l := material.Label(th.Theme, size, s)
 	l.Shaper, l.Font, l.Color, l.MaxLines = sh, face, c, maxLines
@@ -332,6 +341,8 @@ func (fb *FontButton) Layout(gtx layout.Context, th *Theme, f FontSetting, disab
 	if disabled {
 		gtx = gtx.Disabled()
 	}
+	// A parent that stretches the button passes its width as the minimum.
+	minW := gtx.Constraints.Min.X - gtx.Dp(2)
 	return layout.UniformInset(1).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return fb.click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min = image.Point{}
@@ -340,6 +351,7 @@ func (fb *FontButton) Layout(gtx layout.Context, th *Theme, f FontSetting, disab
 					return th.previewLabel(gtx, &fb.preview, f, FontSize, f.Label(), p.FgColor, 1)
 				})
 			})
+			d.Size.X = max(d.Size.X, minW)
 			bg, border := p.BtnBg, p.BtnBorder
 			if fb.click.Hovered() && !disabled {
 				bg, border = p.BtnHoverBg, p.BtnHoverBorder

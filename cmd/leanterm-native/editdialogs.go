@@ -6,6 +6,7 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/config"
 	"github.com/Suvukaraz/leanterm/internal/gui/form"
 	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
+	"github.com/Suvukaraz/leanterm/internal/services"
 )
 
 // Stage 6: the dialogs that edit the configuration.
@@ -38,6 +39,22 @@ func (u *ui) setupEditDialogs(readOnly bool) {
 		return u.systemSvc.ChooseFile(title, dir, folder)
 	}
 	e.F.Changed = u.w.Invalidate
+
+	p := &u.prefs
+	p.Config = u.configSvc
+	p.ChooseSaveFile = u.systemSvc.ChooseSaveFile
+	p.OpenFolder = func(dir string) { _ = u.systemSvc.OpenPath(dir) }
+	p.LogsDir, p.ScreenshotsDir = u.systemSvc.SessionLogsDir, u.systemSvc.ScreenshotsDir
+	p.Invalidate = u.w.Invalidate
+	p.F.ChooseFile = e.F.ChooseFile
+	p.F.Changed = u.w.Invalidate
+	p.Saved = func(before, after services.Settings) {
+		// The new preference wins over a dragged panel width.
+		if before.SFTPBrowser.Width != after.SFTPBrowser.Width {
+			u.sftpWidth = 0
+			u.noteUIStateSoon()
+		}
+	}
 }
 
 // openEdit opens the Edit Connection dialog for the selected connection.
