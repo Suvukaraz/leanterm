@@ -1,0 +1,4 @@
+#!/bin/sh
+# LeanEdit on its own, the text editor of LeanTerm: leanedit [files...]
+# runs leanterm -leanedit from the same folder.
+exec "$(dirname "$0")/leanterm" -leanedit "$@"

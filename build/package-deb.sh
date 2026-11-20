@@ -10,12 +10,12 @@ PKG_NAME="leanterm"
 DEB_NAME="${PKG_NAME}_${VERSION}_${ARCH}.deb"
 
 cd "$ROOT_DIR"
-# The binary embeds frontend/dist, so build the frontend first.
-echo "Building frontend..."
-npm --prefix frontend run build
-
+# The Gio GUI with the libghostty engine: build libghostty first
+# (build/gio/build-libghostty.sh) and set PKG_CONFIG_PATH to its prefix.
+# LEANTERM_TAGS= builds without libghostty (the vt engine only).
+TAGS="${LEANTERM_TAGS-ghostty}"
 echo "Building LeanTerm binary..."
-go build -o "$ROOT_DIR/bin/leanterm" .
+go build ${TAGS:+-tags "$TAGS"} -trimpath -ldflags="-s -w" -o "$ROOT_DIR/bin/leanterm" ./cmd/leanterm-native
 
 DEB_ROOT="$ROOT_DIR/build/deb-root"
 rm -rf "$DEB_ROOT"
@@ -51,7 +51,8 @@ EOF
 chmod 0644 "$DEB_ROOT/usr/share/applications/org.leanterm.LeanTerm.desktop"
 
 # LeanEdit: the text editor on its own (own menu entry, "Open with" for text files)
-sed "s|^Exec=leanterm|Exec=/usr/bin/leanterm|" "$ROOT_DIR/build/linux/org.leanterm.LeanEdit.desktop" \
+install -m 0755 "$ROOT_DIR/build/linux/leanedit" "$DEB_ROOT/usr/bin/leanedit"
+sed "s|^Exec=leanedit|Exec=/usr/bin/leanedit|" "$ROOT_DIR/build/linux/org.leanterm.LeanEdit.desktop" \
     > "$DEB_ROOT/usr/share/applications/org.leanterm.LeanEdit.desktop"
 chmod 0644 "$DEB_ROOT/usr/share/applications/org.leanterm.LeanEdit.desktop"
 
@@ -71,7 +72,7 @@ Section: net
 Priority: optional
 Architecture: ${ARCH}
 Maintainer: LeanTerm Project <info@leanterm.org>
-Depends: libc6 (>= 2.34), libgtk-4-1 (>= 4.10), libwebkitgtk-6.0-4
+Depends: libc6 (>= 2.34), libegl1, libgles2, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libx11-xcb1, libxcursor1, libxfixes3, libxrender1, libffi8
 Conflicts: linxterm
 Replaces: linxterm
 Recommends: xdg-utils, openssh-client, keepassxc

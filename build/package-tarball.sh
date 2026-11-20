@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the generic Linux archive used by install.sh on distributions without
-# .deb packages (Fedora, openSUSE, Arch, ...): binary, desktop entries
-# (LeanTerm and LeanEdit), icons.
+# .deb packages (Fedora, openSUSE, Arch, ...): binary, the leanedit launcher,
+# desktop entries (LeanTerm and LeanEdit), icons.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,12 +12,12 @@ ARCH="amd64"
 NAME="leanterm_${VERSION}_linux_${ARCH}"
 
 cd "$ROOT_DIR"
-# The binary embeds frontend/dist, so build the frontend first.
-echo "Building frontend..."
-npm --prefix frontend run build
-
+# The Gio GUI with the libghostty engine: build libghostty first
+# (build/gio/build-libghostty.sh) and set PKG_CONFIG_PATH to its prefix.
+# LEANTERM_TAGS= builds without libghostty (the vt engine only).
+TAGS="${LEANTERM_TAGS-ghostty}"
 echo "Building LeanTerm binary..."
-go build -o "$ROOT_DIR/bin/leanterm" .
+go build ${TAGS:+-tags "$TAGS"} -trimpath -ldflags="-s -w" -o "$ROOT_DIR/bin/leanterm" ./cmd/leanterm-native
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -25,6 +25,7 @@ DIR="$STAGE/$NAME"
 mkdir -p "$DIR/icons"
 
 install -m 0755 "$ROOT_DIR/bin/leanterm" "$DIR/leanterm"
+install -m 0755 "$ROOT_DIR/build/linux/leanedit" "$DIR/leanedit"
 for size in 16 24 32 48 64 128 256 512; do
     install -m 0644 "$ROOT_DIR/build/linux/icons/leanterm-${size}.png" "$DIR/icons/leanterm-${size}.png"
     install -m 0644 "$ROOT_DIR/build/linux/icons/leanedit-${size}.png" "$DIR/icons/leanedit-${size}.png"
@@ -49,7 +50,7 @@ StartupWMClass=org.leanterm.LeanTerm
 Keywords=ssh;telnet;sftp;terminal;connection;
 EOF
 chmod 0644 "$DIR/org.leanterm.LeanTerm.desktop"
-# LeanEdit, the text editor on its own; install.sh sets the absolute Exec path.
+# LeanEdit, the text editor on its own (its Exec is leanedit); install.sh sets the absolute path.
 install -m 0644 "$ROOT_DIR/build/linux/org.leanterm.LeanEdit.desktop" "$DIR/org.leanterm.LeanEdit.desktop"
 
 mkdir -p "$ROOT_DIR/bin"

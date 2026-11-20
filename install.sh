@@ -155,9 +155,11 @@ ldconfig_p() {
 	done
 }
 
+# The libraries LeanTerm links against (a desktop normally has them already).
 missing_libraries() {
 	cache=$(ldconfig_p)
-	for lib in libgtk-4.so.1 libwebkitgtk-6.0.so.4 libjavascriptcoregtk-6.0.so.1 libsoup-3.0.so.0; do
+	for lib in libEGL.so.1 libGLESv2.so.2 libwayland-client.so.0 libwayland-egl.so.1 libwayland-cursor.so.0 \
+		libxkbcommon.so.0 libxkbcommon-x11.so.0 libX11.so.6 libX11-xcb.so.1 libXcursor.so.1 libXfixes.so.3 libXrender.so.1; do
 		if [ -n "$cache" ]; then
 			echo "$cache" | grep -q "$lib" || echo "$lib"
 		elif ! ls /usr/lib*/"$lib" /usr/lib/*/"$lib" >/dev/null 2>&1; then
@@ -166,28 +168,11 @@ missing_libraries() {
 	done
 }
 
-# LeanTerm uses the file dialogs of GTK 4.10 (gtk_file_dialog_*); older GTK 4
-# versions load, but the program would crash at the first file dialog.
-check_gtk() {
-	lib=$(ldconfig_p | sed -n 's/.*libgtk-4\.so\.1 .*=> //p' | head -n 1)
-	[ -n "$lib" ] || return 0 # missing libraries are reported by verify
-	# -a and LC_ALL=C: search the binary file byte-wise in any locale.
-	LC_ALL=C grep -a -q gtk_file_dialog_new "$lib" ||
-		die "the GTK 4 of $(distro_name) is older than 4.10, which LeanTerm needs"
-}
-
 # ---- Installation -------------------------------------------------------------------
 
 install_deb() {
 	say "Updating the package lists"
 	as_root apt-get update -qq
-	if ! apt-cache show libwebkitgtk-6.0-4 >/dev/null 2>&1; then
-		die "$(distro_name) has no WebKitGTK 6.0 (libwebkitgtk-6.0-4); Debian 13, Ubuntu 24.04 or a newer derivative is required"
-	fi
-	gtk=$(LC_ALL=C apt-cache policy libgtk-4-1 | sed -n 's/^ *Candidate: *//p')
-	if [ -z "$gtk" ] || [ "$gtk" = "(none)" ] || ! dpkg --compare-versions "$gtk" ge 4.10; then
-		die "$(distro_name) has GTK ${gtk:-(none)}, but LeanTerm needs GTK 4.10 or newer; Debian 13, Ubuntu 24.04 or a newer derivative is required"
-	fi
 	file="leanterm_${VERSION}_amd64.deb"
 	download "$file"
 	# apt reads the file as user _apt.
@@ -201,26 +186,31 @@ install_deb() {
 install_dependencies() { # family
 	case "$1" in
 	dnf)
-		say "Installing GTK 4 and WebKitGTK 6.0 (dnf)"
-		as_root dnf install -y gtk4 webkitgtk6.0 ||
-			die "could not install gtk4 and webkitgtk6.0 (RHEL/Alma/Rocky need version 10 or newer)"
+		say "Installing the graphics and window system libraries (dnf)"
+		as_root dnf install -y mesa-libEGL mesa-libGLES libwayland-client libwayland-egl libwayland-cursor \
+			libxkbcommon libxkbcommon-x11 libX11 libX11-xcb libXcursor libXfixes libXrender libffi ||
+			die "could not install the libraries of LeanTerm (EGL, GLES, Wayland, X11, xkbcommon)"
 		;;
 	zypper)
-		say "Installing GTK 4 and WebKitGTK 6.0 (zypper)"
-		as_root zypper --non-interactive install libgtk-4-1 libwebkitgtk-6_0-4 ||
-			die "could not install libgtk-4-1 and libwebkitgtk-6_0-4 (openSUSE Tumbleweed or Leap 16 is required)"
+		say "Installing the graphics and window system libraries (zypper)"
+		as_root zypper --non-interactive install Mesa-libEGL1 libGLESv2-2 libwayland-client0 libwayland-egl1 \
+			libwayland-cursor0 libxkbcommon0 libxkbcommon-x11-0 libX11-6 libX11-xcb1 libXcursor1 libXfixes3 \
+			libXrender1 libffi8 ||
+			die "could not install the libraries of LeanTerm (EGL, GLES, Wayland, X11, xkbcommon)"
 		;;
 	pacman)
-		say "Installing GTK 4 and WebKitGTK 6.0 (pacman)"
+		say "Installing the graphics and window system libraries (pacman)"
 		# Without a package database (fresh system) a full update is needed first.
-		as_root pacman -S --needed --noconfirm gtk4 webkitgtk-6.0 2>/dev/null ||
-			as_root pacman -Syu --needed --noconfirm gtk4 webkitgtk-6.0 ||
-			die "could not install gtk4 and webkitgtk-6.0"
+		pkgs="libglvnd mesa wayland libxkbcommon libxkbcommon-x11 libx11 libxcursor libxfixes libxrender libffi"
+		# shellcheck disable=SC2086
+		as_root pacman -S --needed --noconfirm $pkgs 2>/dev/null ||
+			as_root pacman -Syu --needed --noconfirm $pkgs ||
+			die "could not install the libraries of LeanTerm"
 		;;
 	*)
 		missing=$(missing_libraries)
 		if [ -n "$missing" ]; then
-			die "$(distro_name) is not supported automatically. Install GTK 4 and WebKitGTK 6.0 so that these libraries exist, then run the installer again: $(echo $missing)"
+			die "$(distro_name) is not supported automatically. Install the EGL, GLES, Wayland, X11 and xkbcommon libraries so that these exist, then run the installer again: $(echo $missing)"
 		fi
 		;;
 	esac
@@ -248,7 +238,8 @@ install_tarball() {
 	put 0644 "$src/icons/leanterm.svg" "$PREFIX/share/icons/hicolor/scalable/apps/leanterm.svg"
 	# LeanEdit, the text editor on its own (archives of older releases do not have it)
 	if [ -f "$src/org.leanterm.LeanEdit.desktop" ]; then
-		sed "s|^Exec=leanterm|Exec=$PREFIX/bin/leanterm|" "$src/org.leanterm.LeanEdit.desktop" >"$TMP/org.leanterm.LeanEdit.desktop"
+		put 0755 "$src/leanedit" "$PREFIX/bin/leanedit"
+		sed "s|^Exec=leanedit|Exec=$PREFIX/bin/leanedit|" "$src/org.leanterm.LeanEdit.desktop" >"$TMP/org.leanterm.LeanEdit.desktop"
 		put 0644 "$TMP/org.leanterm.LeanEdit.desktop" "$PREFIX/share/applications/org.leanterm.LeanEdit.desktop"
 		for size in 16 24 32 48 64 128 256 512; do
 			put 0644 "$src/icons/leanedit-$size.png" "$PREFIX/share/icons/hicolor/${size}x${size}/apps/leanedit.png"
@@ -347,7 +338,6 @@ main() {
 		install_deb
 	else
 		install_dependencies "$family"
-		check_gtk
 		install_tarball
 	fi
 	verify
