@@ -82,7 +82,10 @@ func (t *Tracker) SetFollow(tmpID string, on bool) {
 	}
 	stop = make(chan struct{})
 	t.follow[tmpID] = stop
-	go t.poll(tmpID, stop)
+	// The starting folder is read now: a "cd" right after turning following
+	// on is a change, not the start.
+	last, _ := ProcessCwd(t.pidOf(tmpID))
+	go t.poll(tmpID, stop, last)
 }
 
 // Stop ends following for tmpID (session closed).
@@ -90,10 +93,9 @@ func (t *Tracker) Stop(tmpID string) {
 	t.SetFollow(tmpID, false)
 }
 
-func (t *Tracker) poll(tmpID string, stop chan struct{}) {
+func (t *Tracker) poll(tmpID string, stop chan struct{}, last string) {
 	ticker := time.NewTicker(CwdPollInterval)
 	defer ticker.Stop()
-	last, _ := ProcessCwd(t.pidOf(tmpID))
 	for {
 		select {
 		case <-stop:
