@@ -401,13 +401,20 @@ func (n *Notebook) dragIndicator(gtx layout.Context, p *Palette) {
 
 // Paned splits its space between two widgets with a 6px handle
 // (Paned.svelte); dragging the handle moves the split.
+// NewPaned returns a Paned with an even split (Pos unset).
+func NewPaned() Paned { return Paned{Pos: -1} }
+
 type Paned struct {
 	// Vertical stacks the panes (row-resize); else they are side by side.
 	Vertical bool
-	// Pos is the size of the first pane in pixels (0 = half).
+	// Pos is the size of the first pane in pixels. Negative (the zero
+	// value no longer means anything) splits the panes evenly.
 	Pos int
 	// MinFirst and MinSecond keep the panes from shrinking below a size.
 	MinFirst, MinSecond unit.Dp
+	// Force50 keeps the panes at an even split and ignores the drag
+	// (the "Force split tabs to 50%" option of the web GUI).
+	Force50 bool
 
 	drag     widgetDrag
 	dragging bool
@@ -421,13 +428,18 @@ func (pn *Paned) Layout(gtx layout.Context, th *Theme, first, second layout.Widg
 	if pn.Vertical {
 		total = size.Y
 	}
-	if pn.Pos == 0 {
+	if pn.Force50 {
 		pn.Pos = (total - handle) / 2
+		pn.dragging = false
+	} else {
+		if pn.Pos < 0 {
+			pn.Pos = (total - handle) / 2
+		}
+		move, active := pn.drag.update(gtx, pn, pn.Vertical)
+		pn.Pos += move
+		pn.dragging = active
+		pn.Pos = max(gtx.Dp(pn.MinFirst), min(pn.Pos, total-handle-gtx.Dp(pn.MinSecond)))
 	}
-	move, active := pn.drag.update(gtx, pn, pn.Vertical)
-	pn.Pos += move
-	pn.dragging = active
-	pn.Pos = max(gtx.Dp(pn.MinFirst), min(pn.Pos, total-handle-gtx.Dp(pn.MinSecond)))
 
 	rect := func(a, b int) image.Rectangle {
 		if pn.Vertical {

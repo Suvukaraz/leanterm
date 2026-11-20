@@ -214,8 +214,7 @@ func (m *Menu) draw(gtx layout.Context, th *Theme, pos image.Point, root bool) {
 	if len(m.clicks) != len(m.Items) {
 		m.clicks = make([]widget.Clickable, len(m.Items))
 	}
-	o := offset(gtx, pos.X, pos.Y)
-	defer o.Pop()
+	orig := gtx.Constraints
 	// min-width 200px, max-width 420px, else as wide as the widest row.
 	width := gtx.Dp(200)
 	for i, it := range m.Items {
@@ -254,6 +253,25 @@ func (m *Menu) draw(gtx layout.Context, th *Theme, pos image.Point, root bool) {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
 		})
 	})
+	gtx.Constraints = orig
+	// Keep the open menu inside the window (the position is usually the
+	// pointer, which can be near the edge).
+	if max := gtx.Constraints.Max; max.X > 0 && max.Y > 0 {
+		if pos.X+d.Size.X > max.X {
+			pos.X = max.X - d.Size.X
+		}
+		if pos.Y+d.Size.Y > max.Y {
+			pos.Y = max.Y - d.Size.Y
+		}
+		if pos.X < 0 {
+			pos.X = 0
+		}
+		if pos.Y < 0 {
+			pos.Y = 0
+		}
+	}
+	o := offset(gtx, pos.X, pos.Y)
+	defer o.Pop()
 	// box-shadow 0 6px 18px, border 1px, radius 5px.
 	for i := 1; i <= 4; i++ {
 		s := gtx.Dp(unit.Dp(i * 3))
