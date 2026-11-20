@@ -46,7 +46,9 @@ func (m *messageDialog) Layout(gtx layout.Context, th *gtk.Theme) bool {
 	}
 	m.dlg.Title = m.title
 	m.dlg.Width = 440
-	m.dlg.Closable = false
+	// The web's MessageDialog closes on Escape (Dialog onclose -> 'cancel'),
+	// which the callers treat as "No"; keep that.
+	m.dlg.Closable = true
 	yes, no := m.yes.Clicked(gtx), m.no.Clicked(gtx)
 	m.dlg.Layout(gtx, th, func(gtx layout.Context) layout.Dimensions {
 		p := th.Pal
@@ -81,6 +83,10 @@ func (m *messageDialog) Layout(gtx layout.Context, th *gtk.Theme) bool {
 			return b.Layout(gtx, th, &m.yes)
 		},
 	)
+	// Escape (or the ×) closes like "No": never a Yes, never an answer.
+	if esc := m.dlg.CloseRequested(); esc {
+		m.open = false
+	}
 	if yes || no {
 		m.open = false
 	}
