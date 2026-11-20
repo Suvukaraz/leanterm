@@ -14,6 +14,7 @@ import (
 	"image"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -123,6 +124,14 @@ func main() {
 			log.Print("self-test: quitting")
 			u.quitAfter.Store(true)
 			w.Invalidate()
+			// A self-test must end: without a frame to quit in, report
+			// where the program hangs.
+			time.AfterFunc(10*time.Second, func() {
+				buf := make([]byte, 1<<20)
+				n := runtime.Stack(buf, true)
+				log.Printf("self-test: no frame to quit in after 10s; goroutines:\n%s", buf[:n])
+				os.Exit(3)
+			})
 		})
 	}
 
