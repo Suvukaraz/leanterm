@@ -250,9 +250,6 @@ func chromaLexer(id string) chroma.Lexer {
 	return codeedit.LexerByName(l.lexer)
 }
 
-// customMode is a lexer of customModes.ts (TODO 7c).
-func customMode(id string) chroma.Lexer { return nil }
-
 type langGroup struct {
 	label string
 	langs []*language

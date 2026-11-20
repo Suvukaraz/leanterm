@@ -8,6 +8,7 @@ import (
 	"github.com/oligo/gvcode/gutter"
 	"github.com/oligo/gvcode/gutter/providers"
 	"github.com/oligo/gvcode/textstyle/syntax"
+	"image/color"
 )
 
 // EditorOption defines a function to configure the editor.
@@ -215,5 +216,12 @@ func WithDefaultGutters() EditorOption {
 func WithGutterStyle(bg, border gvcolor.Color) EditorOption {
 	return func(e *Editor) {
 		e.gutterBg, e.gutterBorder = bg, border
+	}
+}
+
+// WithWhitespace shows spaces and tabs in col (LeanTerm).
+func WithWhitespace(show bool, col color.NRGBA) EditorOption {
+	return func(e *Editor) {
+		e.showWhitespace, e.whitespaceColor = show, gvcolor.MakeColor(col)
 	}
 }

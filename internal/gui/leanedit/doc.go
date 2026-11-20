@@ -84,6 +84,7 @@ type look struct {
 	tabWidth int
 	softTab  bool
 	wrap     bool
+	spaces   bool
 	pal      *gtk.Palette
 }
 
@@ -116,7 +117,7 @@ func scheme(p *gtk.Palette) syntax.ColorScheme {
 
 // apply sets the look on the editor when it changed.
 func (t *Tab) apply(l look, typeface font.Typeface) {
-	key := l.family + "|" + l.pal.Name + "|" + ftoa(l.size) + "|" + itoa(l.tabWidth) + "|" + btoa(l.softTab) + "|" + btoa(l.wrap)
+	key := l.family + "|" + l.pal.Name + "|" + ftoa(l.size) + "|" + itoa(l.tabWidth) + "|" + btoa(l.softTab) + "|" + btoa(l.wrap) + "|" + btoa(l.spaces)
 	if key == t.styled {
 		return
 	}
@@ -135,6 +136,8 @@ func (t *Tab) apply(l look, typeface font.Typeface) {
 		// .cm-gutters: the header color with a border on the right.
 		gvcode.WithGutterStyle(gvcolor.MakeColor(l.pal.HeaderBg), gvcolor.MakeColor(l.pal.BorderColor)),
 		gvcode.WrapLine(l.wrap),
+		// .cm-highlightSpace / .cm-highlightTab: the muted color.
+		gvcode.WithWhitespace(l.spaces, l.pal.MutedFg),
 	)
 	t.retoken = true
 }

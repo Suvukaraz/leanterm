@@ -510,7 +510,7 @@ func (a *App) look() look {
 	if tw <= 0 {
 		tw = 4
 	}
-	return look{family: ed.Font.Family, size: size, tabWidth: tw, softTab: !ed.IndentWithTabs, wrap: a.wrap(), pal: a.ui_.th.Pal}
+	return look{family: ed.Font.Family, size: size, tabWidth: tw, softTab: !ed.IndentWithTabs, wrap: a.wrap(), spaces: a.whitespace(), pal: a.ui_.th.Pal}
 }
 
 func (a *App) wrap() bool {

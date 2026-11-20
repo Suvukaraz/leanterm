@@ -325,3 +325,56 @@ func (e *TextView) adjustDescentPadding() int {
 	leading := (e.lineHeight - height).Round()
 	return int(math.Round(float64(float32(leading) / 2.0)))
 }
+
+// PaintWhitespace marks spaces with a dot and tabs with a line across their
+// width (LeanTerm: CodeMirror's highlightWhitespace).
+func (e *TextView) PaintWhitespace(gtx layout.Context, col color.NRGBA) {
+	viewport := image.Rectangle{Min: e.scrollOff, Max: e.viewSize.Add(e.scrollOff)}
+	dot := max(1, gtx.Dp(unit.Dp(1.5)))
+	var path clip.Path
+	path.Begin(gtx.Ops)
+	any := false
+	for _, line := range e.layouter.Lines {
+		if line.YOff+line.Descent.Ceil() < viewport.Min.Y {
+			continue
+		}
+		if line.YOff-line.Ascent.Ceil() > viewport.Max.Y {
+			break
+		}
+		off := line.RuneOff
+		for _, g := range line.Glyphs {
+			if g.Runes == 0 {
+				continue
+			}
+			r, err := e.ReadRuneAt(off)
+			off += int(g.Runes)
+			if err != nil || (r != ' ' && r != '\t') {
+				continue
+			}
+			x := float32(g.X.Round()-viewport.Min.X) + 0
+			w := float32(g.Advance.Round())
+			y := float32(line.YOff - viewport.Min.Y)
+			mid := y - float32(g.Ascent.Round())/3
+			any = true
+			if r == ' ' {
+				cx := x + w/2
+				path.MoveTo(f32.Pt(cx-float32(dot)/2, mid-float32(dot)/2))
+				path.LineTo(f32.Pt(cx+float32(dot)/2, mid-float32(dot)/2))
+				path.LineTo(f32.Pt(cx+float32(dot)/2, mid+float32(dot)/2))
+				path.LineTo(f32.Pt(cx-float32(dot)/2, mid+float32(dot)/2))
+				path.Close()
+			} else {
+				h := float32(max(1, gtx.Dp(1)))
+				path.MoveTo(f32.Pt(x+2, mid))
+				path.LineTo(f32.Pt(x+w-2, mid))
+				path.LineTo(f32.Pt(x+w-2, mid+h))
+				path.LineTo(f32.Pt(x+2, mid+h))
+				path.Close()
+			}
+		}
+	}
+	spec := path.End()
+	if any {
+		paint.FillShape(gtx.Ops, col, clip.Outline{Path: spec}.Op())
+	}
+}

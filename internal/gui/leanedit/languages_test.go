@@ -1,6 +1,10 @@
 package leanedit
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/alecthomas/chroma/v2"
+)
 
 // The cases of languages.test.ts.
 func TestDetectLanguage(t *testing.T) {
@@ -27,6 +31,36 @@ func TestLexers(t *testing.T) {
 	for _, l := range languages {
 		if l.lexer != "" && chromaLexer(l.id) == nil {
 			t.Errorf("%s: chroma has no lexer %q", l.id, l.lexer)
+		}
+	}
+}
+
+func TestCustomModes(t *testing.T) {
+	for id, src := range map[string]string{
+		"sshconfig": "Host web*\n  User root # admin\n  Port 22\n  ForwardAgent yes\n",
+		"crontab":   "MAILTO=a@b\n*/5 * * * * /bin/run \"$HOME\"\n@reboot x\n",
+		"ignore":    "# c\n!keep/**/*.go\n",
+		"conf":      "127.0.0.1 localhost # loop\n",
+	} {
+		l := chromaLexer(id)
+		if l == nil {
+			t.Fatalf("%s: no lexer", id)
+		}
+		it, err := l.Tokenise(nil, src)
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		var got string
+		kinds := map[chroma.TokenType]bool{}
+		for tok := it(); tok != chroma.EOF; tok = it() {
+			got += tok.Value
+			kinds[tok.Type] = true
+		}
+		if got != src {
+			t.Errorf("%s: tokens lose text: %q", id, got)
+		}
+		if !kinds[chroma.Comment] && id != "crontab" {
+			t.Errorf("%s: no comment token: %v", id, kinds)
 		}
 	}
 }
