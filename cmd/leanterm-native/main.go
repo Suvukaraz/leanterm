@@ -10,11 +10,11 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/Suvukaraz/leanterm/internal/gui/filedialog"
 	"image"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -41,6 +41,7 @@ func main() {
 	startShell := flag.Bool("start-shell", false, "open a local shell at startup")
 	startUUID := flag.String("start-uuid", "", "comma-separated saved connections (id or name, id:cluster) to open")
 	engine := flag.String("engine", "", "terminal engine for connections: ghostty or vt (default: "+term.Default()+")")
+	editFile := flag.String("edit", "", "open this file in LeanEdit at start (testing)")
 	quitAfter := flag.Duration("quit-after", 0, "self-test: quit after this time")
 	stats := flag.Bool("stats", false, "log the frames drawn per second")
 	flag.Parse()
@@ -83,9 +84,9 @@ func main() {
 	u.configSvc = services.NewConfigService(core.Store, core.Vault, core.Tree)
 	u.configSvc.SetEmitter(core.Bus)
 	u.sessionSvc = services.NewSessionService(core.Store, core.Sessions)
-	u.editorSvc = services.NewEditorService(core.Store, nil, core.Bus)
 	sftpMgr := services.NewSFTPService(nil, core.Sessions, core.Bus)
 	sftpMgr.SetStore(core.Store)
+	u.editorSvc = services.NewEditorService(core.Store, sftpMgr, core.Bus)
 	u.sftpSvc = sftpMgr
 	u.localFS = services.NewLocalFSService(core.Sessions, core.Bus)
 	u.localFS.SetStore(core.Store)
@@ -96,9 +97,15 @@ func main() {
 	u.systemSvc.SetStore(core.Store)
 	u.systemSvc.SetUnlockHandler(func(pwd string) error { return core.Vault.Unlock(pwd) })
 	u.setupEditDialogs(*readOnly)
-	// The editor windows are stage 7; until then nothing is unsaved and the
-	// "show the editor" path reports that LeanEdit is not implemented yet.
-	u.editorSvc.SetGUI(u.host(), editorWindows{})
+	// LeanEdit runs in its own window next to the main window.
+	u.editorWins = &editorWindows{u: u}
+	u.editorSvc.SetGUI(u.host(), u.editorWins)
+	u.editorWins.watchEditorEvents(core.Bus)
+	if *editFile != "" {
+		if abs, err := filepath.Abs(*editFile); err == nil {
+			go func() { _ = u.editorSvc.Open(services.EditorFile{Kind: "local", Path: abs}) }()
+		}
+	}
 	// Quitting saves the configuration when "Auto save on exit" is set.
 	core.Sessions.SetPrompter(u.prompter)
 	core.Bus.On(events.SessionOpened, func(_ string, data any) {
@@ -258,18 +265,7 @@ func (u *ui) ChooseFile(d services.FileDialog) (string, error) {
 	return filedialog.Choose(filedialog.Options{Title: d.Title, Directory: d.Directory, Filename: d.Filename, Save: d.Save, Folder: d.Folder})
 }
 
-// editorWindows is the native GUI's side of LeanEdit (stage 7): nothing is
-// shown, nothing is unsaved.
-type editorWindows struct{}
-
-func (editorWindows) ShowEditor() error      { return fmt.Errorf("LeanEdit is not implemented yet") }
-func (editorWindows) CloseEditor()           {}
-func (editorWindows) EditorShown() bool      { return false }
-func (editorWindows) ShowEditorPrefs() error { return fmt.Errorf("LeanEdit is not implemented yet") }
-func (editorWindows) CloseEditorPrefs()      {}
-
 var _ services.Host = (*ui)(nil)
-var _ services.EditorWindows = editorWindows{}
 
 // countFrame logs the frames per second (-stats).
 func (u *ui) countFrame() {

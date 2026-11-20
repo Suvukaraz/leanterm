@@ -136,3 +136,12 @@ func DarkScheme() syntax.ColorScheme {
 	cs.AddStyle(ScopeInvalid, 0, hex("#ffb4b4"), none)
 	return cs
 }
+
+// LexerByName returns the chroma lexer of a name or alias (nil if unknown).
+func LexerByName(name string) chroma.Lexer {
+	l := lexers.Get(name)
+	if l == nil {
+		return nil
+	}
+	return chroma.Coalesce(l)
+}

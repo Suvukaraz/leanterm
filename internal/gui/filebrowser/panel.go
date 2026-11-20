@@ -43,6 +43,10 @@ type Panel struct {
 	ChooseFile func(title, dir string, folder bool) (string, error)
 	// OnClose hides the panel (× and "Hide browser").
 	OnClose func()
+	// OpenInEditor opens a file in LeanEdit ("Open in Editor"); nil hides
+	// the item. OpensInEditor decides what a double click opens there.
+	OpenInEditor  func(path string)
+	OpensInEditor func(path string) bool
 
 	sortBy  SortBy
 	sortAsc bool
@@ -648,6 +652,10 @@ func (p *Panel) activate(e sftpsvc.FileEntry) {
 		p.B.Navigate(e.Path)
 		return
 	}
+	if p.OpenInEditor != nil && p.OpensInEditor != nil && p.OpensInEditor(e.Path) {
+		p.OpenInEditor(e.Path)
+		return
+	}
 	p.B.OpenWithDefaultApp(e.Path)
 }
 
@@ -992,6 +1000,9 @@ func (p *Panel) openMenu(kind string, target *sftpsvc.FileEntry, st State) {
 		if e.IsDir {
 			items = append(items, gtk.MenuItem{ID: "open", Label: "Open"})
 		} else {
+			if p.OpenInEditor != nil {
+				items = append(items, gtk.MenuItem{ID: "openeditor", Label: "Open in Editor"})
+			}
 			items = append(items, gtk.MenuItem{ID: "openapp", Label: "Open with default application"})
 		}
 		if sftp {
@@ -1074,6 +1085,8 @@ func (p *Panel) menuAction(gtx layout.Context) {
 		}
 	case id == "open" && e != nil:
 		b.Navigate(e.Path)
+	case id == "openeditor" && e != nil && p.OpenInEditor != nil:
+		p.OpenInEditor(e.Path)
 	case id == "openapp" && e != nil:
 		b.OpenWithDefaultApp(e.Path)
 	case id == "download":

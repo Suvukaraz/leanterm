@@ -62,3 +62,5 @@ require (
 	golang.org/x/exp/shiny v0.0.0-20261014143641-f0251eb4aa3e // indirect
 	golang.org/x/sync v0.24.0 // indirect
 )
+
+replace github.com/oligo/gvcode => ./third_party/gvcode

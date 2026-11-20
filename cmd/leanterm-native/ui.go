@@ -79,6 +79,7 @@ type ui struct {
 	configSvc  *services.ConfigService
 	sessionSvc *services.SessionService
 	editorSvc  *services.EditorService
+	editorWins *editorWindows
 	systemSvc  *services.SystemService
 	sftpSvc    *services.SFTPService
 

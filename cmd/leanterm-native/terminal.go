@@ -140,6 +140,17 @@ func (u *ui) termShaper(family string) *text.Shaper {
 	if sh, ok := u.shapers[family]; ok {
 		return sh
 	}
+	sh := familyShaper(family)
+	if u.shapers == nil {
+		u.shapers = map[string]*text.Shaper{}
+	}
+	u.shapers[family] = sh
+	return sh
+}
+
+// familyShaper is a shaper with the GUI's fonts and an installed family
+// (regular, bold, italic, bold italic) under the family's name.
+func familyShaper(family string) *text.Shaper {
 	coll := append([]font.FontFace{}, fonts.Collection()...)
 	for _, v := range []struct {
 		style  string
@@ -151,12 +162,7 @@ func (u *ui) termShaper(family string) *text.Shaper {
 			coll = append(coll, f)
 		}
 	}
-	sh := text.NewShaper(text.NoSystemFonts(), text.WithCollection(coll))
-	if u.shapers == nil {
-		u.shapers = map[string]*text.Shaper{}
-	}
-	u.shapers[family] = sh
-	return sh
+	return text.NewShaper(text.NoSystemFonts(), text.WithCollection(coll))
 }
 
 // terminalShortcut handles TerminalView.svelte's application keys.

@@ -2,12 +2,15 @@ package main
 
 import (
 	"image"
+	"path"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
 
 	"github.com/Suvukaraz/leanterm/internal/events"
 	"github.com/Suvukaraz/leanterm/internal/gui/filebrowser"
+	"github.com/Suvukaraz/leanterm/internal/gui/leanedit"
+	"github.com/Suvukaraz/leanterm/internal/services"
 )
 
 // The file browser next to a terminal (stage 5): SFTP for SSH tabs, the
@@ -34,6 +37,23 @@ func (u *ui) filePanel(t *tab) *filebrowser.Panel {
 			return u.systemSvc.ChooseFile(title, dir, folder)
 		},
 		OnClose: func() { t.sftpOpen = false; u.focus = true },
+		// LeanTerm's editor: remote files are read and written directly
+		// over this SFTP session.
+		OpensInEditor: func(p string) bool {
+			return u.cfg.Editor.OpenTextFilesIn != "default_app" && leanedit.IsTextFile(p)
+		},
+		OpenInEditor: func(p string) {
+			f := services.EditorFile{Kind: "local", Path: p}
+			if t.kind != "local" {
+				f = services.EditorFile{Kind: "sftp", SFTPID: b.Snapshot().ID, ConnID: t.x.connID, Host: t.sess.Title(), Path: p}
+			}
+			go func() {
+				if err := u.editorSvc.Open(f); err != nil {
+					u.dropMsg = "Could not open '" + path.Base(p) + "' in the editor:\n" + err.Error()
+					u.w.Invalidate()
+				}
+			}()
+		},
 	}
 	return t.files
 }

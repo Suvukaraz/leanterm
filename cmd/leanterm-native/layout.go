@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"github.com/Suvukaraz/leanterm/internal/services"
 	"image"
 	"image/color"
 	"strings"
@@ -556,7 +556,8 @@ func (u *ui) globalKeys(gtx layout.Context) {
 
 // ---- drops -------------------------------------------------------------------
 
-// handleDrops reports files dropped from the desktop (the editor is stage 7).
+// handleDrops takes files dropped from the desktop: into the shown file
+// browser, else they open in LeanEdit.
 func (u *ui) handleDrops() {
 	for {
 		select {
@@ -564,7 +565,15 @@ func (u *ui) handleDrops() {
 			if u.dropFiles(d.Paths) {
 				continue
 			}
-			u.dropMsg = fmt.Sprintf("Dropped: %s (LeanEdit is not implemented yet)", strings.Join(d.Paths, ", "))
+			paths := d.Paths
+			go func() {
+				for _, p := range paths {
+					if err := u.editorSvc.Open(services.EditorFile{Kind: "local", Path: p}); err != nil {
+						u.dropMsg = err.Error()
+						u.w.Invalidate()
+					}
+				}
+			}()
 		default:
 			return
 		}
