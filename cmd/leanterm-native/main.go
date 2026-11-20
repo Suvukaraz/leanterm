@@ -41,6 +41,7 @@ func main() {
 	startUUID := flag.String("start-uuid", "", "comma-separated saved connections (id or name, id:cluster) to open")
 	engine := flag.String("engine", "", "terminal engine for connections: ghostty or vt (default: "+term.Default()+")")
 	quitAfter := flag.Duration("quit-after", 0, "self-test: quit after this time")
+	stats := flag.Bool("stats", false, "log the frames drawn per second")
 	flag.Parse()
 
 	core, err := appcore.Open(appcore.Options{ConfigDir: *configDir, MasterPassword: *password, ReadOnly: *readOnly, NoBackup: *noBackup})
@@ -67,6 +68,7 @@ func main() {
 		opened:    make(chan session.SessionInfo, 16),
 		closed:    make(chan string, 16),
 		engine:    *engine,
+		stats:     *stats,
 		drops:     make(chan dnd.Drop, 4),
 		readOnly:  *readOnly,
 		splits:    map[string]*splitState{},
@@ -222,6 +224,9 @@ func (u *ui) run() error {
 			e.Abort()
 			u.requestQuit()
 		case app.FrameEvent:
+			if u.stats {
+				u.countFrame()
+			}
 			gtx := app.NewContext(&ops, e)
 			u.layout(gtx)
 			u.frameSize = e.Size
@@ -257,3 +262,16 @@ func (editorWindows) CloseEditorPrefs()      {}
 
 var _ services.Host = (*ui)(nil)
 var _ services.EditorWindows = editorWindows{}
+
+// countFrame logs the frames per second (-stats).
+func (u *ui) countFrame() {
+	now := time.Now()
+	if u.statsStart.IsZero() {
+		u.statsStart = now
+	}
+	u.statsFrames++
+	if d := now.Sub(u.statsStart); d >= time.Second {
+		log.Printf("stats: %.1f frames/s", float64(u.statsFrames)/d.Seconds())
+		u.statsStart, u.statsFrames = now, 0
+	}
+}

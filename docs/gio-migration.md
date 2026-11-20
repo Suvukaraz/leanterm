@@ -204,3 +204,60 @@ layout, sizes and colors. Remaining differences:
 - **Synthetic clicks**: a press that arrives in the same frame as the
   pointer move onto a widget whose filter was not read yet is lost (xdotool
   `mousemove x y click`); the CI run moves first and presses after a pause.
+
+## Stage 4: the terminal widget
+
+The terminal of the native window now does what TerminalView.svelte and
+the web GUI's engine wrappers did:
+
+- **Engines** (`internal/gui/term`): `Modes` (mouse tracking, SGR,
+  alternate screen, followed in the output for both engines like
+  `mouseReports.ts`), `Lines`/`Line` (any line of history and screen),
+  `LinkAt` (OSC 8), `SendRaw`, `Reset`, `Clear`; `EncodeMouse` encodes
+  X10 and SGR reports. `Normalize` maps the engine setting: `rio` (the web
+  GUI's alternative) is now `vt`. Conformance tests cover both engines.
+- **View** (`internal/gui/termview`): selection by characters, words
+  (double click, with the look's word characters) and lines (triple click),
+  Alt for a rectangle; Ctrl+Shift+C/V, middle click pastes, selection to
+  clipboard; Ctrl+= / - / 0 and Ctrl+wheel zoom (6–40pt); mouse reports
+  incl. the wheel (Shift still selects), arrow keys for the wheel on the
+  alternate screen; Ctrl+click opens OSC 8 links and URLs, underlined
+  while Ctrl is held; blinking cursor; the web GUI's inset.
+- **Search** (`search.go`, `textSearch.ts` with its tests) and the find bar
+  (Ctrl+Shift+F, Ctrl+F3; search as you type, Enter / Shift+Enter).
+- **Look** (`look.go`, `look.ts` with its tests): the merged look (local
+  shell or connection over `[terminal.look]`) sets colors, palette, history,
+  font family and size and the cursor; font, size and cursor follow
+  settings changes, colors apply to new terminals (as in the web GUI).
+- **Native window**: the terminal context menu, the macros bar (buttons or
+  combo, with confirmation), notices with "Open folder", screenshots
+  (drawn in software: Gio cannot read its window back) and session logs.
+- **Fonts**: CJK and emoji come from the system (fontconfig; on Windows
+  MS Gothic, Microsoft YaHei, Malgun Gothic, Segoe UI Emoji); color emoji
+  render.
+
+### Findings
+
+- **One face per name**: Gio keeps one face per typeface name, weight and
+  style. The fallback faces first shared one name and hid each other (no
+  CJK); each now has its own. `TestCollectionHasNoDuplicateFaces` guards it.
+- **Key order within a frame**: a filter without a focus tag that is read
+  earlier in the frame takes keys the focused widget wanted (the window's
+  Escape took the find bar's). Global keys skip while a text field has
+  the focus.
+- **No Insert key**: Gio has no key name for Insert, so Shift+Insert and
+  Ctrl+Insert (paste/copy in the web GUI) cannot be supported without a
+  change to Gio.
+- **x/vt throughput**: x/vt parses plain output at about 0.2 MB/s
+  (`BenchmarkFeed`; `seq 1 2000000` takes minutes): every line feed moves
+  the whole screen (`DeleteLineArea`) and a full history shifts all its
+  lines (`slices.Delete`). The window stays responsive (about 25 frames/s
+  with software rendering under Xvfb, `-stats` logs it). Ghostty, the
+  default, is measured by the same benchmark in CI.
+- **Drops on X11/Wayland** are still missing: Gio 0.10 has no drop
+  handling there (stage 0). It needs XDND client messages and the
+  `wl_data_device` drop in a Gio fork plus an event for dropped files;
+  Windows works.
+- Colors of running terminals do not follow settings changes (ghostty-web
+  did not either); the selection keeps the text colors under the
+  translucent tint like ghostty-web.

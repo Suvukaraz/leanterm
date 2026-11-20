@@ -177,6 +177,10 @@ type ui struct {
 
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int
+	// -stats: frames counted since statsStart.
+	stats       bool
+	statsStart  time.Time
+	statsFrames int
 	// dropHWND is the window that accepts dropped files (Windows).
 	dropHWND uintptr
 }

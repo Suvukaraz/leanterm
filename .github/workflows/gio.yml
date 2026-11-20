@@ -35,7 +35,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
             libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev \
-            xvfb xdotool x11-apps imagemagick fonts-dejavu-core
+            xvfb xdotool x11-apps imagemagick fonts-dejavu-core fonts-wqy-zenhei fonts-noto-color-emoji
 
       - name: Zig
         run: |
@@ -82,6 +82,8 @@ jobs:
           go test -race -tags ghostty -v ./internal/gui/term/ 2>&1 | tee term-tests.txt
           grep -q -- '--- PASS: TestKeys/ghostty' term-tests.txt
           go test -race -tags ghostty ./internal/...
+          # Parsing speed of plain output (seq) for each engine.
+          go test -run '^$' -bench Feed -benchtime 3x -tags ghostty ./internal/gui/term/
 
       - name: Build prototype
         env:
@@ -153,6 +155,13 @@ jobs:
           xdotool mousemove 800 400 click 1; sleep 0.5
           xdotool type --delay 15 'echo native-$((6*7))'; xdotool key Return; sleep 1
           xwd -root -silent | convert xwd:- native-shell.png
+          # CJK and emoji from the fallback fonts, a mouse selection and
+          # the find bar (Ctrl+Shift+F, search as you type).
+          xdotool type --delay 15 'printf "find me: \xe6\x97\xa5\xe6\x9c\xac \xf0\x9f\x98\x80\n"'; xdotool key Return; sleep 1
+          xdotool mousemove 274 75; sleep 0.2; xdotool mousedown 1; sleep 0.1; xdotool mousemove 330 75; sleep 0.1; xdotool mouseup 1; sleep 0.3
+          xdotool key ctrl+shift+f; sleep 0.5; xdotool type --delay 30 'find'; sleep 0.5
+          xwd -root -silent | convert xwd:- native-terminal.png
+          xdotool key Escape; sleep 0.3
           kill -0 $APP
           kill $APP
           cat native.log
