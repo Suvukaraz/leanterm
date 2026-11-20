@@ -133,6 +133,7 @@ type ui struct {
 	notesChanged time.Time
 	statsReset   widget.Clickable
 	shotsOpen    widget.Clickable
+	shotCache    map[string]shotCacheEntry
 
 	// Dialogs (see dialogs.go).
 	quit     quitDialog

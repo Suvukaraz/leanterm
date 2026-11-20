@@ -254,6 +254,14 @@ func (u *ui) openShotsButton(gtx layout.Context) layout.Dimensions {
 	})
 }
 
+// shotCacheEntry is a decoded + scaled thumbnail, reused while the file on
+// disk is unchanged.
+type shotCacheEntry struct {
+	mod  time.Time
+	size int64
+	img  image.Image
+}
+
 // screenshotGrid paints the thumbnails of the screenshots (the web GUI shows
 // them side by side, 8px apart).
 func (u *ui) screenshotGrid(gtx layout.Context, shots []string) layout.Dimensions {
@@ -269,7 +277,7 @@ func (u *ui) screenshotGrid(gtx layout.Context, shots []string) layout.Dimension
 // screenshotThumb paints one thumbnail (decoded from the file).
 func (u *ui) screenshotThumb(gtx layout.Context, path string) layout.Dimensions {
 	p := u.th.Pal
-	img, err := loadScaledImage(path, gtx.Dp(110))
+	img, err := u.loadScaledImage(path, gtx.Dp(110))
 	if err != nil {
 		return layout.Inset{Top: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return gtk.Text{S: "(unreadable)", Size: gtk.Em(0.8), Color: p.MutedFg}.Layout(gtx, u.th)
@@ -286,7 +294,32 @@ func (u *ui) screenshotThumb(gtx layout.Context, path string) layout.Dimensions 
 	return layout.Dimensions{Size: image.Pt(w, h)}
 }
 
-// loadScaledImage decodes the image and scales it to h pixels high.
+// loadScaledImage decodes the image and scales it to h pixels high. The
+// decode+scale is cached per file content (mtime+size): this runs every
+// frame, so re-reading the PNGs from disk would not do.
+func (u *ui) loadScaledImage(path string, h int) (image.Image, error) {
+	info, statErr := os.Stat(path)
+	if statErr == nil {
+		if u.shotCache == nil {
+			u.shotCache = map[string]shotCacheEntry{}
+		}
+		if c, ok := u.shotCache[path]; ok && c.mod.Equal(info.ModTime()) && c.size == info.Size() {
+			return c.img, nil
+		}
+	}
+	img, err := loadScaledImage(path, h)
+	if err != nil {
+		return nil, err
+	}
+	if statErr == nil {
+		if len(u.shotCache) > 32 { // bound the cache
+			u.shotCache = map[string]shotCacheEntry{}
+		}
+		u.shotCache[path] = shotCacheEntry{mod: info.ModTime(), size: info.Size(), img: img}
+	}
+	return img, nil
+}
+
 func loadScaledImage(path string, h int) (image.Image, error) {
 	f, err := os.Open(path)
 	if err != nil {
