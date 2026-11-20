@@ -24,6 +24,9 @@ func record(gtx layout.Context, w layout.Widget) (op.CallOp, layout.Dimensions) 
 
 // layout draws the whole window.
 func (u *ui) layout(gtx layout.Context) layout.Dimensions {
+	if u.quitAfter.Load() { // the self-test of -quit-after
+		u.exitNow()
+	}
 	u.sessionEvents()
 	u.handleTabEvents()
 	u.handleLeftNB()

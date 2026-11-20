@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"sync/atomic"
 	"time"
 
 	"gioui.org/app"
@@ -92,7 +93,7 @@ type ui struct {
 	frameSize image.Point
 
 	settingsChanged bool
-	quitAfter       bool
+	quitAfter       atomic.Bool
 
 	// Command panel (the connections sidebar).
 	panel           gtk.Paned // zero value: set to NewPaned() in main

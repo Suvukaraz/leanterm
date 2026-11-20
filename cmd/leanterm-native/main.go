@@ -120,8 +120,8 @@ func main() {
 	if *quitAfter > 0 {
 		time.AfterFunc(*quitAfter, func() {
 			log.Print("self-test: quitting")
-			u.quitAfter = true
-			u.exitNow()
+			u.quitAfter.Store(true)
+			w.Invalidate()
 		})
 	}
 
