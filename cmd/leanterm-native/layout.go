@@ -34,6 +34,14 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 	}
 	u.winWidth = gtx.Constraints.Max.X
 	u.trackPointer(gtx)
+	for drained := false; !drained; {
+		select {
+		case f := <-u.filesEvents:
+			f()
+		default:
+			drained = true
+		}
+	}
 	u.sessionEvents()
 	u.handleTabEvents()
 	u.handleLeftNB()
@@ -117,6 +125,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			return u.termMenu.Layout(gtx, u.th)
 		}),
+		layout.Expanded(u.fileOverlays),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			u.handleMacroConfirm(gtx)
 			return layout.Dimensions{}
@@ -136,7 +145,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 // dialogOpen reports whether any dialog is open (the global keys go to the
 // dialog then, not to the window).
 func (u *ui) dialogOpen() bool {
-	return u.quit.open || u.del.open || u.addRen.open || u.about.open || u.keys.open || u.prompter.Active() || u.macroConfirmOpen
+	return u.quit.open || u.del.open || u.addRen.open || u.about.open || u.keys.open || u.prompter.Active() || u.macroConfirmOpen || u.filesDialogOpen()
 }
 
 // ---- button bar --------------------------------------------------------------
@@ -284,21 +293,25 @@ func (u *ui) terminalPage(gtx layout.Context, t *tab, tabChanged bool) layout.Di
 	if p, sec, ok := u.splitSessions(t.sess.TmpID); ok {
 		return u.splitPage(gtx, p, sec, showStatusBar, tabChanged)
 	}
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if (u.focus || tabChanged) && !u.prompter.Active() && !u.lock.active {
-				t.view.Focus(gtx)
-				u.focus = false
-			}
-			return u.terminalViewArea(gtx, t)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if showStatusBar {
-				return u.terminalStatusBar(gtx, t)
-			}
-			return layout.Dimensions{}
-		}),
-	)
+	// The file browser takes the full height beside the terminal and its
+	// status bar (TerminalTab.svelte).
+	return u.withFiles(gtx, t, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				if (u.focus || tabChanged) && !u.prompter.Active() && !u.lock.active {
+					t.view.Focus(gtx)
+					u.focus = false
+				}
+				return u.terminalViewArea(gtx, t)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if showStatusBar {
+					return u.terminalStatusBar(gtx, t)
+				}
+				return layout.Dimensions{}
+			}),
+		)
+	})
 }
 
 // splitPage is a split tab: two terminals side by side (or stacked).
@@ -306,28 +319,30 @@ func (u *ui) splitPage(gtx layout.Context, p, sec *tab, showStatusBar, tabChange
 	sp := u.splits[p.sess.TmpID]
 	sp.paned.Force50 = u.cfg != nil && u.cfg.General.ForceSplit50
 	sp.paned.Vertical = sp.orientation == "vertical"
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return sp.paned.Layout(gtx, u.th,
-				func(gtx layout.Context) layout.Dimensions {
-					if (u.focus || tabChanged) && !u.prompter.Active() && !u.lock.active {
-						p.view.Focus(gtx)
-						u.focus = false
-					}
-					return u.terminalViewArea(gtx, p)
-				},
-				func(gtx layout.Context) layout.Dimensions {
-					return u.terminalViewArea(gtx, sec)
-				},
-			)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if showStatusBar {
-				return u.terminalStatusBar(gtx, p)
-			}
-			return layout.Dimensions{}
-		}),
-	)
+	return u.withFiles(gtx, p, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return sp.paned.Layout(gtx, u.th,
+					func(gtx layout.Context) layout.Dimensions {
+						if (u.focus || tabChanged) && !u.prompter.Active() && !u.lock.active {
+							p.view.Focus(gtx)
+							u.focus = false
+						}
+						return u.terminalViewArea(gtx, p)
+					},
+					func(gtx layout.Context) layout.Dimensions {
+						return u.terminalViewArea(gtx, sec)
+					},
+				)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if showStatusBar {
+					return u.terminalStatusBar(gtx, p)
+				}
+				return layout.Dimensions{}
+			}),
+		)
+	})
 }
 
 // terminalStatusBar is the status bar under the terminal
@@ -534,6 +549,9 @@ func (u *ui) handleDrops() {
 	for {
 		select {
 		case d := <-u.drops:
+			if u.dropFiles(d.Paths) {
+				continue
+			}
 			u.dropMsg = fmt.Sprintf("Dropped: %s (LeanEdit is not implemented yet)", strings.Join(d.Paths, ", "))
 		default:
 			return

@@ -2,6 +2,7 @@ package main
 
 import (
 	"gioui.org/text"
+	"github.com/Suvukaraz/leanterm/internal/gui/filebrowser"
 	"image"
 	"sync/atomic"
 	"time"
@@ -33,6 +34,10 @@ type tab struct {
 	sftpBtn  widget.Clickable
 	// x: find bar, notice, macros bar (terminal.go).
 	x termExtras
+	// files is the file browser (files.go); lastDir the terminal folder it
+	// last saw.
+	files   *filebrowser.Panel
+	lastDir string
 }
 
 // splitState is an active split of two terminal tabs (splits.ts). The size
@@ -174,6 +179,13 @@ type ui struct {
 	macroConfirmOpen bool
 	macroPending     macroItem
 	macroTab         *tab
+
+	// The file browsers: the local file system service, the panel width
+	// (dp, 0 = sftp_browser.width), the pane and events for the GUI loop.
+	localFS     *services.LocalFSService
+	sftpWidth   int
+	filesPaned  gtk.Paned
+	filesEvents chan func()
 
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int

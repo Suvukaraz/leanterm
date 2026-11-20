@@ -86,6 +86,10 @@ func main() {
 	sftpMgr := services.NewSFTPService(nil, core.Sessions, core.Bus)
 	sftpMgr.SetStore(core.Store)
 	u.sftpSvc = sftpMgr
+	u.localFS = services.NewLocalFSService(core.Sessions, core.Bus)
+	u.localFS.SetStore(core.Store)
+	u.filesEvents = make(chan func(), 16)
+	u.watchFileEvents()
 	u.clusterSvc = services.NewClusterService(core.Clusters, core.Sessions, core.Store)
 	u.systemSvc = services.NewSystemService(u.host())
 	u.systemSvc.SetStore(core.Store)

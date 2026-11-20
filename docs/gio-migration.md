@@ -253,7 +253,7 @@ the web GUI's engine wrappers did:
   the whole screen (`DeleteLineArea`) and a full history shifts all its
   lines (`slices.Delete`). The window stays responsive (about 25 frames/s
   with software rendering under Xvfb, `-stats` logs it). Ghostty, the
-  default, is measured by the same benchmark in CI.
+  default, parses the same output at about 95 MB/s in CI.
 - **Drops on X11/Wayland** are still missing: Gio 0.10 has no drop
   handling there (stage 0). It needs XDND client messages and the
   `wl_data_device` drop in a Gio fork plus an event for dropped files;
@@ -261,3 +261,41 @@ the web GUI's engine wrappers did:
 - Colors of running terminals do not follow settings changes (ghostty-web
   did not either); the selection keeps the text colors under the
   translucent tint like ghostty-web.
+
+## Stage 5: the file browser
+
+`internal/gui/filebrowser` is the panel beside a terminal
+(`frontend/src/components/sftp`): SFTP for SSH tabs, the local file system
+for local shells, with one UI.
+
+- `fspath.go` is `fspath.ts` (POSIX, Windows drive and UNC paths, the drive
+  list) with its tests.
+- `browser.go` is the state of `stores/sftp.ts` over a `Backend` (SFTP or
+  local, as `fsBackend.ts`): history, hidden files, following the terminal
+  folder, actions, downloads/uploads, local copy/move, conflicts and the
+  transfer queue. Backend calls run in goroutines; tests use a fake backend.
+- `panel.go`: header, toolbar (back, forward, up, home, refresh, new
+  folder, upload, download, ≡ menu), path bar with history and "Follow
+  terminal folder", the sortable list (folders first, natural names,
+  selection with Ctrl/Shift, double click, type-ahead, F2/F5/F7/Delete/
+  Enter/Backspace, context menus), the transfer queue, the footer; dialogs
+  for new folder/file, rename, delete, permissions (bits, octal,
+  recursive with scope), name conflicts, errors and uploading a file
+  changed in its application back.
+- The native window shows it left or right of the terminal with its status
+  bar, as wide as saved (`sftp_panel_width`), toggled from the button bar,
+  the status bar, the terminal menu or Ctrl+Alt+S; files dropped on Windows
+  go to the shown browser. Checked against a local sshd: listing, download
+  into the download folder, the queue and the footer.
+
+### Findings
+
+- SFTP needs the SSH connection: the browser opens once the session is
+  connected (else "no active SSH client").
+- Gio's click gesture counts clicks by the events' time: test events need a
+  `Time`, else every click is a double click.
+- The web GUI's path history button falls back to its CSS default colors
+  (#e8e8e8) in the dark theme; the native one draws the same.
+- Without a native file dialog yet (stage 6), "Upload files...", "Copy
+  to..." and "Move to..." report the missing dialog; drops and downloads
+  work.

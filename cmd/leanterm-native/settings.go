@@ -34,6 +34,7 @@ func (u *ui) reloadSettings() {
 // expanded groups, the clusters visibility).
 func (u *ui) loadUIState() {
 	st := u.core.Store.LoadUIState()
+	u.sftpWidth = st.SFTPPanelWidth
 	u.panelWidth = st.CommandPanelWidth
 	if u.panelWidth >= 150 {
 		u.panel.Pos = u.panelWidth
@@ -63,6 +64,7 @@ func (u *ui) saveUIState() {
 		u.panelWidth = u.panel.Pos
 	}
 	st.CommandPanelWidth = u.panelWidth
+	st.SFTPPanelWidth = u.sftpWidth
 	st.CommandPanelVisible = u.panelVisible
 	st.ClustersVisible = u.clustersVisible
 	st.SFTPVisible = u.sftpVisible

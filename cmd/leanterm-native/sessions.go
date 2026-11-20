@@ -109,6 +109,9 @@ func (u *ui) removeTab(tmpID string) {
 			continue
 		}
 		t.sess.Close()
+		if t.files != nil {
+			t.files.B.Close()
+		}
 		u.tabs = append(u.tabs[:i], u.tabs[i+1:]...)
 		// A split whose primary vanished is dropped; the secondary becomes
 		// a regular tab again.
