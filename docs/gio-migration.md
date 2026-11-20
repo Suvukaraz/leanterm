@@ -197,6 +197,10 @@ layout, sizes and colors. Remaining differences:
   position for context menus comes from a pass-through area
   (`pointer.PassOp`) on top. Menus close on a click outside through such an
   area too, so the click still reaches its target, as in the web GUI.
+- **Windows**: the main window enabled file drops inside event handling,
+  which hangs as described in stage 0 (the window never drew). The CI run
+  on Windows found it; `-quit-after` now logs all goroutines and exits
+  with code 3 instead of hanging.
 - **Synthetic clicks**: a press that arrives in the same frame as the
   pointer move onto a widget whose filter was not read yet is lost (xdotool
   `mousemove x y click`); the CI run moves first and presses after a pause.

@@ -163,4 +163,6 @@ type ui struct {
 	lastPtr image.Point
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int
+	// dropHWND is the window that accepts dropped files (Windows).
+	dropHWND uintptr
 }
