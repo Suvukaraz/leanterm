@@ -153,6 +153,12 @@ func Collection() []font.FontFace {
 			collection = append(collection, font.FontFace{Font: font.Font{Typeface: Symbols}, Face: face})
 		}
 		// Go fonts under our names, so a missing system face still resolves.
+		// Only where there is no system face: with two faces of the same
+		// name, weight and style Gio may pick the Go one.
+		have := map[font.Font]bool{}
+		for _, ff := range collection {
+			have[ff.Font] = true
+		}
 		for _, ff := range gofont.Collection() {
 			alias := ff
 			switch ff.Font.Typeface {
@@ -164,7 +170,10 @@ func Collection() []font.FontFace {
 				collection = append(collection, ff)
 				continue
 			}
-			collection = append(collection, ff, alias)
+			collection = append(collection, ff)
+			if !have[alias.Font] {
+				collection = append(collection, alias)
+			}
 		}
 	})
 	return collection

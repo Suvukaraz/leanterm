@@ -3,6 +3,7 @@ package fonts
 import (
 	"testing"
 
+	"gioui.org/font"
 	"gioui.org/font/opentype"
 )
 
@@ -45,4 +46,16 @@ func TestFaceLoadsInstalledFamily(t *testing.T) {
 		}
 	}
 	t.Skip("none of the test families is installed")
+}
+
+// Two faces with the same name, weight and style make Gio pick either: the
+// Go fallbacks must not shadow the system's UI and monospace fonts.
+func TestCollectionHasNoDuplicateFaces(t *testing.T) {
+	seen := map[font.Font]bool{}
+	for _, ff := range Collection() {
+		if seen[ff.Font] {
+			t.Errorf("face %+v registered twice", ff.Font)
+		}
+		seen[ff.Font] = true
+	}
 }
