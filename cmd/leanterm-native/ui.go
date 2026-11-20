@@ -2,6 +2,7 @@ package main
 
 import (
 	"gioui.org/text"
+	"github.com/Suvukaraz/leanterm/internal/gui/editconn"
 	"github.com/Suvukaraz/leanterm/internal/gui/filebrowser"
 	"image"
 	"sync/atomic"
@@ -186,6 +187,9 @@ type ui struct {
 	sftpWidth   int
 	filesPaned  gtk.Paned
 	filesEvents chan func()
+
+	// The configuration dialogs (stage 6).
+	editConn editconn.Dialog
 
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int

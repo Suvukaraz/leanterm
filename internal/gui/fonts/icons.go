@@ -62,6 +62,7 @@ const (
 	IconChevLeft  = '\uf053'     // nf-fa-chevron_left
 	IconChevRight = '\uf054'     // nf-fa-chevron_right
 	IconChevUp    = '\uf077'     // nf-fa-chevron_up
+	IconChevDown  = '\uf078'     // nf-fa-chevron_down
 	IconFolderO   = '\uf114'     // nf-fa-folder_o (outline)
 	IconFileO     = '\uf016'     // nf-fa-file_o (outline)
 	IconHomeO     = '\U000F07D1' // nf-md-home_outline
@@ -78,5 +79,5 @@ var AllIcons = []rune{
 	IconSitemap, IconPowerlineLR,
 	IconSave, IconCopy, IconCut, IconPaste, IconPlay, IconStarOff,
 	IconList, IconMinus, IconEdit, IconExchange, IconQuestion, IconExternal,
-	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe, IconBriefcase, IconTools, IconBulb, IconBars, IconLinkArrow, IconChevLeft, IconChevRight, IconChevUp, IconFolderO, IconFileO, IconHomeO,
+	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe, IconBriefcase, IconTools, IconBulb, IconBars, IconLinkArrow, IconChevLeft, IconChevRight, IconChevUp, IconChevDown, IconFolderO, IconFileO, IconHomeO,
 }

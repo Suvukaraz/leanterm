@@ -95,6 +95,7 @@ func main() {
 	u.systemSvc = services.NewSystemService(u.host())
 	u.systemSvc.SetStore(core.Store)
 	u.systemSvc.SetUnlockHandler(func(pwd string) error { return core.Vault.Unlock(pwd) })
+	u.setupEditDialogs(*readOnly)
 	// The editor windows are stage 7; until then nothing is unsaved and the
 	// "show the editor" path reports that LeanEdit is not implemented yet.
 	u.editorSvc.SetGUI(u.host(), editorWindows{})

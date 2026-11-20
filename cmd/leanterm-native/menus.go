@@ -52,6 +52,7 @@ func (u *ui) globalPointer(gtx layout.Context) layout.Dimensions {
 func (u *ui) handleClicks(gtx layout.Context) {
 	b := &u.buttons
 	clicked := func(c *widget.Clickable) bool { return c.Clicked(gtx) }
+	u.treeToolbarClicks(gtx)
 
 	if clicked(&b.panelToggle) {
 		u.panelVisible = !u.panelVisible
@@ -443,8 +444,7 @@ func (u *ui) handleTreeMenu() {
 	case id == "keybindings":
 		u.keys.open = true
 	case id == "edit":
-		// Stage 6 ports the Edit Connection window.
-		u.dropMsg = "The Edit Connection window is not implemented yet"
+		u.openEdit()
 	case id == "expand-all":
 		u.expandAll()
 	case id == "collapse-all":
