@@ -23,8 +23,9 @@ func (u *ui) reloadSettings() {
 		u.th.SetScheme(scheme)
 	}
 
-	// The tree follows the configuration.
+	// The tree follows the configuration, the terminals their look.
 	u.rebuildTree()
+	u.applyLooks()
 
 	u.notesNode = "" // force the notes to reload from the selection
 }

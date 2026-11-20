@@ -10,7 +10,6 @@ import (
 
 	"github.com/Suvukaraz/leanterm/internal/gui/fonts"
 	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
-	"github.com/Suvukaraz/leanterm/internal/gui/termview"
 )
 
 // terminalTabIndex returns the index of tab id's tab in the notebook
@@ -38,19 +37,12 @@ func (u *ui) sessionEvents() {
 	for {
 		select {
 		case info := <-u.opened:
-			s, err := termview.Attach(u.core.Sessions, u.core.Bus, info.TmpID, u.engine, func() {
-				if u.activeTabID() != info.TmpID && u.cfg != nil && u.cfg.Terminal.TabsPosition != "left" {
-					u.newData[info.TmpID] = true
-				}
-				u.w.Invalidate()
-			})
+			t, err := u.newTerminal(info)
 			if err != nil {
 				log.Printf("%s: %v", info.Title, err)
 				continue
 			}
-			t := &tab{sess: s, view: termview.New(s.Engine), engine: s.Engine.Name(), kind: info.Kind, hasSFTP: info.HasSFTP}
 			t.sftpOpen = u.sftpVisible && (t.kind == "local" || t.hasSFTP)
-			t.view.OnResize = s.Resize
 			t.nb = &gtk.Tab{Title: info.Title, Closable: true}
 			u.tabs = append(u.tabs, t)
 			u.rebuildNotebook()

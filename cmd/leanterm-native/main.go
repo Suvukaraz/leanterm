@@ -84,6 +84,7 @@ func main() {
 	sftpMgr := services.NewSFTPService(nil, core.Sessions, core.Bus)
 	sftpMgr.SetStore(core.Store)
 	u.sftpSvc = sftpMgr
+	u.clusterSvc = services.NewClusterService(core.Clusters, core.Sessions, core.Store)
 	u.systemSvc = services.NewSystemService(u.host())
 	u.systemSvc.SetStore(core.Store)
 	u.systemSvc.SetUnlockHandler(func(pwd string) error { return core.Vault.Unlock(pwd) })

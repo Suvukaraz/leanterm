@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gioui.org/text"
 	"image"
 	"sync/atomic"
 	"time"
@@ -30,6 +31,8 @@ type tab struct {
 	hasSFTP  bool
 	sftpOpen bool
 	sftpBtn  widget.Clickable
+	// x: find bar, notice, macros bar (terminal.go).
+	x termExtras
 }
 
 // splitState is an active split of two terminal tabs (splits.ts). The size
@@ -161,6 +164,17 @@ type ui struct {
 	// The window-wide pointer tag (the context menus open at the pointer).
 	rootTag int
 	lastPtr image.Point
+	// The terminal context menu, the macro confirmation, the cluster
+	// service and the shapers of terminal font families (terminal.go).
+	termMenu         gtk.Menu
+	termMenuTarget   *tab
+	clusterSvc       *services.ClusterService
+	shapers          map[string]*text.Shaper
+	macroConfirm     gtk.MessageDialog
+	macroConfirmOpen bool
+	macroPending     macroItem
+	macroTab         *tab
+
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int
 	// dropHWND is the window that accepts dropped files (Windows).

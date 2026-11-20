@@ -47,6 +47,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 	u.unsplitDisconnected()
 	u.handleTabMenu()
 	u.handleTreeMenu()
+	u.handleTermMenu(gtx)
 
 	for _, t := range u.tabs {
 		title, icon, c := u.tabLook(t)
@@ -114,6 +115,13 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 			return u.treeMenu.Layout(gtx, u.th)
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			return u.termMenu.Layout(gtx, u.th)
+		}),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			u.handleMacroConfirm(gtx)
+			return layout.Dimensions{}
+		}),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			u.handleLock(gtx)
 			return layout.Dimensions{}
 		}),
@@ -128,7 +136,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 // dialogOpen reports whether any dialog is open (the global keys go to the
 // dialog then, not to the window).
 func (u *ui) dialogOpen() bool {
-	return u.quit.open || u.del.open || u.addRen.open || u.about.open || u.keys.open || u.prompter.Active()
+	return u.quit.open || u.del.open || u.addRen.open || u.about.open || u.keys.open || u.prompter.Active() || u.macroConfirmOpen
 }
 
 // ---- button bar --------------------------------------------------------------
@@ -322,12 +330,6 @@ func (u *ui) splitPage(gtx layout.Context, p, sec *tab, showStatusBar, tabChange
 	)
 }
 
-// terminalViewArea draws the terminal background and the view.
-func (u *ui) terminalViewArea(gtx layout.Context, t *tab) layout.Dimensions {
-	gtk.Fill(gtx, u.th.Pal.TerminalBg)
-	return t.view.Layout(gtx, u.th.Shaper)
-}
-
 // terminalStatusBar is the status bar under the terminal
 // (TerminalTab.svelte's statusBar snippet): 30px high on the header color
 // with a top border, padding 0 6px, 11px text, 6px gaps; the terminal and
@@ -435,7 +437,7 @@ const allMods = key.ModCtrl | key.ModShift | key.ModAlt | key.ModSuper | key.Mod
 func (u *ui) globalKeys(gtx layout.Context) {
 	// While a dialog, the lock screen or a terminal/text input holds the
 	// focus, the keys belong there.
-	if u.dialogOpen() || u.lock.active || u.treeMenu.Opened() || u.tabMenu.Opened() {
+	if u.dialogOpen() || u.lock.active || u.treeMenu.Opened() || u.tabMenu.Opened() || u.termMenu.Opened() {
 		return // an open menu owns the keyboard (ContextMenu.svelte)
 	}
 	if u.terminalFocused(gtx) {
@@ -470,6 +472,12 @@ func (u *ui) globalKeys(gtx layout.Context) {
 	}
 	if gtx.Source.Focused(&u.notes) {
 		return
+	}
+	// A terminal's find bar takes its own keys (Enter, Escape).
+	for _, t := range u.tabs {
+		if gtx.Source.Focused(&t.x.find.editor) {
+			return
+		}
 	}
 	for {
 		ev, ok := gtx.Event(
