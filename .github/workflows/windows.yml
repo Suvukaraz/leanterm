@@ -1,4 +1,6 @@
-# Tests LeanTerm on Windows and builds the installer as a downloadable artifact.
+# Tests LeanTerm on Windows and builds the installer as a downloadable artifact:
+# the Gio GUI (cmd/leanterm-native) with the libghostty engine, cross-compiled
+# on Linux the same way as in the release (see the gio workflow).
 name: Windows
 
 on:
@@ -7,8 +9,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  ZIG_VERSION: 0.17.1
+  GHOSTTY_COMMIT: 5813c9461d5af78b6307a1254d00b1bc190eaccd
+
 jobs:
-  windows:
+  test:
     runs-on: windows-latest
     defaults:
       run:
@@ -20,45 +26,64 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Frontend tests and build
-        working-directory: frontend
-        run: |
-          npm ci
-          npx vitest run
-          npm run build
-
-      # ConPTY shell, cmd.exe commands, paths and the rest of the backend.
+      # Native, without cgo: vt engine, ConPTY shells (x/xpty), widgets,
+      # the LeanEdit single instance.
       - name: Go tests
         run: |
-          go vet ./internal/...
+          go vet ./internal/... ./cmd/leanterm-native/
           go test ./internal/...
 
-      - name: Build installer
+  installer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: System packages (NSIS, pkg-config)
         run: |
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
-          VERSION=$(node -p "require('./frontend/package.json').version")
-          (cd build && wails3 generate syso -arch amd64 -icon windows/icon.ico \
-            -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_amd64.syso)
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags production -trimpath -buildvcs=false \
-            -ldflags="-w -s -H windowsgui" -o bin/LeanTerm.exe .
-          rm -f wails_windows_amd64.syso
-          wails3 generate webview2bootstrapper -dir build/windows/nsis
-          # NSIS is not on the PATH of the runner (install it when missing).
-          export PATH="$PATH:/c/Program Files (x86)/NSIS"
-          command -v makensis >/dev/null || { choco install nsis -y --no-progress && export PATH="$PATH:/c/Program Files (x86)/NSIS"; }
-          ls -la bin
-          # makensis needs native Windows paths (no mixed / and \).
-          BINARY=$(cygpath -w "$PWD/bin/LeanTerm.exe")
-          SETUP=$(cygpath -w "$PWD/bin/leanterm_${VERSION}_windows_amd64_setup.exe")
-          cd build/windows/nsis
-          makensis -V2 -DINFO_PRODUCTVERSION="$VERSION" \
-            -DARG_WAILS_AMD64_BINARY="$BINARY" -DOUTFILE="$SETUP" project.nsi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nsis pkg-config
+
+      - name: Zig
+        run: |
+          pip install ziglang==$ZIG_VERSION
+          mkdir -p "$HOME/bin"
+          printf '#!/bin/sh\nexec python3 -m ziglang "$@"\n' > "$HOME/bin/zig"
+          chmod +x "$HOME/bin/zig"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/cache/restore@v4
+        id: ghostty-cache
+        with:
+          path: ${{ runner.temp }}/ghostty
+          key: libghostty-vt-windows-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
+
+      - name: Build libghostty-vt (Windows)
+        if: steps.ghostty-cache.outputs.cache-hit != 'true'
+        run: |
+          test -f "$RUNNER_TEMP/ghostty/windows/lib/pkgconfig/libghostty-vt-static.pc" ||
+            GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-windows-gnu "$RUNNER_TEMP/ghostty/windows"
+
+      - uses: actions/cache/save@v4
+        if: steps.ghostty-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/ghostty
+          key: libghostty-vt-windows-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
+
+      - name: Build installer
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/windows/lib/pkgconfig
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          VERSION=$(grep -m 1 '"version"' frontend/package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+          bash build/package-windows.sh "$VERSION"
 
       - uses: actions/upload-artifact@v4
         with:

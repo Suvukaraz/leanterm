@@ -1,6 +1,7 @@
 # Publishes the GitHub release of the version in frontend/package.json: the
-# Linux packages, the Windows installer (cross-compiled) and SHA256SUMS, with
-# the release notes from docs/releases/v<version>.md.
+# Linux packages, the Windows installer and SHA256SUMS, with the release notes
+# from docs/releases/v<version>.md. The packages contain the Gio GUI
+# (cmd/leanterm-native) with the libghostty engine, built as in the gio workflow.
 #
 # Runs when a version change reaches main (the release and its tag v<version>
 # are created from that commit; an existing release is left alone), when a
@@ -17,6 +18,10 @@ on:
 permissions:
   contents: write
 
+env:
+  ZIG_VERSION: 0.17.1
+  GHOSTTY_COMMIT: 5813c9461d5af78b6307a1254d00b1bc190eaccd
+
 jobs:
   release:
     runs-on: ubuntu-24.04
@@ -27,18 +32,16 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@v5
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          python-version: '3.12'
 
       - name: Check version and notes
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(node -p "require('./frontend/package.json').version")
+          VERSION=$(grep -m 1 '"version"' frontend/package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')
           TAG="v$VERSION"
           if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "$TAG" ]; then
             echo "Tag $GITHUB_REF_NAME does not match frontend/package.json ($VERSION)"; exit 1
@@ -52,27 +55,68 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
 
-      - name: Tests
+      - name: System packages (Gio headers, NSIS)
         if: steps.check.outputs.skip != 'true'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev nsis
-          # Gio (internal/gui, the coming GUI) needs these headers for its tests.
-          sudo apt-get install -y libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
+          sudo apt-get install -y -qq nsis libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
             libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev
-          npm --prefix frontend ci
-          (cd frontend && npx vitest run)
-          go test ./internal/...
 
-      - name: Build packages
+      - name: Zig
         if: steps.check.outputs.skip != 'true'
         run: |
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0
+          pip install ziglang==$ZIG_VERSION
+          mkdir -p "$HOME/bin"
+          printf '#!/bin/sh\nexec python3 -m ziglang "$@"\n' > "$HOME/bin/zig"
+          chmod +x "$HOME/bin/zig"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/cache/restore@v4
+        if: steps.check.outputs.skip != 'true'
+        id: ghostty-cache
+        with:
+          path: ${{ runner.temp }}/ghostty
+          key: libghostty-vt-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
+
+      - name: Build libghostty-vt (Linux and Windows)
+        if: steps.check.outputs.skip != 'true' && steps.ghostty-cache.outputs.cache-hit != 'true'
+        run: |
+          test -f "$RUNNER_TEMP/ghostty/linux/lib/pkgconfig/libghostty-vt-static.pc" ||
+            GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-linux-gnu.2.34 "$RUNNER_TEMP/ghostty/linux"
+          test -f "$RUNNER_TEMP/ghostty/windows/lib/pkgconfig/libghostty-vt-static.pc" ||
+            GHOSTTY_SRC="$RUNNER_TEMP/ghostty-src" build/gio/build-libghostty.sh x86_64-windows-gnu "$RUNNER_TEMP/ghostty/windows"
+
+      - uses: actions/cache/save@v4
+        if: steps.check.outputs.skip != 'true' && steps.ghostty-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/ghostty
+          key: libghostty-vt-${{ env.GHOSTTY_COMMIT }}-zig${{ env.ZIG_VERSION }}
+
+      - name: Tests
+        if: steps.check.outputs.skip != 'true'
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
+        run: |
+          go test ./internal/...
+          go test -tags ghostty ./internal/gui/term/
+
+      - name: Build Linux packages
+        if: steps.check.outputs.skip != 'true'
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
+        run: |
           bash build/package-deb.sh "$VERSION"
           bash build/package-tarball.sh "$VERSION"
-          WAILS3="$(go env GOPATH)/bin/wails3" bash build/package-windows.sh "$VERSION"
           # The binary must not need a newer glibc than 2.34.
           objdump -T bin/leanterm | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
+
+      - name: Build Windows installer
+        if: steps.check.outputs.skip != 'true'
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/windows/lib/pkgconfig
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          bash build/package-windows.sh "$VERSION"
 
       - name: Publish release
         if: steps.check.outputs.skip != 'true'

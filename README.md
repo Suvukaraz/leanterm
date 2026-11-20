@@ -72,11 +72,11 @@ curl -fsSL https://raw.githubusercontent.com/Suvukaraz/leanterm/main/install.sh 
 | Debian 13+, Ubuntu 24.04+, Mint 22, Pop!_OS, Zorin | `.deb` package via `apt` |
 | Fedora 39+, RHEL/Alma/Rocky 10, openSUSE Tumbleweed/Leap 16, Arch, Manjaro | libraries from the distribution, LeanTerm in `/usr/local` |
 
-Requirements: x86_64, glibc 2.34+, GTK 4.10+ and WebKitGTK 6.0 – Debian 12 and Ubuntu 22.04 ship an older GTK and are not supported. The `.deb` and `.tar.gz` packages are also available on the [releases page](https://github.com/Suvukaraz/leanterm/releases/latest).
+Requirements: x86_64, glibc 2.34+, and the EGL, Wayland, X11 and xkbcommon libraries, which the installer adds where they are missing. The `.deb` and `.tar.gz` packages are also available on the [releases page](https://github.com/Suvukaraz/leanterm/releases/latest).
 
 ### Windows
 
-The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu and desktop shortcuts (optionally also for [LeanEdit](#leanedit)) and installs the WebView2 runtime if needed. It is not code-signed yet, so SmartScreen asks for confirmation on the first start. Windows 10 version 1809 or later is required.
+The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu and desktop shortcuts (optionally also for [LeanEdit](#leanedit)). It is not code-signed yet, so SmartScreen asks for confirmation on the first start. Windows 10 version 1809 or later is required.
 
 ### Platform differences
 
@@ -90,7 +90,7 @@ The installer puts LeanTerm into `C:\Program Files\LeanTerm`, adds Start menu an
 
 ## LeanEdit
 
-LeanEdit is LeanTerm's text editor as an application of its own: it has its own menu entry and icon, is offered in the file manager's *Open with* for text files and runs independently of LeanTerm (`leanterm --leanedit [file…]`). By default it runs once: further files (double-click, *Open with*, command line) open as new tabs of the running LeanEdit. With *Open files in the running LeanEdit* switched off in its settings, every file opens in a new window; *File → New Window* (`--new-window`) always opens one. This is independent of LeanTerm, whose editor window stays separate; LeanTerm itself runs only once. When the window gets the focus, LeanEdit offers to reload files that were changed or deleted by another program (also by the editor in LeanTerm), and saving never overwrites such a change without asking. Started on its own, LeanEdit edits local files and needs no connection, sessions or passwords. *Settings* in its menu bar opens its own small settings window, in LeanTerm as well; the settings are shared with the editor in LeanTerm.
+LeanEdit is LeanTerm's text editor as an application of its own: it has its own menu entry and icon, is offered in the file manager's *Open with* for text files and runs independently of LeanTerm (`leanedit [file…]`, the same as `leanterm -leanedit [file…]`). By default it runs once: further files (double-click, *Open with*, command line) open as new tabs of the running LeanEdit. With *Open files in the running LeanEdit* switched off in its settings, every file opens in a new window; *File → New Window* always opens one. This is independent of LeanTerm, whose editor window stays separate; LeanTerm itself runs only once. When the window gets the focus, LeanEdit offers to reload files that were changed or deleted by another program (also by the editor in LeanTerm), and saving never overwrites such a change without asking. Started on its own, LeanEdit edits local files and needs no connection, sessions or passwords. *Settings* in its menu bar opens its own small settings window, in LeanTerm as well; the settings are shared with the editor in LeanTerm.
 
 On Windows the installer offers LeanEdit as an option (Start menu and desktop shortcut, *Open with* for text files); on Linux the packages always install it.
 
@@ -104,21 +104,23 @@ Start options such as `--start-uuid`, `--start-shell`, `--edit <file>`, `--leane
 
 ## Building from source
 
-Requirements: Go 1.26+, Node.js 20.19+, and on Linux the GTK 4 / WebKitGTK 6.0 development packages (`libgtk-4-dev`, `libwebkitgtk-6.0-dev`).
+Requirements: Go 1.26+. On Linux the GUI needs the development packages of Wayland, X11, EGL, GLES, xkbcommon, Xcursor and libffi (Debian/Ubuntu: `libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev`).
 
 ```sh
-npm --prefix frontend install
-npm --prefix frontend run build
-go build -o bin/leanterm .
+go build -o bin/leanterm ./cmd/leanterm-native
 ```
+
+This build uses the pure Go terminal engine. The packages use the Ghostty engine (libghostty), built with Zig 0.17.1 by [build/gio/build-libghostty.sh](build/gio/build-libghostty.sh), and `-tags ghostty`; see [docs/gio-migration.md](docs/gio-migration.md#stage-8-switch-over-and-packages).
 
 | Package | Command |
 |---|---|
 | Debian package | `./build/package-deb.sh 1.2.1` |
 | Linux archive (used by `install.sh`) | `./build/package-tarball.sh 1.2.1` |
-| Windows installer (cross-compiled, needs `nsis` and `wails3`) | `./build/package-windows.sh 1.2.1` |
+| Windows installer (cross-compiled, needs `nsis`, Zig, `go-winres` and the Windows libghostty) | `./build/package-windows.sh 1.2.1` |
 
-Tests: `go test ./internal/...`, `npm --prefix frontend test -- --run` and `npm --prefix frontend run check`. The JavaScript bindings in `frontend/bindings` are generated with `wails3 generate bindings -clean=true` after changing a Go service.
+The packaging scripts read `PKG_CONFIG_PATH` for libghostty; `LEANTERM_TAGS= ./build/package-tarball.sh 1.2.1` builds without it. Tests: `go test ./internal/...`.
+
+The web GUI (`frontend/`, `main.go`, `wailsgui.go`, `leanedit.go`) is no longer packaged. It still builds with `npm --prefix frontend run build` and `wails3`, as before.
 
 ## License
 

@@ -513,8 +513,6 @@ for highlighting.
 - Modified lines are the lines between the common start and end of the
   saved and the current text (CodeMirror tracks each edit); for single
   edits that is the same.
-- LeanEdit on its own does not yet hand files to a running instance
-  (single instance) and has no own icon; that is stage 8 packaging.
 
 ### Findings
 
@@ -523,3 +521,99 @@ for highlighting.
   showed.
 - Windows opened before the main window is mapped end up below it on X11
   without a window manager; `-edit` opens its file a second later.
+
+## Stage 8: switch-over and packages
+
+The Gio app is the shipped product. The packages build `cmd/leanterm-native`
+as `leanterm` (`leanterm.exe` on Windows); the web GUI (Wails, Svelte) is no
+longer packaged. Its sources (`main.go`, `wailsgui.go`, `leanedit.go`,
+`frontend/`) stay in the repository and build as before.
+
+### What changed
+
+- Packages: `build/package-deb.sh`, `build/package-tarball.sh` and
+  `build/package-windows.sh` build with `-tags ghostty` and libghostty, as
+  `build/gio/` and `gio.yml` do. No Node, npm or wails3 is needed for the
+  packages. `LEANTERM_TAGS=` (empty) builds without libghostty, for local
+  tests of the packaging.
+- Libraries: the Gio binary links the EGL, GLES, Wayland, X11 and xkbcommon
+  libraries (no GTK, no WebKitGTK). The `.deb` depends on them, `install.sh`
+  installs them on Fedora, openSUSE and Arch, and its GTK 4.10 check is gone.
+  The pure Go build needs glibc 2.34 at most (`objdump -T`); the packaging
+  workflows print the highest glibc version of the libghostty build too.
+- LeanEdit: `leanedit` is a launcher for `leanterm -leanedit` (it runs the
+  `leanterm` next to it). Both desktop entries use the icons of the packages
+  (`LeanTerm_Icon.svg`, `LeanEdit_Icon.svg`) and keep their paths; LeanEdit's
+  entry is `leanedit %F` with the MIME types of the Wails version.
+- Windows: `build/windows/nsis/gio.nsi` is the installer of the Gio app.
+  `project.nsi` stays for the Wails build. The exe gets its icon, manifest
+  and version information from go-winres (`go-winres simply`). Shortcuts and
+  "Open with" for text files pass `-leanedit`. The WebView2 runtime is no
+  longer needed.
+- File → New Window: LeanEdit starts itself with `--new-window`, a flag the
+  native binary did not have (the window failed to open). The flag is now
+  there; a new window does not change the lock of the running instance.
+- Single instance: a second `leanterm -leanedit file…` hands its files to the
+  running LeanEdit and exits (see below).
+- Workflows: `release.yml`, `windows.yml` and `linux-install.yml` build the
+  packages with the same libghostty steps as `gio.yml` (Zig 0.17.1, pinned
+  commit, cache). The Node and Wails steps are gone. The version still comes
+  from `frontend/package.json`. `linux-install.yml` no longer has the rows for
+  Debian 12 and Ubuntu 22.04 (they were the "GTK too old" check); they may
+  work now, but they are not tested.
+
+### Building
+
+- Development, pure Go engine (x/vt): `go build ./cmd/leanterm-native`. On
+  Linux the Wayland, X11, EGL, GLES and xkbcommon headers are needed (the
+  list is in the README).
+- With libghostty (Zig 0.17.1 and a pinned Ghostty commit, see
+  `build/gio/build-libghostty.sh`):
+
+  ```sh
+  build/gio/build-libghostty.sh x86_64-linux-gnu.2.34 /path/to/ghostty/linux
+  PKG_CONFIG_PATH=/path/to/ghostty/linux/lib/pkgconfig go build -tags ghostty ./cmd/leanterm-native
+  ```
+
+- Packages: `build/package-deb.sh 1.2.1` and `build/package-tarball.sh 1.2.1`
+  with the Linux `PKG_CONFIG_PATH`. `build/package-windows.sh 1.2.1` needs
+  the Windows libghostty (`x86_64-windows-gnu`), `makensis`, `zig` (`ZIG`) and
+  `go-winres` v0.3.3 (`GO_WINRES`, default `$(go env GOPATH)/bin/go-winres`).
+
+### Single instance (`internal/singleinstance`)
+
+- The running LeanEdit listens on `127.0.0.1` on a free port and writes
+  `leanedit.lock` into the configuration folder (mode 0600): the port and a
+  random token.
+- A second `leanterm -leanedit [files]` reads the lock, connects, sends the
+  token and the absolute file paths as one JSON line and exits with 0 when
+  the running instance answered. The running instance opens the files as new
+  tabs through `EditorService.Open` (no files: it only raises its window).
+- A lock whose port does not answer is stale and is replaced; a wrong token
+  is refused. The running instance removes the lock when it exits, unless a
+  later instance has replaced it.
+- `[editor] single_instance = false` and `--new-window` always start a new
+  window; they do not write a lock.
+- Tests: `go test -race ./internal/singleinstance/` (stale lock, wrong
+  token, replaced lock, file mode, concurrent hand-overs). Checked by hand
+  under Xvfb: a second process with a file returns in about 20 ms, the first
+  window shows the file as a new tab, and `single_instance = false` keeps the
+  second process running with its own window.
+
+### Verified here and what is still open
+
+- Verified locally (no libghostty): `go vet`, `go test -race ./internal/...
+  ./cmd/...`, `bash -n` and `sh -n` on the scripts, YAML parsing of the
+  workflows; `build/package-deb.sh` and `build/package-tarball.sh` built
+  packages whose contents and desktop entries were checked; `install.sh`
+  installed the tarball into a scratch prefix, checked the rewritten `Exec`
+  paths, the launcher and the uninstall; `gio.nsi` compiles with NSIS 3.09.
+- Not run here, only in CI: the libghostty builds, the ghostty engine tests,
+  the Windows cross-build with `zig cc`, `go-winres simply` (the flags were
+  read from its source), the installed Windows exe and the installer, and the
+  package installs on Fedora, openSUSE and Arch (their package names are
+  untested).
+- Known gaps: Gio v0.10 has no application id option, so the windows do not
+  carry the desktop entries' `StartupWMClass` (launchers and icons work; the
+  taskbar grouping may not). The Windows exe gets its manifest from go-winres
+  (`gui`) instead of the Wails manifest; check the scaling on a high-DPI screen.

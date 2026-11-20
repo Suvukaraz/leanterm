@@ -45,9 +45,10 @@ func main() {
 	quitAfter := flag.Duration("quit-after", 0, "self-test: quit after this time")
 	stats := flag.Bool("stats", false, "log the frames drawn per second")
 	leanEdit := flag.Bool("leanedit", false, "run only LeanEdit (files as arguments)")
+	newWindow := flag.Bool("new-window", false, "LeanEdit: open its own window even when LeanEdit runs already (File → New Window)")
 	flag.Parse()
 	if *leanEdit {
-		runLeanEdit(*configDir, flag.Args())
+		runLeanEdit(*configDir, flag.Args(), *newWindow)
 		return
 	}
 

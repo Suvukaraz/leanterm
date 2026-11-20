@@ -248,7 +248,9 @@ func (leanEditHost) Quit() { os.Exit(0) }
 //
 // With [editor] single_instance (the default), files go to a LeanEdit that
 // is running already (see internal/singleinstance) and this process exits.
-func runLeanEdit(configDir string, files []string) {
+// newWindow (File → New Window) always opens a window of its own and leaves
+// the lock to the running instance.
+func runLeanEdit(configDir string, files []string, newWindow bool) {
 	store, err := config.NewStore(config.StoreOptions{ConfigDir: configDir, NoBackup: true})
 	if err != nil {
 		log.Fatal(err)
@@ -256,7 +258,7 @@ func runLeanEdit(configDir string, files []string) {
 	if err := store.Load(); err != nil {
 		log.Fatal(err)
 	}
-	single := store.Config().Editor.SingleInstance
+	single := store.Config().Editor.SingleInstance && !newWindow
 	if single {
 		forwarded, err := singleinstance.Forward(store.ConfigDir(), files)
 		if err != nil {
