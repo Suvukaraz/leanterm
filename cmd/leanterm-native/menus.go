@@ -59,6 +59,12 @@ func (u *ui) handleClicks(gtx layout.Context) {
 	}
 	if clicked(&b.sftpToggle) {
 		u.sftpVisible = !u.sftpVisible
+		// The tabs follow (TerminalTab.svelte's $sftpVisible effect).
+		for _, t := range u.tabs {
+			if t.kind == "local" || t.hasSFTP {
+				t.sftpOpen = u.sftpVisible
+			}
+		}
 		u.noteUIStateSoon()
 	}
 	if clicked(&b.clustersToggle) {

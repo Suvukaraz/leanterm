@@ -25,6 +25,11 @@ type tab struct {
 	engine string
 	kind   string
 	nb     *gtk.Tab
+	// hasSFTP: an SSH session with the SFTP browser; sftpOpen and sftpBtn
+	// are the status bar's file browser toggle (the panel is stage 5).
+	hasSFTP  bool
+	sftpOpen bool
+	sftpBtn  widget.Clickable
 }
 
 // splitState is an active split of two terminal tabs (splits.ts). The size
@@ -106,7 +111,7 @@ type ui struct {
 
 	// The left-hand notebook with the Connections/Favourites/History/Clusters tabs.
 	leftNB   gtk.Notebook
-	leftTabs []*gtk.Tab
+	leftTabs map[string]*gtk.Tab // by id, kept across frames
 	clusters widget.Clickable
 
 	// Search (Ctrl+F).
@@ -156,4 +161,6 @@ type ui struct {
 	// The window-wide pointer tag (the context menus open at the pointer).
 	rootTag int
 	lastPtr image.Point
+	// winWidth is the window width in pixels (CSS vw units).
+	winWidth int
 }

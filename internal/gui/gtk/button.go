@@ -2,6 +2,7 @@ package gtk
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/font"
 	"gioui.org/io/pointer"
@@ -26,6 +27,9 @@ type Button struct {
 	Label string
 	// Icon is a Nerd Fonts icon before the label (0 = none).
 	Icon rune
+	// IconColor colors the icon like the web GUI's colored SVG icons
+	// (alpha 0 = the label color).
+	IconColor color.NRGBA
 	// Default marks the dialog's default button (accent border, weight 500).
 	Default  bool
 	Disabled bool
@@ -75,7 +79,14 @@ func (b Button) layout(gtx layout.Context, th *Theme, c *widget.Clickable) layou
 			var kids []layout.FlexChild
 			if b.Icon != 0 {
 				kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return th.IconBox(gtx, b.Icon, 16, fg)
+					ic := fg
+					if b.IconColor.A != 0 && !b.Primary {
+						ic = b.IconColor
+						if b.Disabled {
+							ic = faded(ic, 0.5)
+						}
+					}
+					return th.IconBox(gtx, b.Icon, 16, ic)
 				}))
 			}
 			if b.Label != "" {

@@ -10,8 +10,10 @@ import (
 
 	"gioui.org/font"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 
 	_ "image/jpeg"
 	_ "image/png"
@@ -29,6 +31,9 @@ func (u *ui) infoPage(gtx layout.Context) layout.Dimensions {
 	u.flushNotes()
 
 	sel := u.singleSelected()
+	if sel == nil {
+		return u.welcomePage(gtx)
+	}
 	list := layout.List{Axis: layout.Vertical}
 	d := list.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		kids := []layout.FlexChild{}
@@ -67,45 +72,114 @@ func (u *ui) flushNotes() {
 	}
 }
 
-// welcomePage shows the welcome box (nothing or the root selected).
+// welcomePage shows the welcome box (nothing or the root selected), as
+// ConnectionPanel.svelte's .welcome-box: 12px page padding, an 8px margin,
+// a bordered box in the monospace font with the content centered, sizes
+// following the window width (CSS clamp() with vw units).
 func (u *ui) welcomePage(gtx layout.Context) layout.Dimensions {
 	p := u.th.Pal
-	return layout.Inset{Top: 48, Left: 16, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	size := gtx.Constraints.Max
+	vw := float32(u.winWidth) / gtx.Metric.PxPerDp / 100 // 1vw in dp
+	clamp := func(lo, v, hi float32) float32 { return max(lo, min(v, hi)) }
+	titleSize := clamp(28, 5*vw, 56)
+	subSize := clamp(14, 1.7*vw, 20)
+	logoSize := clamp(120, 18*vw, 200)
+	listSize := clamp(13, 1.4*vw, 16)
+	mono := func(s string, sz float32, bold bool, lh float32) gtk.Text {
+		w := font.Normal
+		if bold {
+			w = font.Bold
+		}
+		return gtk.Text{S: s, Size: unit.Sp(sz), Color: p.FgColor, Weight: w, Mono: true, LineHeight: lh}
+	}
+	inset := gtx.Dp(12 + 8)
+	box := image.Rectangle{Min: image.Pt(inset, inset), Max: size.Sub(image.Pt(inset, inset))}
+	if box.Dx() <= 0 || box.Dy() <= 0 {
+		return layout.Dimensions{Size: size}
+	}
+	o := op.Offset(box.Min).Push(gtx.Ops)
+	defer o.Pop()
+	// background: base color, 1px border, radius 4px.
+	r := gtx.Dp(4)
+	bw := max(1, gtx.Dp(1))
+	paint.FillShape(gtx.Ops, p.BorderColor, clip.UniformRRect(image.Rectangle{Max: box.Size()}, r).Op(gtx.Ops))
+	paint.FillShape(gtx.Ops, p.BaseColor, clip.UniformRRect(image.Rectangle{Min: image.Pt(bw, bw), Max: box.Size().Sub(image.Pt(bw, bw))}, r-bw).Op(gtx.Ops))
+	cl := clip.Rect{Max: box.Size()}.Push(gtx.Ops)
+	defer cl.Pop()
+
+	// The list: 20px padding with the bullets in it, 20px between the
+	// items, line-height 1.4.
+	list := func(gtx layout.Context) layout.Dimensions {
+		var kids []layout.FlexChild
+		for i, it := range []string{
+			"Select or create a connection in the left tree and click Connect or double-click to start.",
+			"Use Local shell to open an instant terminal.",
+			"Click Settings to customize colors, keys, fonts, and security settings.",
+		} {
+			if i > 0 {
+				kids = append(kids, layout.Rigid(layout.Spacer{Height: 20}.Layout))
+			}
+			kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = 0
+				d := layout.Inset{Left: 20}.Layout(gtx, mono(it, listSize, false, 1.4).Widget(u.th))
+				o := op.Offset(image.Pt(gtx.Dp(4), 0)).Push(gtx.Ops)
+				mono("\u2022", listSize, false, 1.4).Layout(gtx, u.th)
+				o.Pop()
+				return d
+			}))
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, kids...)
+	}
+	logo := func(gtx layout.Context) layout.Dimensions {
+		s := gtx.Dp(unit.Dp(logoSize))
+		gtx.Constraints = layout.Exact(image.Pt(s, s))
+		return gtk.Logo{}.Layout(gtx)
+	}
+	// .welcome-body: logo and list side by side (gap 40px) where the list
+	// gets its 320px basis, else wrapped (gap 16px); at most 900px wide.
+	avail := min(box.Dx()-gtx.Dp(48), gtx.Dp(900))
+	body := func(gtx layout.Context) layout.Dimensions {
+		ls := gtx.Dp(unit.Dp(logoSize))
+		if avail-ls-gtx.Dp(40) >= gtx.Dp(320) {
+			lw := min(avail-ls-gtx.Dp(40), gtx.Dp(520))
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(logo),
+				layout.Rigid(layout.Spacer{Width: 40}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints = layout.Constraints{Min: image.Pt(lw, 0), Max: image.Pt(lw, gtx.Constraints.Max.Y)}
+					return list(gtx)
+				}),
+			)
+		}
+		lw := min(avail, gtx.Dp(520))
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(logo),
+			layout.Rigid(layout.Spacer{Height: 16}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return gtk.Text{S: "Welcome to LeanTerm", Size: gtk.Em(2.0), Color: p.FgColor, Weight: font.Bold}.Layout(gtx, u.th)
-			}),
-			layout.Rigid(layout.Spacer{Height: 8}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return gtk.Text{S: "LeanTerm Connection Manager is ready for your sessions.", Size: gtk.Em(0.9), Color: p.MutedFg}.Layout(gtx, u.th)
-			}),
-			layout.Rigid(layout.Spacer{Height: 24}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints = layout.Constraints{Min: image.Pt(0, 0), Max: image.Pt(gtx.Dp(128), gtx.Dp(128))}
-				lg := gtk.Logo{}
-				return lg.Layout(gtx)
-			}),
-			layout.Rigid(layout.Spacer{Height: 24}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					kids := []layout.FlexChild{}
-					for _, s := range []string{
-						"Select or create a connection in the left tree and click Connect or double-click to start.",
-						"Use Local shell to open an instant terminal.",
-						"Click Settings to customize colors, keys, fonts, and security settings.",
-					} {
-						it := s
-						kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Inset{Top: 2, Bottom: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return gtk.Text{S: "•  " + it, Size: gtk.Em(0.9), Color: p.FgColor, LineHeight: 1.4}.Layout(gtx, u.th)
-							})
-						}))
-					}
-					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, kids...)
-				})
+				gtx.Constraints = layout.Constraints{Min: image.Pt(lw, 0), Max: image.Pt(lw, gtx.Constraints.Max.Y)}
+				return list(gtx)
 			}),
 		)
+	}
+	// The column: title, subtitle (24px margin below), body; gap 12px;
+	// centered in the box with at least 32px 24px padding.
+	inner := gtx
+	inner.Constraints = layout.Constraints{Max: image.Pt(box.Dx()-gtx.Dp(48), 1<<20)}
+	col, cd := record(inner, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(mono("Welcome to LeanTerm", titleSize, true, 1.1).Widget(u.th)),
+			layout.Rigid(layout.Spacer{Height: 12}.Layout),
+			layout.Rigid(mono("LeanTerm Connection Manager is ready for your sessions.", subSize, true, 0).Widget(u.th)),
+			layout.Rigid(layout.Spacer{Height: 24 + 12}.Layout),
+			layout.Rigid(body),
+		)
 	})
+	x := (box.Dx() - cd.Size.X) / 2
+	y := max(gtx.Dp(32), (box.Dy()-cd.Size.Y)/2)
+	co := op.Offset(image.Pt(x, y)).Push(gtx.Ops)
+	col.Add(gtx.Ops)
+	co.Pop()
+	return layout.Dimensions{Size: size}
 }
 
 // nodeInfoPage shows the notes and the statistics of the selected node.

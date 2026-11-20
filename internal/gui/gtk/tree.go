@@ -468,6 +468,21 @@ var (
 	favColor       = color.NRGBA{R: 0xf5, G: 0xa6, B: 0x23, A: 0xff}
 )
 
+// rootIcon is the web GUI's root icon: an orange disc with a white network
+// in it (16px).
+func rootIcon(gtx layout.Context, th *Theme) layout.Dimensions {
+	sz := gtx.Dp(16)
+	d := gtx.Dp(1)
+	paint.FillShape(gtx.Ops, treeRootColor, clip.Ellipse{Min: image.Pt(d, d), Max: image.Pt(sz-d, sz-d)}.Op(gtx.Ops))
+	g := gtx
+	g.Constraints = layout.Exact(image.Pt(sz, sz))
+	layout.Center.Layout(g, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min = image.Point{}
+		return th.Icon(gtx, '\uf0e8', unit.Sp(8), color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}) // nf-fa-sitemap
+	})
+	return layout.Dimensions{Size: image.Pt(sz, sz)}
+}
+
 func (t *Tree) icon(n *TreeNode) (rune, color.NRGBA) {
 	switch {
 	case n == t.Root, n.Group && t.Expanded[n.ID]:
@@ -539,6 +554,9 @@ func (t *Tree) rowContent(gtx layout.Context, th *Theme, tr *treeRow, n *TreeNod
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return t.expander(gtx, th, tr, n, selected) }),
 		layout.Rigid(layout.Spacer{Width: 4}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if n == t.Root {
+				return rootIcon(gtx, th)
+			}
 			r, c := t.icon(n)
 			return th.IconBox(gtx, r, 16, c)
 		}),

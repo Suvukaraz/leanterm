@@ -48,7 +48,8 @@ func (u *ui) sessionEvents() {
 				log.Printf("%s: %v", info.Title, err)
 				continue
 			}
-			t := &tab{sess: s, view: termview.New(s.Engine), engine: s.Engine.Name(), kind: info.Kind}
+			t := &tab{sess: s, view: termview.New(s.Engine), engine: s.Engine.Name(), kind: info.Kind, hasSFTP: info.HasSFTP}
+			t.sftpOpen = u.sftpVisible && (t.kind == "local" || t.hasSFTP)
 			t.view.OnResize = s.Resize
 			t.nb = &gtk.Tab{Title: info.Title, Closable: true}
 			u.tabs = append(u.tabs, t)
@@ -74,7 +75,7 @@ func (u *ui) activeTabID() string {
 // the terminal tabs that are not the secondary half of a split.
 func (u *ui) rebuildNotebook() {
 	if u.infoTab == nil {
-		u.infoTab = &gtk.Tab{Title: "Info ", Icon: fonts.IconInfo, Closable: false}
+		u.infoTab = &gtk.Tab{Title: "Info ", Icon: fonts.IconBulb, Closable: false}
 	}
 	primary := map[string]bool{}
 	for primaryID := range u.splits {
@@ -208,8 +209,8 @@ func (u *ui) tabLook(t *tab) (string, rune, color.NRGBA) {
 		}
 	}
 	title := t.sess.Title()
-	if t.kind == "local" {
-		title += " · " + t.engine
+	if title == "" {
+		title = "Terminal"
 	}
 	if _, isSplit := u.splits[t.sess.TmpID]; isSplit {
 		title += " [Split]"

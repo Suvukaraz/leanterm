@@ -320,6 +320,13 @@ func (u *ui) treePanel(gtx layout.Context) layout.Dimensions {
 	)
 }
 
+// The main colors of the web GUI's toolbar icons (a yellow folder, a red
+// connection plug).
+var toolbarColors = map[rune]color.NRGBA{
+	fonts.IconFolderAdd: {R: 0xe0, G: 0xb0, B: 0x30, A: 0xff},
+	fonts.IconPlug:      {R: 0xd9, G: 0x53, B: 0x4f, A: 0xff},
+}
+
 // panelToolbar is the toolbar with the tree operations.
 func (u *ui) panelToolbar(gtx layout.Context) layout.Dimensions {
 	p := u.th.Pal
@@ -328,7 +335,7 @@ func (u *ui) panelToolbar(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Left: 4, Right: 4, Top: pad, Bottom: pad}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			btn := func(icon rune, tooltip string, click *widget.Clickable, disabled bool) layout.FlexChild {
 				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					b := gtk.Button{Variant: gtk.CP, Icon: icon, Disabled: disabled}
+					b := gtk.Button{Variant: gtk.CP, Icon: icon, IconColor: toolbarColors[icon], Disabled: disabled}
 					return b.Layout(gtx, u.th, click)
 				})
 			}
@@ -336,7 +343,7 @@ func (u *ui) panelToolbar(gtx layout.Context) layout.Dimensions {
 			kids := []layout.FlexChild{}
 			kids = append(kids,
 				btn(fonts.IconFolderAdd, "", &u.buttons.addGroup, !u.canAdd()),
-				btn(fonts.IconPlus, "", &u.buttons.addConn, !u.canAdd()),
+				btn(fonts.IconPlug, "", &u.buttons.addConn, !u.canAdd()),
 				btn(fonts.IconEdit, "", &u.buttons.edit, !u.canEdit()),
 				btn(fonts.IconPencil, "", &u.buttons.rename, !u.canRename()),
 				btn(fonts.IconTrash, "", &u.buttons.delete, !u.canDelete()),
@@ -392,8 +399,20 @@ func (u *ui) syncLeftTabs() {
 		}
 		return " " + plain
 	}
-	mk := func(id, title string, icon rune, tooltip string) *gtk.Tab {
-		return &gtk.Tab{Title: label(id, title), Icon: icon, Closable: false}
+	// The tabs keep their identity across frames: their click and hover
+	// state lives in them.
+	if u.leftTabs == nil {
+		u.leftTabs = map[string]*gtk.Tab{}
+	}
+	mk := func(id, title string, icon rune, _ string) *gtk.Tab {
+		t := u.leftTabs[id]
+		if t == nil {
+			t = &gtk.Tab{Closable: false}
+			u.leftTabs[id] = t
+		}
+		t.Title, t.Icon = label(id, title), icon
+		t.IconColor = leftTabColors[id]
+		return t
 	}
 	var tabs []*gtk.Tab
 	tabs = append(tabs, mk("connections", "Connections", fonts.IconList, "Connection Tree"))
@@ -427,6 +446,14 @@ func (u *ui) syncLeftTabs() {
 	}
 	// Tabs order matches the insertion order above.
 	u.leftNB.Selected = idx
+}
+
+// The colors of the web GUI's tab icons (treelist, favourite, history).
+var leftTabColors = map[string]color.NRGBA{
+	"connections": iconGreen,
+	"favourites":  {R: 0xf5, G: 0xa6, B: 0x23, A: 0xff},
+	"history":     {R: 0x4a, G: 0x90, B: 0xe2, A: 0xff},
+	"clusters":    iconGray,
 }
 
 // handleLeftNB processes the left notebook's events.

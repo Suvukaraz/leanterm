@@ -171,7 +171,13 @@ func (t Text) layout(gtx layout.Context, th *Theme, size unit.Sp, px float32) la
 		l.Font.Typeface = fonts.Monospace
 	}
 	l.MaxLines = t.MaxLines
-	if t.LineHeight <= 0 || t.MaxLines != 1 {
+	if t.LineHeight <= 0 {
+		return l.Layout(gtx)
+	}
+	if t.MaxLines != 1 {
+		// Wrapped text: the baselines LineHeight sizes apart.
+		l.LineHeight = size
+		l.LineHeightScale = t.LineHeight
 		return l.Layout(gtx)
 	}
 	// CSS line-height: the line box is size*LineHeight high with the text
@@ -187,6 +193,11 @@ func (t Text) layout(gtx layout.Context, th *Theme, size unit.Sp, px float32) la
 	d.Size.Y = target
 	d.Baseline += target - dy - h0 // the baseline counts from the bottom
 	return d
+}
+
+// Widget returns the text as a layout.Widget.
+func (t Text) Widget(th *Theme) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions { return t.Layout(gtx, th) }
 }
 
 // Label draws s in the GUI font and the given color.

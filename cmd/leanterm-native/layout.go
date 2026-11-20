@@ -3,11 +3,16 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 
+	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/Suvukaraz/leanterm/internal/gui/dnd"
@@ -27,6 +32,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 	if u.quitAfter.Load() { // the self-test of -quit-after
 		u.exitNow()
 	}
+	u.winWidth = gtx.Constraints.Max.X
 	u.trackPointer(gtx)
 	u.sessionEvents()
 	u.handleTabEvents()
@@ -44,7 +50,10 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 
 	for _, t := range u.tabs {
 		title, icon, c := u.tabLook(t)
-		t.nb.Title, t.nb.Icon, t.nb.IconColor = title, icon, c
+		// The status color is the title's, shown bold (Notebook.svelte); the
+		// icon is the method's.
+		t.nb.Title, t.nb.Icon, t.nb.Color = title, icon, c
+		t.nb.IconColor = tabIconColors[icon]
 	}
 	active := u.activeTabID()
 	delete(u.newData, active)
@@ -68,7 +77,7 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 	return layout.Stack{Alignment: layout.NW}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			kids := []layout.FlexChild{}
-			bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions { return u.buttonBar(gtx) })
+			bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions { return u.buttonBar(gtx, buttonBarTop) })
 			if !hideButtonBar && buttonBarTop {
 				kids = append(kids, bar)
 			}
@@ -124,55 +133,86 @@ func (u *ui) dialogOpen() bool {
 
 // ---- button bar --------------------------------------------------------------
 
-// buttonBar is the main button bar (MainButtonBar.svelte).
-func (u *ui) buttonBar(gtx layout.Context) layout.Dimensions {
+// buttonBar is the main button bar (MainButtonBar.svelte): normal GTK
+// buttons with colored icons, 4px apart, padding 3px 6px, on a gradient
+// from the window background to the header color, with a border towards
+// the body.
+func (u *ui) buttonBar(gtx layout.Context, top bool) layout.Dimensions {
 	p := u.th.Pal
-	const pad = 2
+	pp := u.cfg != nil && u.cfg.General.ProtectWithPassword
+	locked := u.lock.active
+	type item struct {
+		icon   rune
+		color  color.NRGBA
+		label  string
+		click  *widget.Clickable
+		active bool
+		off    bool
+	}
+	lockIcon := fonts.IconUnlock
+	if locked {
+		lockIcon = fonts.IconLock
+	}
+	items := []item{
+		{fonts.IconList, iconGreen, "Connections", &u.buttons.panelToggle, u.panelVisible, false},
+		{fonts.IconBriefcase, iconSFTP, "File Browser", &u.buttons.sftpToggle, u.sftpVisible, false},
+		{fonts.IconSitemap, iconGray, "Clusters", &u.buttons.clustersToggle, u.clustersVisible, false},
+		{fonts.IconTerminal, iconGreen, "Local shell", &u.buttons.localShell, false, false},
+		{fonts.IconPowerOff, iconGray, "Wake On Lan", &u.buttons.wol, false, false},
+		{fonts.IconTools, iconGray, "Settings", &u.buttons.prefs, false, false},
+		{lockIcon, iconLock, "", &u.buttons.lock, locked, !pp},
+		{fonts.IconInfo, color.NRGBA{}, "About", &u.buttons.about, false, false},
+	}
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
 	call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Left: 7, Right: 7, Top: pad + 1, Bottom: pad + 1}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			pp := u.cfg != nil && u.cfg.General.ProtectWithPassword
-			locked := u.lock.active
-			btn := func(icon rune, active, disabled bool, click *widget.Clickable) layout.FlexChild {
-				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					b := gtk.Button{Variant: gtk.CP, Icon: icon, Active: active, Disabled: disabled}
-					return b.Layout(gtx, u.th, click)
-				})
-			}
-			labelled := func(icon rune, label string, click *widget.Clickable, active bool) layout.FlexChild {
-				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					b := gtk.Button{Variant: gtk.CP, Icon: icon, Label: label, Active: active}
-					return b.Layout(gtx, u.th, click)
-				})
-			}
-			lockIcon := fonts.IconUnlock
-			if locked {
-				lockIcon = fonts.IconLock
-			}
-			kids := []layout.FlexChild{
-				labelled(fonts.IconList, "Connections", &u.buttons.panelToggle, u.panelVisible),
-				labelled(fonts.IconExchange, "File Browser", &u.buttons.sftpToggle, u.sftpVisible),
-				labelled(fonts.IconSitemap, "Clusters", &u.buttons.clustersToggle, u.clustersVisible),
-				labelled(fonts.IconTerminal, "Local shell", &u.buttons.localShell, false),
-				labelled(fonts.IconBolt, "Wake On Lan", &u.buttons.wol, false),
-				labelled(fonts.IconCog, "Settings", &u.buttons.prefs, false),
-				btn(lockIcon, locked, !pp, &u.buttons.lock),
-				labelled(fonts.IconInfo, "About", &u.buttons.about, false),
-			}
-			spaced := []layout.FlexChild{}
-			for i, k := range kids {
+		return layout.Inset{Left: 6, Right: 6, Top: 3, Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			var kids []layout.FlexChild
+			for i, it := range items {
 				if i > 0 {
-					spaced = append(spaced, layout.Rigid(layout.Spacer{Width: 4}.Layout))
+					kids = append(kids, layout.Rigid(layout.Spacer{Width: 4}.Layout))
 				}
-				spaced = append(spaced, k)
+				kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					b := gtk.Button{Icon: it.icon, IconColor: it.color, Label: it.label, Active: it.active, Disabled: it.off}
+					return b.Layout(gtx, u.th, it.click)
+				}))
 			}
-			return layout.Flex{Alignment: layout.Middle}.Layout(gtx, spaced...)
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx, kids...)
 		})
 	})
-	gtk.FillRect(gtx, image.Rectangle{Max: d.Size}, p.HeaderBg)
-	call.Add(gtx.Ops)
-	gtk.FillRect(gtx, image.Rectangle{Min: image.Pt(0, d.Size.Y-1), Max: d.Size}, p.BorderColor)
+	d.Size.X = gtx.Constraints.Max.X
+	d.Size.Y += 1 // the border
+	r := image.Rectangle{Max: d.Size}
+	grad := paint.LinearGradientOp{Stop1: f32.Pt(0, 0), Color1: p.BgColor, Stop2: f32.Pt(0, float32(d.Size.Y)), Color2: p.HeaderBg}
+	st := clip.Rect(r).Push(gtx.Ops)
+	grad.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	st.Pop()
+	line := image.Rectangle{Min: image.Pt(0, d.Size.Y-1), Max: d.Size}
+	if !top {
+		line = image.Rectangle{Max: image.Pt(d.Size.X, 1)}
+		off := op.Offset(image.Pt(0, 1)).Push(gtx.Ops)
+		call.Add(gtx.Ops)
+		off.Pop()
+	} else {
+		call.Add(gtx.Ops)
+	}
+	gtk.FillRect(gtx, line, p.BorderColor)
 	return d
 }
+
+// tabIconColors are the main colors of the method icons in the tabs.
+var tabIconColors = map[rune]color.NRGBA{
+	fonts.IconTerminal: iconGreen,
+}
+
+// The web GUI's icons are colored SVGs; the Nerd Font icons get their main
+// color.
+var (
+	iconGreen = color.NRGBA{R: 0x3f, G: 0xb3, B: 0x3f, A: 0xff}
+	iconSFTP  = color.NRGBA{R: 0x8a, G: 0xb2, B: 0x5a, A: 0xff}
+	iconGray  = color.NRGBA{R: 0xb8, G: 0xb8, B: 0xb8, A: 0xff}
+	iconLock  = color.NRGBA{R: 0xc8, G: 0xa0, B: 0x60, A: 0xff}
+)
 
 // ---- body -------------------------------------------------------------------
 
@@ -289,54 +329,102 @@ func (u *ui) terminalViewArea(gtx layout.Context, t *tab) layout.Dimensions {
 }
 
 // terminalStatusBar is the status bar under the terminal
-// (TerminalTab.svelte's statusBar snippet).
+// (TerminalTab.svelte's statusBar snippet): 30px high on the header color
+// with a top border, padding 0 6px, 11px text, 6px gaps; the terminal and
+// cluster icons and the status on the left, the file browser and Info
+// buttons on the right.
 func (u *ui) terminalStatusBar(gtx layout.Context, t *tab) layout.Dimensions {
 	p := u.th.Pal
-	_, _, c := u.tabLook(t)
-	st := t.sess.State()
-	icon := fonts.IconPlug
-	if st != "connected" && st != "connecting" {
-		icon = fonts.IconPowerOff
+	if t.sftpBtn.Clicked(gtx) {
+		t.sftpOpen = !t.sftpOpen
 	}
-
-	kids := []layout.FlexChild{}
-	kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return u.th.IconBox(gtx, icon, 16, c)
-	}))
+	st := t.sess.State()
+	connected := st == "connected"
+	termColor := color.NRGBA{R: 0xe0, G: 0x1b, B: 0x24, A: 0xff} // asbru-terminal-ko
+	if connected {
+		termColor = iconGreen // asbru-terminal-ok
+	}
 	var cluster string
 	if info := u.core.Sessions.GetInfo(t.sess.TmpID); info != nil {
 		cluster = info.Cluster
 	}
+	base := t.sess.Status() // the last status message, else the state
+	if base == "" {
+		base = strings.ToUpper(st)
+	}
+	status := "Status: " + base
+	if cluster != "" {
+		status = "[IN CLUSTER: " + cluster + "] - " + status
+	}
+	gap := layout.Rigid(layout.Spacer{Width: 6}.Layout)
+	left := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return u.th.IconBox(gtx, fonts.IconTerminal, 16, termColor)
+	})}
 	if u.clustersVisible || cluster != "" {
 		iconC := p.MutedFg
 		if cluster != "" {
 			iconC = p.SuccessFg
 		}
-		kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		left = append(left, gap, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return u.th.IconBox(gtx, fonts.IconSitemap, 16, iconC)
 		}))
 	}
-	status := "Status: " + strings.ToUpper(st)
-	if s := t.sess.Status(); s != "" {
-		status += " · " + s
-	}
-	if cluster != "" {
-		status = "[IN CLUSTER: " + cluster + "] - " + status
-	}
-	kids = append(kids, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+	left = append(left, gap, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		return gtk.Text{S: status, Size: gtk.Em(0.85), Color: p.FgColor, MaxLines: 1}.Layout(gtx, u.th)
+		return layout.W.Layout(gtx, gtk.Text{S: status, Size: unit.Sp(11), Color: p.FgColor, MaxLines: 1}.Widget(u.th))
 	}))
-	kids = append(kids, layout.Rigid(u.th.StatusText("Engine: "+t.engine)))
-	if d := t.sess.Dir(); d != "" {
-		kids = append(kids, layout.Rigid(u.th.StatusText("Folder: "+d)))
+	// .status-btn: transparent, 1px border, radius 3px, padding 1px 3px.
+	statusBtn := func(icon rune, c color.NRGBA, active bool, click *widget.Clickable) layout.FlexChild {
+		return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Left: 4, Right: 4, Top: 2, Bottom: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return u.th.IconBox(gtx, icon, 16, c)
+					})
+				})
+				r := image.Rectangle{Max: d.Size}
+				bw := max(1, gtx.Dp(1))
+				switch {
+				case active:
+					paint.FillShape(gtx.Ops, p.Accent, clip.UniformRRect(r, gtx.Dp(3)).Op(gtx.Ops))
+					paint.FillShape(gtx.Ops, p.BtnActiveBg, clip.UniformRRect(r.Inset(bw), gtx.Dp(3)-bw).Op(gtx.Ops))
+				case click.Hovered():
+					paint.FillShape(gtx.Ops, p.BorderColor, clip.UniformRRect(r, gtx.Dp(3)).Op(gtx.Ops))
+					paint.FillShape(gtx.Ops, p.BtnHoverBg, clip.UniformRRect(r.Inset(bw), gtx.Dp(3)-bw).Op(gtx.Ops))
+				}
+				call.Add(gtx.Ops)
+				return d
+			})
+		})
 	}
-	// The Info tab button (the file browser button is stage 5).
-	kids = append(kids, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		b := gtk.Button{Variant: gtk.Flat, Icon: fonts.IconInfo}
-		return b.Layout(gtx, u.th, &u.buttons.infoTabBtn)
-	}))
-	return u.th.Statusbar(gtx, kids...)
+	var right []layout.FlexChild
+	// The file browser (local shells and SSH with SFTP); its panel is stage 5.
+	if t.kind == "local" || t.hasSFTP {
+		ic, c := fonts.IconFolder, toolbarColors[fonts.IconFolderAdd]
+		if t.kind != "local" {
+			ic, c = fonts.IconBriefcase, iconSFTP
+		}
+		right = append(right, statusBtn(ic, c, t.sftpOpen, &t.sftpBtn), gap)
+	}
+	right = append(right, statusBtn(fonts.IconInfo, p.FgColor, false, &u.buttons.infoTabBtn))
+
+	h := gtx.Dp(30)
+	w := gtx.Constraints.Max.X
+	gtk.FillRect(gtx, image.Rect(0, 0, w, h), p.HeaderBg)
+	gtk.FillRect(gtx, image.Rect(0, 0, w, max(1, gtx.Dp(1))), p.BorderColor)
+	g := gtx
+	g.Constraints = layout.Exact(image.Pt(w, h))
+	layout.Inset{Left: 6, Right: 6, Top: 1}.Layout(g, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx, left...)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx, right...)
+			}),
+		)
+	})
+	return layout.Dimensions{Size: image.Pt(w, h)}
 }
 
 // ---- global shortcuts ---------------------------------------------------------

@@ -55,6 +55,9 @@ const (
 	IconUndo      = '\uf0e2'     // nf-fa-undo
 	IconStop      = '\uf04d'     // nf-fa-stop
 	IconGlobe     = '\uf0ac'     // nf-fa-globe
+	IconBriefcase = '\uf0b1'     // nf-fa-briefcase (the SFTP method)
+	IconTools     = '\U000F1064' // nf-md-tools (settings)
+	IconBulb      = '\U000F0336' // nf-md-lightbulb_outline (the Info tab)
 )
 
 // AllIcons lists the icons above (for tests and icon pickers).
@@ -67,5 +70,5 @@ var AllIcons = []rune{
 	IconSitemap, IconPowerlineLR,
 	IconSave, IconCopy, IconCut, IconPaste, IconPlay, IconStarOff,
 	IconList, IconMinus, IconEdit, IconExchange, IconQuestion, IconExternal,
-	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe,
+	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe, IconBriefcase, IconTools, IconBulb,
 }

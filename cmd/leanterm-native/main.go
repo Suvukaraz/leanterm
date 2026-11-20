@@ -116,6 +116,7 @@ func main() {
 
 	u.reloadSettings()
 	u.loadUIState()
+	u.rebuildNotebook() // the Info tab is there from the start
 
 	if *quitAfter > 0 {
 		time.AfterFunc(*quitAfter, func() {
