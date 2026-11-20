@@ -58,6 +58,14 @@ const (
 	IconBriefcase = '\uf0b1'     // nf-fa-briefcase (the SFTP method)
 	IconTools     = '\U000F1064' // nf-md-tools (settings)
 	IconBulb      = '\U000F0336' // nf-md-lightbulb_outline (the Info tab)
+	IconBars      = '\uf0c9'     // nf-fa-bars (more actions)
+	IconChevLeft  = '\uf053'     // nf-fa-chevron_left
+	IconChevRight = '\uf054'     // nf-fa-chevron_right
+	IconChevUp    = '\uf077'     // nf-fa-chevron_up
+	IconFolderO   = '\uf114'     // nf-fa-folder_o (outline)
+	IconFileO     = '\uf016'     // nf-fa-file_o (outline)
+	IconHomeO     = '\U000F07D1' // nf-md-home_outline
+	IconLinkArrow = '\uf064'     // nf-fa-share (symbolic links)
 )
 
 // AllIcons lists the icons above (for tests and icon pickers).
@@ -70,5 +78,5 @@ var AllIcons = []rune{
 	IconSitemap, IconPowerlineLR,
 	IconSave, IconCopy, IconCut, IconPaste, IconPlay, IconStarOff,
 	IconList, IconMinus, IconEdit, IconExchange, IconQuestion, IconExternal,
-	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe, IconBriefcase, IconTools, IconBulb,
+	IconFile, IconFolderAdd, IconRedo, IconUndo, IconStop, IconGlobe, IconBriefcase, IconTools, IconBulb, IconBars, IconLinkArrow, IconChevLeft, IconChevRight, IconChevUp, IconFolderO, IconFileO, IconHomeO,
 }

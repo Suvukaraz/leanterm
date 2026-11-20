@@ -1,6 +1,7 @@
 package gtk
 
 import (
+	"github.com/Suvukaraz/leanterm/internal/gui/fonts"
 	"image"
 	"image/color"
 
@@ -22,6 +23,10 @@ type Entry struct {
 	// Width of the entry (0 = the web view's default of 228px; -1 = all
 	// the space there is).
 	Width unit.Dp
+	// Mono sets the text in the monospace font; Size overrides the text
+	// size (0 = the GUI font size).
+	Mono bool
+	Size unit.Sp
 }
 
 // Layout draws the entry for e.
@@ -49,6 +54,12 @@ func (en Entry) Layout(gtx layout.Context, th *Theme, e *widget.Editor) layout.D
 		gtx.Constraints.Min.X, gtx.Constraints.Max.X = px, px
 	}
 	ed := material.Editor(th.Theme, e, en.Placeholder)
+	if en.Mono {
+		ed.Font.Typeface = fonts.Monospace
+	}
+	if en.Size > 0 {
+		ed.TextSize = en.Size
+	}
 	ed.Color, ed.HintColor = p.TextColor, placeholderColor(th)
 	ed.SelectionColor = faded(p.SelectedBg, 0.45)
 	// CSS: padding 3px 6px, border 1px, radius 3px. Gio's editor line is

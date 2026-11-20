@@ -425,6 +425,9 @@ type Paned struct {
 	hover    Hover
 }
 
+// Dragging reports whether the handle is being dragged.
+func (pn *Paned) Dragging() bool { return pn.dragging }
+
 // Layout draws the panes and the handle.
 func (pn *Paned) Layout(gtx layout.Context, th *Theme, first, second layout.Widget) layout.Dimensions {
 	size := gtx.Constraints.Max
