@@ -286,7 +286,7 @@ large_file_mb = 10
 # Ask twice before opening files larger than this (MB); syntax highlighting starts off
 huge_file_mb = 100
 # LeanEdit started on its own: open files as new tabs of the running LeanEdit instead of new windows
-single_instance = false
+single_instance = true
 
 # Editor font
 [editor.font]

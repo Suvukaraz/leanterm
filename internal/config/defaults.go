@@ -133,7 +133,7 @@ func Default() *Config {
 			NewlineAtEOF:         true,
 			LargeFileMB:          10,
 			HugeFileMB:           100,
-			SingleInstance:       false,
+			SingleInstance:       true,
 		},
 		SFTPBrowser: SFTPBrowserConfig{
 			AutoOpen:             true,
