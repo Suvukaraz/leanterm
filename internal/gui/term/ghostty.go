@@ -30,6 +30,7 @@ type ghosttyEngine struct {
 	cellW uint32
 	cellH uint32
 	gbuf  []uint32
+	modes modeTracker
 }
 
 func newGhostty(o Options) (Engine, error) {
@@ -104,6 +105,7 @@ func (e *ghosttyEngine) Feed(p []byte) {
 	if e.t == nil {
 		return
 	}
+	e.modes.feed(p)
 	e.t.VTWrite(p)
 }
 
@@ -376,6 +378,180 @@ func resolveGhostty(sc gt.StyleColor, colors *gt.RenderStateColors, fallback col
 		return nrgba(colors.Palette[sc.Palette])
 	}
 	return fallback
+}
+
+func (e *ghosttyEngine) Modes() Modes {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.modes.Modes
+}
+
+func (e *ghosttyEngine) Lines() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.t == nil {
+		return 0
+	}
+	sb, err := e.t.Scrollbar()
+	if err != nil {
+		return 0
+	}
+	return int(sb.Total)
+}
+
+// lineColors are the current default colors and palette, as the render
+// state has them.
+func (e *ghosttyEngine) lineColors() *gt.RenderStateColors {
+	c := &gt.RenderStateColors{}
+	if fg, err := e.t.ColorForeground(); err == nil && fg != nil {
+		c.Foreground = *fg
+	} else if fg, err := e.t.ColorForegroundDefault(); err == nil && fg != nil {
+		c.Foreground = *fg
+	}
+	if bg, err := e.t.ColorBackground(); err == nil && bg != nil {
+		c.Background = *bg
+	} else if bg, err := e.t.ColorBackgroundDefault(); err == nil && bg != nil {
+		c.Background = *bg
+	}
+	if pal, err := e.t.ColorPalette(); err == nil && pal != nil {
+		c.Palette = *pal
+	}
+	return c
+}
+
+// Line reads a line of the screen (history and active area) cell by cell
+// through grid references.
+func (e *ghosttyEngine) Line(row int, dst []Cell) []Cell {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.t == nil || row < 0 {
+		return dst
+	}
+	cols, err := e.t.Cols()
+	if err != nil {
+		return dst
+	}
+	colors := e.lineColors()
+	f := Frame{Fg: nrgba(colors.Foreground), Bg: nrgba(colors.Background)}
+	for x := 0; x < int(cols); x++ {
+		out := Cell{Fg: f.Fg, Bg: f.Bg, Width: 1}
+		ref, err := e.t.GridRef(gt.Point{Tag: gt.PointTagScreen, X: uint16(x), Y: uint32(row)})
+		if err != nil {
+			if x == 0 {
+				return dst // beyond the last line
+			}
+			dst = append(dst, out)
+			continue
+		}
+		e.refCell(ref, &out, colors, &f)
+		dst = append(dst, out)
+	}
+	return dst
+}
+
+func (e *ghosttyEngine) refCell(ref *gt.GridRef, out *Cell, colors *gt.RenderStateColors, f *Frame) {
+	if c, err := ref.Cell(); err == nil {
+		if w, err := c.Wide(); err == nil {
+			switch w {
+			case gt.CellWideWide:
+				out.Width = 2
+			case gt.CellWideSpacerTail, gt.CellWideSpacerHead:
+				out.Width = 0
+				return
+			}
+		}
+		// Cells that only carry a background color.
+		if tag, err := c.ContentTag(); err == nil {
+			switch tag {
+			case gt.CellContentBgColorPalette:
+				if i, err := c.ColorPalette(); err == nil {
+					out.Bg = nrgba(colors.Palette[i])
+				}
+				return
+			case gt.CellContentBgColorRGB:
+				if rgb, err := c.ColorRGB(); err == nil {
+					out.Bg = nrgba(rgb)
+				}
+				return
+			}
+		}
+	}
+	if g, err := ref.Graphemes(); err == nil && len(g) > 0 {
+		var sb strings.Builder
+		for _, cp := range g {
+			sb.WriteRune(rune(cp))
+		}
+		if s := sb.String(); s != " " {
+			out.Text = s
+		}
+	}
+	st, err := ref.Style()
+	if err != nil || st == nil {
+		return
+	}
+	fg := resolveGhostty(st.FgColor(), colors, f.Fg)
+	bg := resolveGhostty(st.BgColor(), colors, f.Bg)
+	if st.Bold() {
+		out.Attrs |= AttrBold
+	}
+	if st.Faint() {
+		out.Attrs |= AttrFaint
+	}
+	if st.Italic() {
+		out.Attrs |= AttrItalic
+	}
+	if st.Invisible() {
+		out.Attrs |= AttrInvisible
+	}
+	if st.Strikethrough() {
+		out.Attrs |= AttrStrikethrough
+	}
+	if st.Underline() != gt.UnderlineNone {
+		out.Attrs |= AttrUnderline
+	}
+	if st.Inverse() {
+		fg, bg = bg, fg
+	}
+	out.Fg, out.Bg = fg, bg
+}
+
+func (e *ghosttyEngine) LinkAt(x, y int) string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.t == nil || x < 0 || y < 0 {
+		return ""
+	}
+	ref, err := e.t.GridRef(gt.Point{Tag: gt.PointTagViewport, X: uint16(x), Y: uint32(y)})
+	if err != nil {
+		return ""
+	}
+	uri, _ := ref.HyperlinkURI()
+	return uri
+}
+
+func (e *ghosttyEngine) SendRaw(p []byte) {
+	if len(p) > 0 {
+		e.cb.Output(append([]byte(nil), p...))
+	}
+}
+
+func (e *ghosttyEngine) Reset() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.t == nil {
+		return
+	}
+	e.t.Reset()
+	e.modes = modeTracker{}
+}
+
+func (e *ghosttyEngine) Clear() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.t == nil {
+		return
+	}
+	e.t.VTWrite([]byte("\x1b[H\x1b[2J\x1b[3J"))
 }
 
 func (e *ghosttyEngine) Close() {

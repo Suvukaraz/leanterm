@@ -270,3 +270,97 @@ func itoa(i int) string {
 	}
 	return itoa(i/10) + string(rune('0'+i%10))
 }
+
+func TestLinesIncludeHistory(t *testing.T) {
+	forEachEngine(t, func(t *testing.T, name string) {
+		h := newHarness(t, name, 20, 3)
+		for i := 1; i <= 6; i++ {
+			h.eng.Feed([]byte("line " + string(rune('0'+i)) + "\r\n"))
+		}
+		var f Frame
+		h.eng.Snapshot(&f)
+		n := h.eng.Lines()
+		if n != f.History+f.Rows {
+			t.Fatalf("Lines() = %d, history %d + rows %d", n, f.History, f.Rows)
+		}
+		// The screen shows lines 5, 6 and the empty last line; the history
+		// holds the rest.
+		for y := 0; y < f.Rows; y++ {
+			if got, want := Text(h.eng.Line(f.History-f.Offset+y, nil)), rowText(&f, y); got != want {
+				t.Fatalf("line of viewport row %d = %q, row text %q", y, got, want)
+			}
+		}
+		if got := Text(h.eng.Line(f.History-1, nil)); got != "line 4" {
+			t.Fatalf("last history line %q", got)
+		}
+		if got := len(h.eng.Line(0, nil)); got != 20 {
+			t.Fatalf("first line has %d cells", got)
+		}
+		if got := h.eng.Line(n+5, nil); len(got) != 0 {
+			t.Fatalf("line beyond the end: %d cells", len(got))
+		}
+		// Colors survive in history lines.
+		h.eng.Feed([]byte("\x1b[31mred\x1b[0m\r\n\r\n\r\n\r\n"))
+		h.eng.Snapshot(&f)
+		found := false
+		for r := 0; r < h.eng.Lines(); r++ {
+			l := h.eng.Line(r, nil)
+			if Text(l) == "red" {
+				found = l[0].Fg == DefaultColors().Palette[1]
+			}
+		}
+		if !found {
+			t.Fatal("red history line not found with its color")
+		}
+	})
+}
+
+func TestModesAndRaw(t *testing.T) {
+	forEachEngine(t, func(t *testing.T, name string) {
+		h := newHarness(t, name, 20, 3)
+		h.eng.Feed([]byte("\x1b[?1000h\x1b[?1006h"))
+		if m := h.eng.Modes(); m.Mouse != MouseNormal || !m.SGR || m.AltScreen {
+			t.Fatalf("modes %+v", m)
+		}
+		h.eng.Feed([]byte("\x1b[?1049h"))
+		if !h.eng.Modes().AltScreen {
+			t.Fatal("alternate screen not seen")
+		}
+		if n := h.eng.Lines(); n != 3 {
+			t.Fatalf("alternate screen has %d lines", n)
+		}
+		h.eng.SendRaw([]byte("\x1b[<0;1;1M"))
+		h.waitOutput("\x1b[<0;1;1M")
+		h.eng.Reset()
+		if m := h.eng.Modes(); m.Mouse != MouseNone {
+			t.Fatalf("modes after reset %+v", m)
+		}
+	})
+}
+
+func TestHyperlinkAndClear(t *testing.T) {
+	forEachEngine(t, func(t *testing.T, name string) {
+		h := newHarness(t, name, 30, 3)
+		h.eng.Feed([]byte("see \x1b]8;;https://example.org/x\x1b\\here\x1b]8;;\x1b\\ now"))
+		if got := h.eng.LinkAt(5, 0); got != "https://example.org/x" {
+			t.Fatalf("LinkAt(link) = %q", got)
+		}
+		if got := h.eng.LinkAt(1, 0); got != "" {
+			t.Fatalf("LinkAt(text) = %q", got)
+		}
+		for i := 0; i < 5; i++ {
+			h.eng.Feed([]byte("\r\nmore"))
+		}
+		h.eng.Clear()
+		var f Frame
+		h.eng.Snapshot(&f)
+		for y := 0; y < f.Rows; y++ {
+			if s := rowText(&f, y); s != "" {
+				t.Fatalf("row %d after Clear: %q", y, s)
+			}
+		}
+		if f.History != 0 {
+			t.Fatalf("history after Clear: %d", f.History)
+		}
+	})
+}

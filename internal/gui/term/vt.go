@@ -24,6 +24,7 @@ type vtEngine struct {
 	offset int // lines scrolled up into the history
 	// bracketed is set while the program asked for bracketed paste.
 	bracketed bool
+	modes     modeTracker
 }
 
 func newVT(o Options) (Engine, error) {
@@ -88,6 +89,7 @@ func (e *vtEngine) Feed(p []byte) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	before := e.em.ScrollbackLen()
+	e.modes.feed(p)
 	_, _ = e.em.Write(p)
 	// Keep the scrolled-back view on the same lines while output arrives.
 	if e.offset > 0 {
@@ -281,6 +283,89 @@ func (e *vtEngine) resolve(c color.Color) color.NRGBA {
 		return e.colors.Palette[v]
 	}
 	return toNRGBA(c)
+}
+
+func (e *vtEngine) Modes() Modes {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	m := e.modes.Modes
+	m.AltScreen = e.em.IsAltScreen()
+	return m
+}
+
+// history is the number of history lines of the shown screen (e.mu held).
+func (e *vtEngine) history() int {
+	if e.em.IsAltScreen() {
+		return 0
+	}
+	return e.em.ScrollbackLen()
+}
+
+func (e *vtEngine) Lines() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.history() + e.em.Height()
+}
+
+func (e *vtEngine) Line(row int, dst []Cell) []Cell {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	hist := e.history()
+	if row < 0 || row >= hist+e.em.Height() {
+		return dst
+	}
+	f := Frame{Fg: e.colors.Fg, Bg: e.colors.Bg}
+	if c := e.em.ForegroundColor(); c != nil {
+		f.Fg = toNRGBA(c)
+	}
+	if c := e.em.BackgroundColor(); c != nil {
+		f.Bg = toNRGBA(c)
+	}
+	for x := 0; x < e.em.Width(); x++ {
+		var c *uv.Cell
+		if row < hist {
+			c = e.em.ScrollbackCellAt(x, row)
+		} else {
+			c = e.em.CellAt(x, row-hist)
+		}
+		out := Cell{Fg: f.Fg, Bg: f.Bg, Width: 1}
+		e.convert(c, &out, &f)
+		dst = append(dst, out)
+	}
+	return dst
+}
+
+func (e *vtEngine) LinkAt(x, y int) string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	hist := e.history()
+	row := hist - min(e.offset, hist) + y
+	var c *uv.Cell
+	if row < hist {
+		c = e.em.ScrollbackCellAt(x, row)
+	} else {
+		c = e.em.CellAt(x, row-hist)
+	}
+	if c == nil {
+		return ""
+	}
+	return c.Link.URL
+}
+
+func (e *vtEngine) SendRaw(p []byte) {
+	if len(p) > 0 {
+		e.cb.Output(append([]byte(nil), p...))
+	}
+}
+
+func (e *vtEngine) Reset() { e.Feed([]byte("\x1bc")) }
+
+func (e *vtEngine) Clear() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	_, _ = e.em.Write([]byte("\x1b[H\x1b[2J"))
+	e.em.ClearScrollback()
+	e.offset = 0
 }
 
 // Close ends the output pump. Emulator.Close is not used: it sets a field

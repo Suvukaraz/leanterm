@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"image/color"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -189,7 +190,40 @@ type Engine interface {
 	ScrollToBottom()
 	// Snapshot fills f with the current viewport.
 	Snapshot(f *Frame)
+	// Modes are the mouse and screen modes the program set.
+	Modes() Modes
+	// Lines is the number of lines of the shown screen: the history and the
+	// screen rows (the alternate screen has no history).
+	Lines() int
+	// Line appends the cells of line row (0 = the oldest history line, as
+	// [Frame.History]-[Frame.Offset]+y for viewport row y) to dst.
+	Line(row int, dst []Cell) []Cell
+	// LinkAt is the URI of the OSC 8 hyperlink at a viewport cell ("" for
+	// none).
+	LinkAt(x, y int) string
+	// SendRaw sends bytes to the program as they are (mouse reports).
+	SendRaw(p []byte)
+	// Reset resets the terminal (RIS); Clear erases the screen and the
+	// history.
+	Reset()
+	Clear()
 	Close()
+}
+
+// Text is the text of cells (wide characters once, blank cells as spaces,
+// trailing blanks removed).
+func Text(cells []Cell) string {
+	var sb strings.Builder
+	for _, c := range cells {
+		switch {
+		case c.Width == 0:
+		case c.Text == "":
+			sb.WriteByte(' ')
+		default:
+			sb.WriteString(c.Text)
+		}
+	}
+	return strings.TrimRight(sb.String(), " ")
 }
 
 type factory func(Options) (Engine, error)
