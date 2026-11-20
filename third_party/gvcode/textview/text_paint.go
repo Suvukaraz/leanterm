@@ -342,6 +342,9 @@ func (e *TextView) PaintWhitespace(gtx layout.Context, col color.NRGBA, spaces, 
 		if line.YOff-line.Ascent.Ceil() > viewport.Max.Y {
 			break
 		}
+		if line.Hidden {
+			continue
+		}
 		off := line.RuneOff
 		for _, g := range line.Glyphs {
 			if g.Runes == 0 {

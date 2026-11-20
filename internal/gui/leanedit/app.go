@@ -199,6 +199,11 @@ func (a *App) activate(id int) {
 
 func (a *App) addTab(file *services.EditorFile, title string) *Tab {
 	t := newTab(a.nextID, file, title)
+	t.invalidate = func() {
+		if a.Invalidate != nil {
+			a.Invalidate()
+		}
+	}
 	a.nextID++
 	a.tabs = append(a.tabs, t)
 	a.activate(t.ID)
@@ -215,6 +220,7 @@ func (a *App) closeTabNow(id int) {
 	if idx < 0 {
 		return
 	}
+	a.tabs[idx].closeFolds()
 	a.tabs = append(a.tabs[:idx:idx], a.tabs[idx+1:]...)
 	delete(a.ignored, id)
 	a.forgetTab(id)

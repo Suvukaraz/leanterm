@@ -72,7 +72,8 @@ cross-compiled with `zig cc -target x86_64-windows-gnu` (see the workflow).
   `termview/view_test.go` covers this through Gio's input router.
 - **gvcode**: line numbers appear from the second frame on (the gutter is
   measured from the previous layout); the editor asks for that frame.
-  Folding, block selection, bookmarks and the minimap are not part of gvcode.
+  Block selection, bookmarks and the minimap are not part of gvcode; folding
+  is added in the fork (see "Code folding" in stage 7).
 - **Drag and drop from the desktop**: Gio 0.10 does not deliver dropped files
   on any desktop platform (its X11/Wayland handlers are empty). Windows works
   by subclassing the window (`internal/gui/dnd`, checked in CI with a real
@@ -403,13 +404,64 @@ KWrite's window per start. `show_tabs`, `auto_detect_indent`,
 the native GUI uses them (the web GUI ignores them). Existing
 configuration files keep the values they have written.
 
+### Code folding
+
+LeanEdit folds code blocks like KWrite, with the syntax trees of
+[gotreesitter](https://github.com/odvcencio/gotreesitter) (pure Go, no cgo):
+
+- `internal/gui/folding` is the parser layer, without UI. `languages.go`
+  maps LeanEdit's languages to gotreesitter grammars: every highlighted
+  language that has a grammar folds (C, C++, Arduino, C#, Java, Kotlin,
+  Dart, Go, Rust, Python, Mojo, Nim, Clojure, Lua, Bash, PowerShell, HTML,
+  CSS, SCSS, Less, JavaScript/JSX, TypeScript, TSX, Svelte, Markdown, SQL,
+  JSON, JSONC/JSON5, YAML, TOML, XML, Desktop Entry, KDL, INI, nginx, SSH
+  config, Dockerfile, Makefile, CMake, ignore files, Protocol Buffers,
+  Jinja2, Diff). Windows Batch, Sass, systemd, Apache, crontab, the
+  whitespace config mode, Windows Registry, RPM spec and plain text have no
+  grammar and no folding: there is deliberately no bracket or indentation
+  fallback. Each grammar package embeds its blob and loads it on first use.
+- gotreesitter ships highlight and tags queries but no `folds.scm`, so
+  `ranges.go` finds the folds with one heuristic for all grammars: named,
+  multi-line nodes whose type names a structure (functions, classes,
+  blocks, bodies, imports, literals, comments, elements, sections,
+  mappings, ...). List-like nodes that start with a multi-line child and
+  body wrappers that start below their header (Python's `block`, Go's
+  `statement_list`) add no second fold; one fold per start line (the
+  longest). A fold keeps its first line and hides the rest.
+- `parser.go` parses on a worker goroutine. Updates are coalesced (200 ms
+  after the first one), later parses edit the previous tree with the changed
+  bytes (`Tree.Edit`) and call `ParseIncremental`. The parser and tree never
+  leave the worker; results carry the text's generation and the editor drops
+  stale ones.
+- `manager.go` is the FoldManager: folded ranges are kept independently of
+  each other (an outer fold hides the inner ones; unfolding it shows them as
+  they were), hidden spans are merged with prefix sums for
+  `DocLineToVisualLine`, `VisualLineToDocLine`, `TotalVisualLines` and
+  `IsLineHidden`. Edits move the folds below them, grow or shrink the
+  blocks around them and unfold a fold whose hidden lines or header they
+  touch; typing within a folded header keeps the fold.
+- The gvcode fork hides the folded paragraphs in its layout: they keep their
+  text and caret positions but get the baseline of the line above, so they
+  take no space (the scroll range, scrollbar and minimap follow the visual
+  lines) and are skipped when painting text, selections, whitespace and the
+  gutter. Up/Down skip them (`MoveLines`).
+- In LeanEdit the gutter shows KWrite's fold arrows (click to toggle), a
+  folded header ends in a "⋯" box (click to unfold), Right at the end of a
+  folded header jumps over the block and Left comes back, and any other
+  way onto a hidden line (search, go to line, undo, bookmarks) unfolds the
+  folds around it. Selections over a fold copy, cut and delete the hidden
+  lines too. View → Toggle Current Block (Ctrl+Shift+-), Fold All
+  (Ctrl+Alt+-) and Unfold All (Ctrl+Alt++).
+- Documents over 8 MB are not parsed. gotreesitter adds about 19 MB to the
+  unstripped binary (about 15 MB stripped); the `grammar_subset` build tags
+  would save only about 1 MB, so the build does not use them.
+
 ### Deviations
 
 - gvcode has one cursor: no block selection, no extra carets (Add Caret
   above/below, Cursors to Line Ends, Select All Occurrences are disabled);
   "Find and Select Next Occurrence" moves the selection.
-- No code folding (Fold All/Unfold All are disabled) and no overwrite mode
-  (the status bar shows INS/LINE).
+- No overwrite mode (the status bar shows INS/LINE).
 - Syntax highlighting has colors only: gvcode shapes a line with one face,
   so keywords are not bold and comments not italic.
 - Modified lines are the lines between the common start and end of the

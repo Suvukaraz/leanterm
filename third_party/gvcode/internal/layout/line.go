@@ -21,6 +21,10 @@ type Line struct {
 	Runes int
 	// runeOff tracks the rune offset of the first rune of the line in the document.
 	RuneOff int
+	// Hidden marks the lines of a folded paragraph (LeanTerm: code folding).
+	// They take no vertical space: their YOff is the one of the visible line
+	// above.
+	Hidden bool
 }
 
 func (li Line) String() string {
@@ -174,6 +178,8 @@ type Paragraph struct {
 	Runes int
 	// RuneOff tracks the rune offset of the first rune of the paragraph in the document.
 	RuneOff int
+	// Hidden marks a folded paragraph (LeanTerm: code folding).
+	Hidden bool
 }
 
 // Add add a visual line to the paragraph, returning a boolean value indicating
@@ -190,6 +196,7 @@ func (p *Paragraph) Add(li Line) bool {
 		p.EndY = int(lastGlyph.Y)
 
 		p.RuneOff = li.RuneOff
+		p.Hidden = li.Hidden
 		p.Ascent = start.Ascent
 		p.Descent = start.Descent
 	} else {

@@ -34,6 +34,9 @@ func (e *Editor) buildGutterContext(gtx layout.Context, shaper *text.Shaper) gut
 		if p.StartY > viewport.Max.Y {
 			break
 		}
+		if p.Hidden {
+			continue // LeanTerm: folded lines have no gutter
+		}
 		paragraphs = append(paragraphs, gutter.Paragraph{
 			StartY:  p.StartY,
 			EndY:    p.EndY,

@@ -39,6 +39,11 @@ type TextLayout struct {
 	paragraphBuf []byte
 	tabWidth     int
 	wrapLine     bool
+	// LeanTerm: code folding. hidden are the folded paragraphs (inclusive
+	// ranges of paragraph indices, sorted); hiddenChanged forces the line
+	// positions to be recomputed.
+	hidden        [][2]int
+	hiddenChanged bool
 
 	// Positions contain all possible caret positions, sorted by rune index.
 	Positions []CombinedPos
@@ -110,6 +115,30 @@ func (tl *TextLayout) readParagraph() ([]byte, error) {
 	}
 }
 
+// SetHidden sets the folded paragraphs: inclusive ranges of paragraph
+// (logical line) indices, sorted and not overlapping. Hidden paragraphs keep
+// their text and caret positions but take no space and are not painted
+// (LeanTerm: code folding). It reports whether they changed.
+func (tl *TextLayout) SetHidden(spans [][2]int) bool {
+	if slices.Equal(tl.hidden, spans) {
+		return false
+	}
+	tl.hidden = append(tl.hidden[:0], spans...)
+	tl.hiddenChanged = true
+	return true
+}
+
+// paragraphHidden reports whether paragraph idx is folded.
+func (tl *TextLayout) paragraphHidden(idx int) bool {
+	i := sort.Search(len(tl.hidden), func(i int) bool { return tl.hidden[i][1] >= idx })
+	return i < len(tl.hidden) && tl.hidden[i][0] <= idx
+}
+
+// LineHidden reports whether screen line idx belongs to a folded paragraph.
+func (tl *TextLayout) LineHidden(idx int) bool {
+	return idx >= 0 && idx < len(tl.Lines) && tl.Lines[idx].Hidden
+}
+
 func (tl *TextLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWidth int, wrapLine bool) layout.Dimensions {
 	cacheValid := tl.shaper == shaper && tl.params == *params && tl.tabWidth == tabWidth && tl.wrapLine == wrapLine
 	if !cacheValid {
@@ -130,7 +159,10 @@ func (tl *TextLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWi
 		tl.fakeLayout()
 	} else {
 		tl.spaceGlyph, _ = tl.shapeRune(shaper, tl.params, '\u0020')
-		cleanPrefix := cacheValid
+		// LeanTerm: changed folds keep the shaped paragraphs but recompute
+		// every line's position.
+		cleanPrefix := cacheValid && !tl.hiddenChanged
+		tl.hiddenChanged = false
 		cleanParagraphs := 0
 		cleanLines := 0
 		totalBytes := tl.src.Size()
@@ -146,7 +178,14 @@ func (tl *TextLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWi
 				}
 				bytesRead += len(paragraph)
 				isLastParagraph := bytesRead >= totalBytes || err != nil
+				firstLine := len(tl.Lines)
 				runes, reused := tl.layoutNextParagraph(shaper, paragraph, currentIdx, isLastParagraph, runeOffset, tabWidth, wrapLine)
+				if len(tl.hidden) > 0 || reused {
+					hidden := tl.paragraphHidden(currentIdx)
+					for j := firstLine; j < len(tl.Lines); j++ {
+						tl.Lines[j].Hidden = hidden
+					}
+				}
 				runeOffset += runes
 				currentIdx++
 
@@ -181,7 +220,9 @@ func (tl *TextLayout) Layout(shaper *text.Shaper, params *text.Parameters, tabWi
 		}
 
 		for _, line := range tl.Lines {
-			tl.updateBounds(line)
+			if !line.Hidden {
+				tl.updateBounds(line)
+			}
 		}
 
 		cleanTrackedParagraphs := cleanParagraphs
@@ -292,18 +333,22 @@ func (tl *TextLayout) calculateYOffsets(startLine int) {
 	}
 
 	lineHeight := tl.calcLineHeight(&tl.params)
-	currentY := 0
-	if startLine == 0 {
-		// Keep the first baseline far enough from the top to avoid clipping.
-		currentY = tl.Lines[0].Ascent.Ceil()
-	} else {
-		currentY = tl.Lines[startLine-1].YOff + lineHeight.Round()
+	// LeanTerm: a hidden (folded) line takes no space: it gets the baseline
+	// of the visible line above it.
+	prevY := 0
+	if startLine > 0 {
+		prevY = tl.Lines[startLine-1].YOff
 	}
 	for i := startLine; i < len(tl.Lines); i++ {
-		if i > startLine {
-			currentY += lineHeight.Round()
+		currentY := prevY + lineHeight.Round()
+		if i == 0 {
+			// Keep the first baseline far enough from the top to avoid clipping.
+			currentY = tl.Lines[0].Ascent.Ceil()
+		} else if tl.Lines[i].Hidden {
+			currentY = prevY
 		}
 		tl.Lines[i].adjustYOff(currentY)
+		prevY = currentY
 	}
 }
 
@@ -603,6 +648,9 @@ func (tl *TextLayout) Locate(viewport image.Rectangle, startRune, endRune int, r
 	for lineIdx := caretStart.LineCol.Line; lineIdx < len(tl.Lines); lineIdx++ {
 		if lineIdx > caretEnd.LineCol.Line {
 			break
+		}
+		if tl.Lines[lineIdx].Hidden {
+			continue // LeanTerm: folded lines have no regions
 		}
 		pos := tl.ClosestToLineCol(ScreenPos{Line: lineIdx})
 		if int(pos.Y)+pos.Descent.Ceil() < viewport.Min.Y {

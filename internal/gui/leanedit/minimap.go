@@ -46,7 +46,7 @@ type miniGeo struct {
 }
 
 func (t *Tab) miniGeo(gtx layout.Context, height int) miniGeo {
-	lines := max(1, t.ed.Lines())
+	lines := t.visualLines() // without the folded lines
 	_, _, minY, maxY := t.ed.ScrollRatio()
 	if maxY <= 0 || maxY != maxY { // NaN before the first layout
 		minY, maxY = 0, 1
@@ -159,11 +159,13 @@ func (a *App) minimapLayout(gtx layout.Context, th *gtk.Theme, t *Tab) layout.Di
 	// Selected lines.
 	text := t.ed.Text()
 	d := t.lineIndex()
+	// Rows are visual lines: folded lines are left out.
+	fm := &t.fold.m
 	first := g.offset / g.line
-	last := min(len(d.lines), (g.offset+h+g.line-1)/g.line)
+	last := min(t.visualLines(), (g.offset+h+g.line-1)/g.line)
 	y := func(i int) int { return i*g.line - g.offset }
 	if s := t.sel(); !s.empty() {
-		a1, b1 := d.lineAt(s.from()).n-1, d.lineAt(s.to()).n
+		a1, b1 := fm.DocLineToVisualLine(d.lineAt(s.from()).n-1), fm.DocLineToVisualLine(d.lineAt(s.to()).n-1)+1
 		if b1 > first && a1 < last {
 			fillRect(gtx, image.Rect(0, y(a1), w, y(b1)), pal.EditorSelection)
 		}
@@ -175,7 +177,11 @@ func (a *App) minimapLayout(gtx layout.Context, th *gtk.Theme, t *Tab) layout.Di
 	toks := t.tokens
 	_ = text
 	for i := first; i < last; i++ {
-		l := d.lines[i]
+		di := fm.VisualLineToDocLine(i)
+		if di >= len(d.lines) {
+			break
+		}
+		l := d.lines[di]
 		ti := sort.Search(len(toks), func(k int) bool { return toks[k].End > l.from })
 		col, runStart := 0, -1
 		var runColor color.NRGBA

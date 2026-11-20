@@ -385,5 +385,23 @@ func (a *App) commandShortcuts() []shortcut {
 		{"O", ctrl | alt, f(a.openQuickOpen), true},
 		{key.NameF3, 0, f(func() { a.findNext(1) }), true},
 		{key.NameF3, shift, f(func() { a.findNext(-1) }), true},
+		// Folding (KTextEditor: Ctrl+Shift+- toggles, Ctrl+Alt+-/+ fold and
+		// unfold everything; "_" and "=" are the same keys with or without
+		// Shift on some layouts).
+		{"-", ctrl | shift, f(a.foldCmd((*Tab).toggleFoldAtCaret)), true},
+		{"_", ctrl | shift, f(a.foldCmd((*Tab).toggleFoldAtCaret)), true},
+		{"-", ctrl | alt, f(a.foldCmd((*Tab).foldAll)), true},
+		{"+", ctrl | alt, f(a.foldCmd((*Tab).unfoldAll)), true},
+		{"=", ctrl | alt, f(a.foldCmd((*Tab).unfoldAll)), true},
+		{"+", ctrl | alt | shift, f(a.foldCmd((*Tab).unfoldAll)), true},
+	}
+}
+
+// foldCmd runs a fold action on the active tab.
+func (a *App) foldCmd(fn func(*Tab)) func() {
+	return func() {
+		if t := a.Active(); t != nil {
+			fn(t)
+		}
 	}
 }

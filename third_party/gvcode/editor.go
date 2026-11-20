@@ -784,6 +784,15 @@ func (e *Editor) SetCaret(start, end int) {
 	e.scroller.Stop()
 }
 
+// SetHiddenLines folds the given logical lines (inclusive, 0-based ranges,
+// sorted and not overlapping): they stay in the text but take no space and
+// are not painted, and the caret moves over them vertically (LeanTerm: code
+// folding).
+func (e *Editor) SetHiddenLines(spans [][2]int) {
+	e.initBuffer()
+	e.text.SetHidden(spans)
+}
+
 // SelectedText returns the currently selected text (if any) from the editor.
 func (e *Editor) SelectedText() string {
 	e.initBuffer()

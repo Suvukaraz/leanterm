@@ -202,8 +202,19 @@ func (e *TextView) closestToXYGraphemes(x fixed.Int26_6, y int) lt.CombinedPos {
 func (e *TextView) MoveLines(distance int, selAct SelectionAction) {
 	caretStart := e.closestToRune(e.caret.start)
 	x := caretStart.X + e.caret.xoff
-	// Seek to line.
-	pos := e.closestToLineCol(caretStart.LineCol.Line+distance, 0)
+	// Seek to line. LeanTerm: skip folded lines.
+	target := caretStart.LineCol.Line + distance
+	step := 1
+	if distance < 0 {
+		step = -1
+	}
+	for distance != 0 && e.layouter.LineHidden(target) {
+		target += step
+	}
+	if target >= len(e.layouter.Lines) && e.layouter.LineHidden(len(e.layouter.Lines)-1) {
+		target = caretStart.LineCol.Line // only folded lines below: stay
+	}
+	pos := e.closestToLineCol(target, 0)
 	pos = e.closestToXYGraphemes(x, pos.Y)
 	e.caret.start = pos.Runes
 	e.caret.xoff = x - pos.X
@@ -500,6 +511,15 @@ func (e *TextView) moveByGraphemes(startRuneIdx, graphemes int) int {
 func (e *TextView) clampCursorToGraphemes() {
 	e.caret.start = e.moveByGraphemes(e.caret.start, 0)
 	e.caret.end = e.moveByGraphemes(e.caret.end, 0)
+}
+
+// SetHidden folds the given paragraphs (inclusive ranges of logical line
+// indices, sorted): they stay in the text but are not shown (LeanTerm: code
+// folding).
+func (e *TextView) SetHidden(spans [][2]int) {
+	if e.layouter.SetHidden(spans) {
+		e.invalidate()
+	}
 }
 
 // MoveCaret moves the caret (aka selection start) and the selection end

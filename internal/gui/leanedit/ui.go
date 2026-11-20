@@ -572,7 +572,7 @@ func (a *App) body(gtx layout.Context) layout.Dimensions {
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						if t.layout(gtx, sh) {
+						if t.layout(gtx, sh, th) {
 							t.dirtyAt = gtx.Now
 							a.recordEdit(t)
 							a.markDirty(t)

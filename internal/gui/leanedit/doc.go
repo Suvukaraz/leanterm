@@ -56,6 +56,8 @@ type Tab struct {
 	indentWidth                int
 	tokens                     []syntax.Token // the highlighting (also the minimap's colors)
 	mini                       minimap
+	fold                       foldState
+	invalidate                 func() // asks for a frame (from any goroutine)
 }
 
 func newTab(id int, file *services.EditorFile, title string) *Tab {
@@ -138,6 +140,7 @@ func (t *Tab) apply(l look, typeface font.Typeface) {
 		gvcode.WithColorScheme(scheme(l.pal)),
 		gvcode.WithDefaultGutters(),
 		gvcode.WithGutter(t.marksProvider(l.pal)),
+		gvcode.WithGutter(t.foldProvider(l.pal, t.invalidate)),
 		gvcode.WithGutterGap(unit.Dp(6)),
 		// .cm-gutters: the header color with a border on the right.
 		gvcode.WithGutterStyle(gvcolor.MakeColor(l.pal.HeaderBg), gvcolor.MakeColor(l.pal.BorderColor)),
@@ -158,7 +161,7 @@ func (t *Tab) marksProvider(p *gtk.Palette) *marks {
 
 // layout handles the editor's events and draws it. It reports whether the
 // text changed.
-func (t *Tab) layout(gtx layout.Context, sh *text.Shaper) (changed bool) {
+func (t *Tab) layout(gtx layout.Context, sh *text.Shaper, th *gtk.Theme) (changed bool) {
 	for {
 		ev, ok := t.ed.Update(gtx)
 		if !ok {
@@ -191,6 +194,8 @@ func (t *Tab) layout(gtx layout.Context, sh *text.Shaper) (changed bool) {
 		t.drawn = true
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	t.syncFolds(t.invalidate)
 	t.ed.Layout(gtx, sh)
+	t.layoutFoldBoxes(gtx, th)
 	return changed
 }

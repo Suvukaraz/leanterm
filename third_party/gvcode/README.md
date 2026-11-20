@@ -122,3 +122,6 @@ This project uses code from the [Gio](https://gioui.org/) project, which is lice
 
 LeanTerm: a copy of gvcode v0.8.2 (MIT, see LICENSE) used through a `replace`
 in LeanTerm's go.mod. Changes for LeanEdit are marked with "LeanTerm:".
+They include hidden (folded) paragraphs: `Editor.SetHiddenLines` keeps the
+lines in the text but gives them no height, skips them when painting and in
+the gutter, and lets the caret move over them vertically.

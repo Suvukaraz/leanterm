@@ -56,7 +56,7 @@ func (tp *TextPainter) Paint(gtx layout.Context, shaper *text.Shaper, lines []lt
 			break
 		}
 
-		if len(line.Glyphs) <= 0 {
+		if len(line.Glyphs) <= 0 || line.Hidden {
 			continue
 		}
 
