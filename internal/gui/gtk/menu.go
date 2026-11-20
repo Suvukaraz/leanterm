@@ -104,10 +104,13 @@ func (m *Menu) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 		return layout.Dimensions{}
 	}
 	rec := op.Record(gtx.Ops)
-	// Clicks outside the menu close it.
+	// Clicks outside the menu close it and still reach what is below (the
+	// web GUI closes on pointerdown without stopping the event).
+	pass := pointer.PassOp{}.Push(gtx.Ops)
 	big := clip.Rect{Min: image.Pt(-1<<20, -1<<20), Max: image.Pt(1<<20, 1<<20)}.Push(gtx.Ops)
 	event.Op(gtx.Ops, &m.dismiss)
 	big.Pop()
+	pass.Pop()
 	m.draw(gtx, th, m.pos, true)
 	op.Defer(gtx.Ops, rec.Stop())
 	return layout.Dimensions{}

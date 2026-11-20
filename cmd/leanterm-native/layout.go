@@ -435,8 +435,8 @@ const allMods = key.ModCtrl | key.ModShift | key.ModAlt | key.ModSuper | key.Mod
 func (u *ui) globalKeys(gtx layout.Context) {
 	// While a dialog, the lock screen or a terminal/text input holds the
 	// focus, the keys belong there.
-	if u.dialogOpen() || u.lock.active {
-		return
+	if u.dialogOpen() || u.lock.active || u.treeMenu.Opened() || u.tabMenu.Opened() {
+		return // an open menu owns the keyboard (ContextMenu.svelte)
 	}
 	if u.terminalFocused(gtx) {
 		return

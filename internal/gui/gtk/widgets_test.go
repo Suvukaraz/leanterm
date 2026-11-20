@@ -524,3 +524,35 @@ func TestLogoRendersSquare(t *testing.T) {
 		t.Fatalf("logo size %v, want 100x100", d.Size)
 	}
 }
+
+// A click outside an open menu closes it and still reaches the widget
+// below (ContextMenu.svelte closes on pointerdown without stopping it).
+func TestMenuOutsideClickReachesWidgetBelow(t *testing.T) {
+	u := newUI(t)
+	var btn widget.Clickable
+	clicked := 0
+	m := &Menu{Items: []MenuItem{{ID: "a", Label: "Connect"}}}
+	w := func(gtx layout.Context) layout.Dimensions {
+		if btn.Clicked(gtx) {
+			clicked++
+		}
+		layout.Stack{}.Layout(gtx,
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				return Button{Label: "Below"}.Layout(gtx, u.th, &btn)
+			}),
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions { return m.Layout(gtx, u.th) }),
+		)
+		return layout.Dimensions{Size: gtx.Constraints.Max}
+	}
+	m.Open(image.Pt(200, 100))
+	u.frame(w)
+	u.frame(w)
+	u.click(w, 10, 10)
+	if m.Opened() {
+		t.Fatal("menu still open")
+	}
+	u.frame(w)
+	if clicked != 1 {
+		t.Fatal("the click did not reach the button below")
+	}
+}
