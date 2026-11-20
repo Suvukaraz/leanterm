@@ -556,3 +556,68 @@ func nextOccurrence(text string, s Sel) (Sel, bool) {
 	}
 	return Sel{i, i + len(needle)}, true
 }
+
+// detectIndent finds whether a text indents with tabs or spaces, and the
+// width of a space indent (KWrite's "Auto Detect Indent"). found is false
+// when no line is indented.
+func detectIndent(text string) (found, spaces bool, width int) {
+	tabs, sp := 0, 0
+	widths := map[int]int{}
+	prev := 0
+	for _, l := range strings.Split(text, "\n") {
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(l, "\t"):
+			tabs++
+			prev = 0
+		case strings.HasPrefix(l, " "):
+			sp++
+			n := len(l) - len(strings.TrimLeft(l, " "))
+			// The step between neighbouring indent levels.
+			if d := n - prev; d > 0 && d <= 8 {
+				widths[d]++
+			}
+			prev = n
+		default:
+			prev = 0
+		}
+	}
+	if tabs == 0 && sp == 0 {
+		return false, false, 0
+	}
+	if tabs >= sp {
+		return true, false, 0
+	}
+	best := 0
+	for w, c := range widths {
+		if c > widths[best] || (c == widths[best] && w < best) {
+			best = w
+		}
+	}
+	return true, true, best
+}
+
+// saveCleanup is what KWrite changes when saving: trailing spaces removed
+// ("modified": on the given lines, "all": everywhere) and a line break added
+// at the end of a non-empty text.
+func saveCleanup(text string, mode string, modified map[int]bool, newlineAtEOF bool) []Change {
+	var out []Change
+	if mode == "modified" || mode == "all" {
+		for _, l := range newDoc(text).lines {
+			if mode == "modified" && !modified[l.n] {
+				continue
+			}
+			trimmed := strings.TrimRight(l.text, " \t")
+			if n := len([]rune(trimmed)); n < l.to-l.from {
+				out = append(out, Change{l.from + n, l.to, ""})
+			}
+		}
+	}
+	if newlineAtEOF && text != "" && !strings.HasSuffix(text, "\n") {
+		n := len([]rune(text))
+		out = append(out, Change{n, n, "\n"})
+	}
+	return out
+}

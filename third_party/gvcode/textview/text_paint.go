@@ -328,12 +328,13 @@ func (e *TextView) adjustDescentPadding() int {
 
 // PaintWhitespace marks spaces with a dot and tabs with a line across their
 // width (LeanTerm: CodeMirror's highlightWhitespace).
-func (e *TextView) PaintWhitespace(gtx layout.Context, col color.NRGBA) {
+func (e *TextView) PaintWhitespace(gtx layout.Context, col color.NRGBA, spaces, tabs bool) {
 	viewport := image.Rectangle{Min: e.scrollOff, Max: e.viewSize.Add(e.scrollOff)}
 	dot := max(1, gtx.Dp(unit.Dp(1.5)))
 	var path clip.Path
 	path.Begin(gtx.Ops)
 	any := false
+	var tabMarks []f32.Point
 	for _, line := range e.layouter.Lines {
 		if line.YOff+line.Descent.Ceil() < viewport.Min.Y {
 			continue
@@ -348,7 +349,7 @@ func (e *TextView) PaintWhitespace(gtx layout.Context, col color.NRGBA) {
 			}
 			r, err := e.ReadRuneAt(off)
 			off += int(g.Runes)
-			if err != nil || (r != ' ' && r != '\t') {
+			if err != nil || (r == ' ' && !spaces) || (r == '\t' && !tabs) || (r != ' ' && r != '\t') {
 				continue
 			}
 			x := float32(g.X.Round()-viewport.Min.X) + 0
@@ -364,17 +365,28 @@ func (e *TextView) PaintWhitespace(gtx layout.Context, col color.NRGBA) {
 				path.LineTo(f32.Pt(cx-float32(dot)/2, mid+float32(dot)/2))
 				path.Close()
 			} else {
-				h := float32(max(1, gtx.Dp(1)))
-				path.MoveTo(f32.Pt(x+2, mid))
-				path.LineTo(f32.Pt(x+w-2, mid))
-				path.LineTo(f32.Pt(x+w-2, mid+h))
-				path.LineTo(f32.Pt(x+2, mid+h))
-				path.Close()
+				// KTextEditor's tab marker: a small "»" at the start of the tab.
+				tabMarks = append(tabMarks, f32.Pt(x, mid))
 			}
 		}
 	}
 	spec := path.End()
 	if any {
 		paint.FillShape(gtx.Ops, col, clip.Outline{Path: spec}.Op())
+	}
+	if len(tabMarks) > 0 {
+		h := float32(gtx.Dp(unit.Dp(2.5)))
+		step := float32(gtx.Dp(unit.Dp(3.5)))
+		var p clip.Path
+		p.Begin(gtx.Ops)
+		for _, t := range tabMarks {
+			for i := 0; i < 2; i++ {
+				x := t.X + float32(gtx.Dp(2)) + float32(i)*step
+				p.MoveTo(f32.Pt(x, t.Y-h))
+				p.LineTo(f32.Pt(x+h, t.Y))
+				p.LineTo(f32.Pt(x, t.Y+h))
+			}
+		}
+		paint.FillShape(gtx.Ops, col, clip.Stroke{Path: p.End(), Width: float32(max(1, gtx.Dp(1)))}.Op())
 	}
 }

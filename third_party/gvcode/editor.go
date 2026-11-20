@@ -46,7 +46,8 @@ type Editor struct {
 	// LeanTerm: the gutter's own background and a line on its right side.
 	gutterBg, gutterBorder gvcolor.Color
 	// LeanTerm: dots for spaces and lines for tabs.
-	showWhitespace  bool
+	showWhitespace  bool // spaces
+	showTabs        bool
 	whitespaceColor gvcolor.Color
 	// hooks
 	onPaste         BeforePasteHook
@@ -299,8 +300,8 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 
 		e.paintText(gtx, textColor)
 		// LeanTerm: whitespace markers.
-		if e.showWhitespace {
-			e.text.PaintWhitespace(gtx, e.whitespaceColor.NRGBA())
+		if e.showWhitespace || e.showTabs {
+			e.text.PaintWhitespace(gtx, e.whitespaceColor.NRGBA(), e.showWhitespace, e.showTabs)
 		}
 		e.paintComposition(gtx, textColor)
 	}

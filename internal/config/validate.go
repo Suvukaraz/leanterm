@@ -180,6 +180,11 @@ func Validate(cfg *Config) ValidationResult {
 	if cfg.Editor.TabWidth < 1 || cfg.Editor.TabWidth > 16 {
 		res.AddError("editor.tab_width", "tab width must be between 1 and 16")
 	}
+	switch cfg.Editor.RemoveTrailingSpaces {
+	case "never", "modified", "all":
+	default:
+		res.AddError("editor.remove_trailing_spaces", "must be 'never', 'modified' or 'all'")
+	}
 	if cfg.Editor.LargeFileMB < 1 {
 		res.AddError("editor.large_file_mb", "must be at least 1")
 	}

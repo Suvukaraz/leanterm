@@ -500,7 +500,10 @@ func fadeTo(c, bg color.NRGBA, full bool) color.NRGBA {
 
 // ---- body ------------------------------------------------------------------------------------
 
-func (a *App) look() look {
+// look is the active tab's look (its detected indentation, if any).
+func (a *App) look() look { return a.lookFor(a.Active()) }
+
+func (a *App) lookFor(t *Tab) look {
 	ed := a.settings.Editor
 	size := float32(ed.Font.Size)
 	if size <= 0 {
@@ -511,7 +514,15 @@ func (a *App) look() look {
 	if tw <= 0 {
 		tw = 4
 	}
-	return look{family: ed.Font.Family, size: size, tabWidth: tw, softTab: !ed.IndentWithTabs, wrap: a.wrap(), spaces: a.whitespace(), pal: a.ui_.th.Pal}
+	soft := !ed.IndentWithTabs
+	if t != nil && t.indentDetected && ed.AutoDetectIndent {
+		soft = t.indentSoft
+		if soft && t.indentWidth > 0 {
+			tw = t.indentWidth
+		}
+	}
+	return look{family: ed.Font.Family, size: size, tabWidth: tw, softTab: soft, wrap: a.wrap(), spaces: a.whitespace(),
+		tabs: a.whitespace() || ed.ShowTabs, pal: a.ui_.th.Pal}
 }
 
 func (a *App) wrap() bool {
@@ -531,7 +542,7 @@ func (a *App) body(gtx layout.Context) layout.Dimensions {
 	case t != nil && t.Loading != "":
 		return a.placeholder(gtx, gtk.Text{S: t.Loading, Color: pal.MutedFg}.Widget(th))
 	case t != nil && t.ready:
-		l := a.look()
+		l := a.lookFor(t)
 		family := l.family
 		typeface := font.Typeface(fonts.Monospace)
 		if family != "" && !strings.EqualFold(family, "monospace") {
@@ -663,9 +674,10 @@ func (a *App) statusBar(gtx layout.Context) layout.Dimensions {
 		if n := t.ed.SelectionLen(); n > 0 {
 			pos += fmt.Sprintf(" (%d selected)", n)
 		}
-		indent := fmt.Sprintf("Soft Tabs: %d", a.look().tabWidth)
-		if a.settings.Editor.IndentWithTabs {
-			indent = fmt.Sprintf("Tabs: %d", a.look().tabWidth)
+		tl := a.lookFor(t)
+		indent := fmt.Sprintf("Soft Tabs: %d", tl.tabWidth)
+		if !tl.softTab {
+			indent = fmt.Sprintf("Tabs: %d", tl.tabWidth)
 		}
 		eol := "Unix (LF)"
 		if t.LineEnding == "crlf" {

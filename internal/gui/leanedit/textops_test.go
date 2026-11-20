@@ -187,3 +187,25 @@ func TestModifiedLines(t *testing.T) {
 		t.Error(got)
 	}
 }
+
+func TestKWriteSaveAndIndent(t *testing.T) {
+	text := "a  \nb\t\nc"
+	if got := run(text, saveCleanup(text, "modified", map[int]bool{1: true}, true)); got != "a\nb\t\nc\n" {
+		t.Errorf("modified: %q", got)
+	}
+	if got := run(text, saveCleanup(text, "all", nil, false)); got != "a\nb\nc" {
+		t.Errorf("all: %q", got)
+	}
+	if ch := saveCleanup("x\n", "never", nil, true); len(ch) != 0 {
+		t.Errorf("never: %v", ch)
+	}
+	if f, sp, w := detectIndent("func x() {\n\treturn\n}\n"); !f || sp {
+		t.Error("tabs", f, sp, w)
+	}
+	if f, sp, w := detectIndent("a:\n  b:\n    c: 1\n  d: 2\n"); !f || !sp || w != 2 {
+		t.Error("spaces", f, sp, w)
+	}
+	if f, _, _ := detectIndent("x\ny\n"); f {
+		t.Error("none")
+	}
+}

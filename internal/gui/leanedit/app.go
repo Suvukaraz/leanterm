@@ -519,6 +519,7 @@ func (a *App) loadInto(id int, encoding string, allowBinary bool) bool {
 		a.forgetTab(id)
 		t.bookmarks = nil
 		t.setText(res.text)
+		t.indentDetected, t.indentSoft, t.indentWidth = detectIndent(res.text)
 		t.Encoding, t.savedEncoding = res.encoding, res.encoding
 		t.LineEnding, t.savedLineEnding = res.lineEnding, res.lineEnding
 		t.Mixed = res.mixed
@@ -581,6 +582,10 @@ func (a *App) snap(id int) (snapshot, bool) {
 	ok := false
 	a.ui(func() {
 		if t := a.tab(id); t != nil && t.ready {
+			ed := a.settings.Editor
+			if ch := saveCleanup(t.ed.Text(), ed.RemoveTrailingSpaces, t.modifiedSet(), ed.NewlineAtEOF); len(ch) > 0 {
+				a.applyEdit(t, ch, nil)
+			}
 			var f *services.EditorFile
 			if t.File != nil {
 				ff := *t.File

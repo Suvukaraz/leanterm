@@ -390,6 +390,18 @@ whitespace markers).
   Editor" and double click on text files, and files dropped on the main
   window.
 
+### KWrite defaults
+
+LeanEdit's defaults follow KWrite (KTextEditor's `kateconfig.cpp`): the
+fixed system font at 10pt, tab width 4 with spaces, indentation detected
+from the file, dynamic word wrap on, tabs shown ("»") but not spaces, the
+scrollbar minimap (60px), trailing spaces removed on modified lines and a
+line break added at the end of the file when saving, and a window per
+start (no single instance). `show_tabs`, `auto_detect_indent`,
+`remove_trailing_spaces` and `newline_at_eof` are new in `[editor]`; only
+the native GUI uses them (the web GUI ignores them). Existing
+configuration files keep the values they have written.
+
 ### Deviations
 
 - gvcode has one cursor: no block selection, no extra carets (Add Caret

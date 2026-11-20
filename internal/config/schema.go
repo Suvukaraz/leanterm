@@ -151,12 +151,17 @@ type EditorConfig struct {
 	OpenTextFilesIn string     `toml:"open_text_files_in" comment:"Double-click on a text file opens it in: editor | default_app"`
 	TabWidth        int        `toml:"tab_width" comment:"Tab width in columns (1-16)"`
 	IndentWithTabs  bool       `toml:"indent_with_tabs" comment:"Indent with tabs instead of spaces"`
-	WordWrap        bool       `toml:"word_wrap" comment:"Wrap long lines"`
-	ShowWhitespace  bool       `toml:"show_whitespace" comment:"Show spaces and tabs"`
-	ShowMinimap     bool       `toml:"show_minimap" comment:"Show the scrollbar minimap (KWrite style)"`
-	LargeFileMB     int        `toml:"large_file_mb" comment:"Ask once before opening files larger than this (MB)"`
-	HugeFileMB      int        `toml:"huge_file_mb" comment:"Ask twice before opening files larger than this (MB); syntax highlighting starts off"`
-	SingleInstance  bool       `toml:"single_instance" comment:"LeanEdit started on its own: open files as new tabs of the running LeanEdit instead of new windows"`
+	// AutoDetectIndent takes tabs or spaces and the width from the file (KWrite).
+	AutoDetectIndent     bool   `toml:"auto_detect_indent" comment:"Detect the indentation (tabs or spaces, width) of opened files"`
+	WordWrap             bool   `toml:"word_wrap" comment:"Wrap long lines"`
+	ShowWhitespace       bool   `toml:"show_whitespace" comment:"Show spaces and tabs"`
+	ShowTabs             bool   `toml:"show_tabs" comment:"Show tabs (also without show_whitespace, like KWrite)"`
+	ShowMinimap          bool   `toml:"show_minimap" comment:"Show the scrollbar minimap (KWrite style)"`
+	RemoveTrailingSpaces string `toml:"remove_trailing_spaces" comment:"Remove trailing spaces when saving: never | modified (lines changed since the last save) | all"`
+	NewlineAtEOF         bool   `toml:"newline_at_eof" comment:"End the file with a line break when saving"`
+	LargeFileMB          int    `toml:"large_file_mb" comment:"Ask once before opening files larger than this (MB)"`
+	HugeFileMB           int    `toml:"huge_file_mb" comment:"Ask twice before opening files larger than this (MB); syntax highlighting starts off"`
+	SingleInstance       bool   `toml:"single_instance" comment:"LeanEdit started on its own: open files as new tabs of the running LeanEdit instead of new windows"`
 }
 
 // SFTPBrowserConfig represents settings for the embedded SFTP browser

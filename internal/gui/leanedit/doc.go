@@ -51,8 +51,11 @@ type Tab struct {
 	modified        map[int]bool
 	modOf, modSaved string
 	marks           *marks
-	tokens          []syntax.Token // the highlighting (also the minimap's colors)
-	mini            minimap
+	// The indentation found in the file (KWrite's "Auto Detect Indent").
+	indentDetected, indentSoft bool
+	indentWidth                int
+	tokens                     []syntax.Token // the highlighting (also the minimap's colors)
+	mini                       minimap
 }
 
 func newTab(id int, file *services.EditorFile, title string) *Tab {
@@ -87,6 +90,7 @@ type look struct {
 	softTab  bool
 	wrap     bool
 	spaces   bool
+	tabs     bool
 	pal      *gtk.Palette
 }
 
@@ -119,7 +123,7 @@ func scheme(p *gtk.Palette) syntax.ColorScheme {
 
 // apply sets the look on the editor when it changed.
 func (t *Tab) apply(l look, typeface font.Typeface) {
-	key := l.family + "|" + l.pal.Name + "|" + ftoa(l.size) + "|" + itoa(l.tabWidth) + "|" + btoa(l.softTab) + "|" + btoa(l.wrap) + "|" + btoa(l.spaces)
+	key := l.family + "|" + l.pal.Name + "|" + ftoa(l.size) + "|" + itoa(l.tabWidth) + "|" + btoa(l.softTab) + "|" + btoa(l.wrap) + "|" + btoa(l.spaces) + btoa(l.tabs)
 	if key == t.styled {
 		return
 	}
@@ -139,7 +143,7 @@ func (t *Tab) apply(l look, typeface font.Typeface) {
 		gvcode.WithGutterStyle(gvcolor.MakeColor(l.pal.HeaderBg), gvcolor.MakeColor(l.pal.BorderColor)),
 		gvcode.WrapLine(l.wrap),
 		// .cm-highlightSpace / .cm-highlightTab: the muted color.
-		gvcode.WithWhitespace(l.spaces, l.pal.MutedFg),
+		gvcode.WithWhitespace(l.spaces, l.tabs, l.pal.MutedFg),
 	)
 	t.retoken = true
 }

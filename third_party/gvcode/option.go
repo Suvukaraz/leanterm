@@ -219,9 +219,9 @@ func WithGutterStyle(bg, border gvcolor.Color) EditorOption {
 	}
 }
 
-// WithWhitespace shows spaces and tabs in col (LeanTerm).
-func WithWhitespace(show bool, col color.NRGBA) EditorOption {
+// WithWhitespace shows spaces and/or tabs in col (LeanTerm).
+func WithWhitespace(spaces, tabs bool, col color.NRGBA) EditorOption {
 	return func(e *Editor) {
-		e.showWhitespace, e.whitespaceColor = show, gvcolor.MakeColor(col)
+		e.showWhitespace, e.showTabs, e.whitespaceColor = spaces, tabs, gvcolor.MakeColor(col)
 	}
 }

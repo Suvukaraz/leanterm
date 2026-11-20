@@ -613,6 +613,8 @@ func (d *Dialog) localShellPage(th *gtk.Theme) layout.Widget {
 	return gapCol(10, rows...)
 }
 
+var trailingOpts = form.Opts("never", "Never", "modified", "On modified lines", "all", "In the entire document")
+
 var openInOpts = form.Opts("editor", "LeanEdit", "default_app", "Default application")
 
 func (d *Dialog) editorPage(th *gtk.Theme) layout.Widget {
@@ -632,9 +634,15 @@ func (d *Dialog) editorPage(th *gtk.Theme) layout.Widget {
 		f.Frame("Editing", gapCol(8,
 			form.Row(lbl("Tab width:"), f.Spin(&e.TabWidth, 1, 16, 1, false)),
 			f.Check(&e.IndentWithTabs, "Indent with tabs instead of spaces", false),
+			f.Check(&e.AutoDetectIndent, "Detect the indentation of opened files", false),
 			f.Check(&e.WordWrap, "Wrap long lines", false),
 			f.Check(&e.ShowWhitespace, "Show spaces and tabs", false),
+			f.Check(&e.ShowTabs, "Show tabs", e.ShowWhitespace),
 			f.Check(&e.ShowMinimap, "Show scrollbar minimap", false),
+		)),
+		f.Frame("Saving", gapCol(8,
+			form.Row(lbl("Remove trailing spaces:"), f.Combo(&e.RemoveTrailingSpaces, trailingOpts, false)),
+			f.Check(&e.NewlineAtEOF, "Add a line break at the end of the file", false),
 		)),
 		f.Frame("Large files", gapCol(8,
 			form.Row(lbl("Ask once above:"), f.Spin(&e.LargeFileMB, 1, 100000, 1, false), d.text("MB", 1, false, false)),

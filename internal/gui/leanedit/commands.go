@@ -80,7 +80,7 @@ func (a *App) caseCmd(mode string) {
 func (a *App) tabSize() int { return a.look().tabWidth }
 
 func (a *App) indentUnit() string {
-	if a.settings.Editor.IndentWithTabs {
+	if !a.look().softTab {
 		return "\t"
 	}
 	return strings.Repeat(" ", a.tabSize())
@@ -246,10 +246,10 @@ func (a *App) selectionItems(hasDoc bool) []item {
 			{label: "Capitalize", shortcut: "Ctrl+Alt+U", action: act(func() { a.caseCmd("capitalize") })},
 		}},
 		sep(),
-		{label: "Clean Indentation", disabled: !hasDoc, action: act(func() { a.convertIndent(a.settings.Editor.IndentWithTabs) })},
+		{label: "Clean Indentation", disabled: !hasDoc, action: act(func() { a.convertIndent(!a.look().softTab) })},
 		{label: "Convert Indentation to Spaces", disabled: !hasDoc, action: act(func() { a.convertIndent(false) })},
 		{label: "Convert Indentation to Tabs", disabled: !hasDoc, action: act(func() { a.convertIndent(true) })},
-		{label: "Format Indentation", disabled: !hasDoc, action: act(func() { a.convertIndent(a.settings.Editor.IndentWithTabs) })},
+		{label: "Format Indentation", disabled: !hasDoc, action: act(func() { a.convertIndent(!a.look().softTab) })},
 		{label: "Align On…", disabled: !hasDoc, action: act(func() { a.openAlign() })},
 		{label: "Apply Word Wrap", disabled: !hasDoc, action: act(func() {
 			a.cmd(lines(func(text string, s Sel) []Change { return applyWordWrap(text, s, 80, a.tabSize()) }))

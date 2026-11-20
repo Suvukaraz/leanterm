@@ -22,7 +22,8 @@ import (
 // replaces the vertical scrollbar: click to jump, drag the marked area to
 // scroll, the wheel scrolls the editor.
 const (
-	miniWidth unit.Dp = 80
+	// KTextEditor's "Scroll Bar Mini Map Width" (the web GUI used 80px).
+	miniWidth unit.Dp = 60
 	miniPad   unit.Dp = 4
 	miniLine  unit.Dp = 3
 	miniChar  unit.Dp = 1

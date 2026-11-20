@@ -267,25 +267,33 @@ open_text_files_in = 'editor'
 tab_width = 4
 # Indent with tabs instead of spaces
 indent_with_tabs = false
+# Detect the indentation (tabs or spaces, width) of opened files
+auto_detect_indent = true
 # Wrap long lines
-word_wrap = false
+word_wrap = true
 # Show spaces and tabs
 show_whitespace = false
+# Show tabs (also without show_whitespace, like KWrite)
+show_tabs = true
 # Show the scrollbar minimap (KWrite style)
 show_minimap = true
+# Remove trailing spaces when saving: never | modified (lines changed since the last save) | all
+remove_trailing_spaces = 'modified'
+# End the file with a line break when saving
+newline_at_eof = true
 # Ask once before opening files larger than this (MB)
 large_file_mb = 10
 # Ask twice before opening files larger than this (MB); syntax highlighting starts off
 huge_file_mb = 100
 # LeanEdit started on its own: open files as new tabs of the running LeanEdit instead of new windows
-single_instance = true
+single_instance = false
 
 # Editor font
 [editor.font]
 # Font family name
 family = 'Monospace'
 # Font size in points
-size = 11
+size = 10
 
 # Local Shell options
 [local_shell]
