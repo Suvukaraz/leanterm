@@ -67,6 +67,12 @@ type App struct {
 
 	wrapOverride, whitespaceOverride, minimapOverride *bool
 
+	search       searchPanel
+	gotoLn       gotoPanel
+	quick        quickOpen
+	align        alignPrompt
+	jumps, edits *history
+
 	question *question
 	writing  int
 	checking bool
@@ -211,6 +217,7 @@ func (a *App) closeTabNow(id int) {
 	}
 	a.tabs = append(a.tabs[:idx:idx], a.tabs[idx+1:]...)
 	delete(a.ignored, id)
+	a.forgetTab(id)
 	if a.active == id {
 		a.active = -1
 		if len(a.tabs) > 0 {
@@ -508,6 +515,9 @@ func (a *App) loadInto(id int, encoding string, allowBinary bool) bool {
 			t.LanguageID = detectLanguage(f.Path, first)
 		}
 		t.lexer = lexerFor(t.LanguageID)
+		// A reload is a new document: locations and bookmarks go.
+		a.forgetTab(id)
+		t.bookmarks = nil
 		t.setText(res.text)
 		t.Encoding, t.savedEncoding = res.encoding, res.encoding
 		t.LineEnding, t.savedLineEnding = res.lineEnding, res.lineEnding

@@ -38,6 +38,7 @@ const (
 	iconFind    = fonts.IconSearch
 	iconQuit    = fonts.IconPowerOff
 	iconEdit    = fonts.IconEdit
+	iconOK      = fonts.IconCheck
 )
 
 // uiState holds the widgets.
@@ -160,10 +161,16 @@ func (a *App) Layout(gtx layout.Context, th *gtk.Theme) layout.Dimensions {
 		}
 	}
 	u.popup.Layout(gtx, th)
+	if a.quick.open {
+		a.quickOpenLayout(gtx, th)
+	}
+	if a.align.open {
+		a.alignLayout(gtx, th)
+	}
 	if a.question != nil {
 		a.questionLayout(gtx, th)
 	}
-	if u.focusEditor && a.question == nil {
+	if u.focusEditor && a.question == nil && !a.quick.open && !a.align.open {
 		u.focusEditor = false
 		if t := a.Active(); t != nil {
 			gtx.Execute(key.FocusCmd{Tag: t.ed})
@@ -537,10 +544,28 @@ func (a *App) body(gtx layout.Context) layout.Dimensions {
 			sh = th.Shaper
 		}
 		t.apply(l, typeface)
-		if t.layout(gtx, sh) {
-			t.dirtyAt = gtx.Now
-			a.markDirty(t)
-		}
+		layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if !a.search.open {
+					return layout.Dimensions{}
+				}
+				return a.searchPanelLayout(gtx, th, t)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if !a.gotoLn.open {
+					return layout.Dimensions{}
+				}
+				return a.gotoPanelLayout(gtx, th, t)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				if t.layout(gtx, sh) {
+					t.dirtyAt = gtx.Now
+					a.recordEdit(t)
+					a.markDirty(t)
+				}
+				return layout.Dimensions{Size: gtx.Constraints.Max}
+			}),
+		)
 		return layout.Dimensions{Size: gtx.Constraints.Max}
 	case len(a.tabs) == 0 && a.ready:
 		if u.newB.Clicked(gtx) {

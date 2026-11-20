@@ -103,7 +103,8 @@ func main() {
 	u.editorWins.watchEditorEvents(core.Bus)
 	if *editFile != "" {
 		if abs, err := filepath.Abs(*editFile); err == nil {
-			go func() { _ = u.editorSvc.Open(services.EditorFile{Kind: "local", Path: abs}) }()
+			// After the main window is up, so the editor window comes on top.
+			time.AfterFunc(time.Second, func() { _ = u.editorSvc.Open(services.EditorFile{Kind: "local", Path: abs}) })
 		}
 	}
 	// Quitting saves the configuration when "Auto save on exit" is set.

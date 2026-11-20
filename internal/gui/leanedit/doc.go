@@ -44,6 +44,13 @@ type Tab struct {
 	dirtyAt   time.Time
 	drawn     bool
 	styled    string // the look last applied (font, size, colors)
+
+	bookmarks       []*gvcode.Marker
+	lines           *doc
+	linesOf         string
+	modified        map[int]bool
+	modOf, modSaved string
+	marks           *marks
 }
 
 func newTab(id int, file *services.EditorFile, title string) *Tab {
@@ -123,12 +130,21 @@ func (t *Tab) apply(l look, typeface font.Typeface) {
 		gvcode.WithSoftTab(l.softTab),
 		gvcode.WithColorScheme(scheme(l.pal)),
 		gvcode.WithDefaultGutters(),
+		gvcode.WithGutter(t.marksProvider(l.pal)),
 		gvcode.WithGutterGap(unit.Dp(6)),
 		// .cm-gutters: the header color with a border on the right.
 		gvcode.WithGutterStyle(gvcolor.MakeColor(l.pal.HeaderBg), gvcolor.MakeColor(l.pal.BorderColor)),
 		gvcode.WrapLine(l.wrap),
 	)
 	t.retoken = true
+}
+
+func (t *Tab) marksProvider(p *gtk.Palette) *marks {
+	if t.marks == nil {
+		t.marks = &marks{t: t}
+	}
+	t.marks.pal = p
+	return t.marks
 }
 
 // layout handles the editor's events and draws it. It reports whether the

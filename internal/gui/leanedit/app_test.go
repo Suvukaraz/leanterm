@@ -125,7 +125,7 @@ func (f *fakeSvc) CloseWindow() {
 	f.closed = true
 	f.mu.Unlock()
 }
-func (f *fakeSvc) NewWindow() error      { return nil }
+func (f *fakeSvc) NewWindow() error       { return nil }
 func (f *fakeSvc) ShowPreferences() error { return nil }
 
 // harness draws the editor headless.
@@ -311,4 +311,94 @@ func TestMenusAndFormat(t *testing.T) {
 		h.th = gtk.New(s)
 		h.frame()
 	}
+}
+
+func TestCommandsOnTheEditor(t *testing.T) {
+	svc := newFake()
+	h := newHarness(t, svc)
+	h.frame()
+	h.a.NewDocument()
+	tab := h.a.Active()
+	tab.ed.SetText("one\ntwo\nthree\nfour")
+	tab.savedText = tab.ed.Text()
+	h.frame()
+
+	// Bookmarks follow edits.
+	tab.setSel(Sel{4, 4})
+	tab.toggleBookmark()
+	if got := tab.bookmarkLines(); len(got) != 1 || got[0] != 2 {
+		t.Fatal(got)
+	}
+	h.a.applyEdit(tab, []Change{{0, 0, "zero\n"}}, nil)
+	if got := tab.bookmarkLines(); len(got) != 1 || got[0] != 3 {
+		t.Fatalf("after insert: %v", got)
+	}
+	tab.setSel(Sel{0, 0})
+	h.a.gotoBookmark(1)
+	if n := tab.lineIndex().lineAt(tab.sel().Head).n; n != 3 {
+		t.Fatalf("goto bookmark: line %d", n)
+	}
+	if !tab.modifiedSet()[1] || !tab.Dirty {
+		t.Error("line 1 not modified")
+	}
+
+	// Undo takes the whole command back.
+	tab.ed.Undo()
+	if tab.ed.Text() != "one\ntwo\nthree\nfour" {
+		t.Fatalf("undo: %q", tab.ed.Text())
+	}
+
+	// Case, join, comment through the menu commands.
+	tab.setSel(Sel{0, 3})
+	h.a.caseCmd("upper")
+	if !strings.HasPrefix(tab.ed.Text(), "ONE\n") {
+		t.Fatalf("upper: %q", tab.ed.Text())
+	}
+	tab.setSel(Sel{0, 0})
+	h.a.cmd(lines(joinLines))
+	if !strings.HasPrefix(tab.ed.Text(), "ONE two\n") {
+		t.Fatalf("join: %q", tab.ed.Text())
+	}
+
+	// Search and replace.
+	h.a.search.find.SetText("o")
+	h.a.search.matchCase.Value = true
+	h.a.refreshSearch(tab)
+	if n := len(h.a.search.matches); n != 2 { // two, four (ONE is upper case)
+		t.Fatalf("%d matches", n)
+	}
+	h.a.search.matchCase.Value = false
+	h.a.refreshSearch(tab)
+	if n := len(h.a.search.matches); n != 3 {
+		t.Fatalf("%d matches ignoring case", n)
+	}
+	h.a.search.repl.SetText("0")
+	h.a.replaceAll()
+	if tab.ed.Text() != "0NE tw0\nthree\nf0ur" {
+		t.Fatalf("replace all: %q", tab.ed.Text())
+	}
+	h.a.search.regex.Value = true
+	h.a.search.find.SetText(`(t)(h)`)
+	h.a.search.repl.SetText("$2$1")
+	h.a.replaceAll()
+	if tab.ed.Text() != "0NE tw0\nhtree\nf0ur" {
+		t.Fatalf("regex replace: %q", tab.ed.Text())
+	}
+
+	if l, c, ok := parseGoto("2:3", 1, 10); !ok || l != 2 || c != 3 {
+		t.Error("goto", l, c, ok)
+	}
+	if l, _, ok := parseGoto("+3", 4, 10); !ok || l != 7 {
+		t.Error("goto +", l)
+	}
+	if l, _, ok := parseGoto("50%", 1, 10); !ok || l != 5 {
+		t.Error("goto %", l)
+	}
+	if score("main.go", "mg") < 1000 || score("main.go", "ain") != 1 || score("x", "y") != -1 {
+		t.Error("score")
+	}
+	// The panels draw.
+	h.a.search.open, h.a.gotoLn.open, h.a.quick.open = true, true, true
+	h.frame()
+	h.frame()
 }

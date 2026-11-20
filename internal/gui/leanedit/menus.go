@@ -57,7 +57,8 @@ func (a *App) copySelection(gtx layout.Context, cut bool) {
 	}
 	gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: readCloser(s)})
 	if cut {
-		t.ed.Insert("")
+		t.ed.Delete(1) // the selection
+		a.recordEdit(t)
 		a.markDirty(t)
 	}
 	a.ui_.focusEditor = true
@@ -158,9 +159,6 @@ func (a *App) blockLabel() string { return "LINE" }
 func (a *App) toggleOverwrite()   {}
 func (a *App) toggleBlock()       {}
 
-// openSearch opens the find/replace bar (stage 7b).
-func (a *App) openSearch(gtx layout.Context) {}
-
 func (a *App) encodingItems(reload bool) []item {
 	t := a.Active()
 	var out []item
@@ -250,8 +248,8 @@ func (a *App) menus() []topMenu {
 			{label: "Encoding", disabled: !hasDoc, sub: a.encodingItems(false)},
 			{label: "Highlighting", disabled: !hasDoc, sub: a.languageItems()},
 			sep(),
-			{label: "Indent", shortcut: "Tab", disabled: !hasDoc, action: ed(func(t *Tab) { indentLines(t, 1) })},
-			{label: "Unindent", shortcut: "Shift+Tab", disabled: !hasDoc, action: ed(func(t *Tab) { indentLines(t, -1) })},
+			{label: "Indent", shortcut: "Tab", disabled: !hasDoc, action: act(func() { a.indent(1) })},
+			{label: "Unindent", shortcut: "Shift+Tab", disabled: !hasDoc, action: act(func() { a.indent(-1) })},
 		}},
 		// Opens LeanEdit's settings window right away (no drop-down menu).
 		{label: "Settings", action: func(layout.Context) {
