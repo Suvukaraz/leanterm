@@ -26,14 +26,27 @@ type Session struct {
 	cwd    string
 }
 
+// EngineOptions configure the engine of a session: its name (see
+// [term.Normalize]), colors and history lines (0 = none).
+type EngineOptions struct {
+	Engine     string
+	Colors     term.Colors
+	Scrollback int
+}
+
 // Attach binds a new engine (""= default engine) to the session tmpID.
 // changed is called on any goroutine whenever the terminal needs a redraw.
 func Attach(mgr *session.SessionManager, bus *events.Bus, tmpID, engine string, changed func()) (*Session, error) {
+	return AttachWith(mgr, bus, tmpID, EngineOptions{Engine: engine, Scrollback: 10000}, changed)
+}
+
+// AttachWith is [Attach] with the engine's colors and history.
+func AttachWith(mgr *session.SessionManager, bus *events.Bus, tmpID string, o EngineOptions, changed func()) (*Session, error) {
 	s := &Session{TmpID: tmpID, mgr: mgr, changed: changed, state: "connecting"}
 	if info := mgr.GetInfo(tmpID); info != nil {
 		s.title = info.Title
 	}
-	eng, err := term.New(engine, term.Options{Cols: 80, Rows: 24, Callbacks: term.Callbacks{
+	eng, err := term.New(term.Normalize(o.Engine), term.Options{Cols: 80, Rows: 24, Colors: o.Colors, Scrollback: max(1, o.Scrollback), Callbacks: term.Callbacks{
 		Output: func(p []byte) { _ = mgr.WriteBytes(tmpID, p) },
 		Title:  func(t string) { s.set(func() { s.title = t }) },
 		Dir:    func(d string) { s.set(func() { s.cwd = d }) },

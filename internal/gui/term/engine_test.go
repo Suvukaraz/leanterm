@@ -364,3 +364,11 @@ func TestHyperlinkAndClear(t *testing.T) {
 		}
 	})
 }
+
+func TestNormalize(t *testing.T) {
+	for in, want := range map[string]string{"rio": VT, "vt": VT, "ghostty": Default(), "xterm": Default(), "": Default()} {
+		if got := Normalize(in); got != want {
+			t.Errorf("Normalize(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -83,7 +83,11 @@ func (f *fakeEngine) Line(row int, dst []term.Cell) []term.Cell {
 	if row >= 0 && row < len(f.lines) {
 		s = f.lines[row]
 	}
-	return append(dst, cellsOf(s, max(f.resized[0], 1))...)
+	cells := cellsOf(s, max(f.resized[0], 1))
+	for i := range cells {
+		cells[i].Fg, cells[i].Bg = term.DefaultColors().Fg, term.DefaultColors().Bg
+	}
+	return append(dst, cells...)
 }
 func (f *fakeEngine) LinkAt(x, y int) string { return f.links[image.Pt(x, y)] }
 func (f *fakeEngine) SendRaw(p []byte)       { f.rec("raw:" + string(p)) }
@@ -307,5 +311,32 @@ func TestLinksContextMenuAndZoom(t *testing.T) {
 	h.frame()
 	if h.v.cellW != w {
 		t.Fatalf("cell width %d after reset, want %d", h.v.cellW, w)
+	}
+}
+
+func TestScreenshot(t *testing.T) {
+	h := newHarness()
+	h.eng.lines = []string{"hello"}
+	h.frame()
+	img, err := h.v.Screenshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := img.Bounds()
+	if b.Dx() < h.eng.resized[0]*h.v.cellW || b.Dy() < h.eng.resized[1]*h.v.cellH {
+		t.Fatalf("image %v for a %dx%d grid", b, h.eng.resized[0], h.eng.resized[1])
+	}
+	// Some pixel of the first cell is drawn in the text color.
+	bg := term.DefaultColors().Bg
+	lit := false
+	for y := 4; y < 4+h.v.cellH; y++ {
+		for x := 6; x < 6+h.v.cellW; x++ {
+			if r, g, bb, _ := img.At(x, y).RGBA(); uint8(r>>8) != bg.R || uint8(g>>8) != bg.G || uint8(bb>>8) != bg.B {
+				lit = true
+			}
+		}
+	}
+	if !lit {
+		t.Fatal("no text drawn in the first cell")
 	}
 }

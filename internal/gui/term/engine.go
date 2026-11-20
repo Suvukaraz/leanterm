@@ -262,6 +262,17 @@ func Default() string {
 	return VT
 }
 
+// Normalize maps an engine setting to an engine of this build: "vt" and the
+// web GUI's alternative "rio" are vt; "ghostty", the former "xterm" and
+// anything else the default.
+func Normalize(name string) string {
+	switch name {
+	case VT, "rio":
+		return VT
+	}
+	return Default()
+}
+
 // New creates a terminal engine by name ("" = [Default]).
 func New(name string, opts Options) (Engine, error) {
 	if name == "" {
