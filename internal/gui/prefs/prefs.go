@@ -65,9 +65,10 @@ type Dialog struct {
 	msgOpen bool
 	pending chan string // messages from goroutines
 
-	pw       pwDialog
-	keyHover []gtk.Hover
-	keyWinW  int
+	pw         pwDialog
+	standalone bool
+	keyHover   []gtk.Hover
+	keyWinW    int
 }
 
 // Page ids (PreferencesWindow.svelte's preferencePages).

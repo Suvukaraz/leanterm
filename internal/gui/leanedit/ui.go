@@ -49,6 +49,7 @@ type uiState struct {
 	menuBtns  []widget.Clickable
 	menuHover []gtk.Hover
 	menuOpen  int // -1 = none
+	menuShown int // the menu last opened
 	menu      gtk.Menu
 	menuDefs  []topMenu
 	popup     gtk.Menu
@@ -201,13 +202,13 @@ func (a *App) trackPointer(gtx layout.Context) {
 
 func (a *App) handleMenus(gtx layout.Context) {
 	u := &a.ui_
-	if u.menuOpen >= 0 {
-		if id, ok := u.menu.Activated(); ok {
-			if it := findItem(u.menuDefs[u.menuOpen].items, id); it != nil && it.action != nil && !it.disabled {
-				it.action(gtx)
-			}
-			u.menuOpen = -1
+	// The menu may have closed in the frame it was used: the menu it came
+	// from is remembered in menuShown.
+	if id, ok := u.menu.Activated(); ok && u.menuShown >= 0 && u.menuShown < len(u.menuDefs) {
+		if it := findItem(u.menuDefs[u.menuShown].items, id); it != nil && it.action != nil && !it.disabled {
+			it.action(gtx)
 		}
+		u.menuOpen = -1
 	}
 	if id, ok := u.popup.Activated(); ok {
 		if it := findItem(u.popupDefs, id); it != nil && it.action != nil && !it.disabled {
@@ -260,7 +261,7 @@ func (a *App) menuButton(gtx layout.Context, i int) layout.Dimensions {
 		if def.action != nil {
 			return
 		}
-		u.menuOpen = i
+		u.menuOpen, u.menuShown = i, i
 		u.menu.Items = toGtk(def.items, "")
 		// The menu opens below the button (window coordinates of the bar).
 		u.menu.Open(image.Pt(gtx.Dp(4)+menuLeft(u, i, gtx), u.barH))
@@ -558,12 +559,22 @@ func (a *App) body(gtx layout.Context) layout.Dimensions {
 				return a.gotoPanelLayout(gtx, th, t)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				if t.layout(gtx, sh) {
-					t.dirtyAt = gtx.Now
-					a.recordEdit(t)
-					a.markDirty(t)
-				}
-				return layout.Dimensions{Size: gtx.Constraints.Max}
+				return layout.Flex{}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						if t.layout(gtx, sh) {
+							t.dirtyAt = gtx.Now
+							a.recordEdit(t)
+							a.markDirty(t)
+						}
+						return layout.Dimensions{Size: gtx.Constraints.Max}
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if a.minimap() {
+							return a.minimapLayout(gtx, th, t)
+						}
+						return a.scrollbarLayout(gtx, th, t)
+					}),
+				)
 			}),
 		)
 		return layout.Dimensions{Size: gtx.Constraints.Max}

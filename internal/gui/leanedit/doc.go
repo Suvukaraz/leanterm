@@ -51,6 +51,8 @@ type Tab struct {
 	modified        map[int]bool
 	modOf, modSaved string
 	marks           *marks
+	tokens          []syntax.Token // the highlighting (also the minimap's colors)
+	mini            minimap
 }
 
 func newTab(id int, file *services.EditorFile, title string) *Tab {
@@ -172,10 +174,11 @@ func (t *Tab) layout(gtx layout.Context, sh *text.Shaper) (changed bool) {
 		} else {
 			t.retoken = false
 			if t.Highlight && t.lexer != nil {
-				t.ed.SetSyntaxTokens(codeedit.Tokens(t.lexer, t.ed.Text())...)
+				t.tokens = codeedit.Tokens(t.lexer, t.ed.Text())
 			} else {
-				t.ed.SetSyntaxTokens()
+				t.tokens = nil
 			}
+			t.ed.SetSyntaxTokens(t.tokens...)
 		}
 	}
 	// gvcode measures the gutter from the previous frame's layout: the first

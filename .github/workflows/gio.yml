@@ -7,9 +7,9 @@ name: Gio prototype
 on:
   push:
     branches: [main, 'claude/**']
-    paths: ['cmd/leanterm-gio/**', 'cmd/leanterm-native/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+    paths: ['cmd/leanterm-gio/**', 'cmd/leanterm-native/**', 'internal/**', 'third_party/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
   pull_request:
-    paths: ['cmd/leanterm-gio/**', 'cmd/leanterm-native/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+    paths: ['cmd/leanterm-gio/**', 'cmd/leanterm-native/**', 'internal/**', 'third_party/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
   workflow_dispatch:
 
 env:
@@ -167,6 +167,17 @@ jobs:
           cat native.log
           # -quit-after exits cleanly through the UI thread.
           timeout 30 bin/leanterm-native -config-dir "$cfg" -quit-after 4s
+          # LeanEdit on its own: open a file, type, save, search, quit.
+          ed=$(mktemp -d); cp internal/gui/codeedit/editor.go "$ed/sample.go"
+          bin/leanterm-native -leanedit -config-dir "$cfg" "$ed/sample.go" > leanedit.log 2>&1 & ED=$!
+          sleep 4
+          xdotool mousemove 300 96 click 1; xdotool key End; xdotool type --delay 15 ' // ci'
+          xdotool key ctrl+s; sleep 1
+          head -1 "$ed/sample.go" | grep -q 'package codeedit // ci'
+          xdotool key ctrl+f; sleep 0.3; xdotool type --delay 15 'gioui'; xdotool key Return; sleep 0.5
+          xwd -root -silent | convert xwd:- native-leanedit.png
+          xdotool key Escape; sleep 0.3; xdotool key ctrl+q; sleep 2
+          if kill -0 $ED 2>/dev/null; then cat leanedit.log; echo "LeanEdit did not quit"; exit 1; fi
 
       - uses: actions/upload-artifact@v4
         with:

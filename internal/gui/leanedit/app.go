@@ -928,6 +928,3 @@ func lexerFor(id string) lexer { return chromaLexer(id) }
 func (a *App) SettingsChanged() {
 	a.post(func() { a.settings = a.Svc.GetEditorSettings() })
 }
-
-// ShowPreferences opens the settings (stage 7c).
-func (a *App) ShowPreferences() {}

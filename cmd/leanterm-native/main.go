@@ -44,7 +44,12 @@ func main() {
 	editFile := flag.String("edit", "", "open this file in LeanEdit at start (testing)")
 	quitAfter := flag.Duration("quit-after", 0, "self-test: quit after this time")
 	stats := flag.Bool("stats", false, "log the frames drawn per second")
+	leanEdit := flag.Bool("leanedit", false, "run only LeanEdit (files as arguments)")
 	flag.Parse()
+	if *leanEdit {
+		runLeanEdit(*configDir, flag.Args())
+		return
+	}
 
 	core, err := appcore.Open(appcore.Options{ConfigDir: *configDir, MasterPassword: *password, ReadOnly: *readOnly, NoBackup: *noBackup})
 	if err != nil {
@@ -98,7 +103,7 @@ func main() {
 	u.systemSvc.SetUnlockHandler(func(pwd string) error { return core.Vault.Unlock(pwd) })
 	u.setupEditDialogs(*readOnly)
 	// LeanEdit runs in its own window next to the main window.
-	u.editorWins = &editorWindows{u: u}
+	u.editorWins = &editorWindows{store: core.Store, svc: u.editorSvc, chooseFile: u.systemSvc.ChooseFile}
 	u.editorSvc.SetGUI(u.host(), u.editorWins)
 	u.editorWins.watchEditorEvents(core.Bus)
 	if *editFile != "" {

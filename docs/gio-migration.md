@@ -358,3 +358,57 @@ for local shells, with one UI.
   their clusters and saves rules to `auto_clusters`.
 - A dialog's Escape set the close request after the caller had read it;
   the dialog now asks for another frame, so it closes at once.
+
+## Stage 7: LeanEdit
+
+`internal/gui/leanedit` is the editor (`frontend/src/components/editor` and
+`lib/editor`) on gvcode. `third_party/gvcode` is a copy of gvcode v0.8.2
+(MIT) used through a `replace` in go.mod; LeanTerm's changes are marked
+"LeanTerm:" (exported Undo/Redo, the gutter's background and border,
+whitespace markers).
+
+- Tabs, loading and saving through `EditorService` in chunks (encodings,
+  line endings, mixed line endings, large/huge and binary files, saving
+  over a change by another program, a closed SFTP connection), checking
+  the open files when the window gets the focus, the unsaved-changes
+  questions on closing tabs and the window (`ClosingEvent.Abort`).
+- Menu bar, tool bar, tab bar, status bar (position, INS/LINE, indent,
+  encoding and language popups, line endings) as in EditorApp.svelte.
+- `commands.ts` as pure Go functions with its test cases, applied as one
+  undoable edit; the search panel (case, regexp, by word, replace with
+  groups, highlighted matches), go to line, quick open, Align On,
+  bookmarks, modified lines, the jump and edit histories.
+- `languages.ts` (detection by name, path, extension and shebang) with
+  chroma lexers; custom lexers for SSH config, crontab, ignore files and
+  whitespace-separated config.
+- View: word wrap, whitespace, the minimap (`minimap.ts`: 80px, 3px per
+  line, syntax colors, slider, click/drag/wheel) or a scrollbar, zoom.
+- The settings window ("LeanEdit Settings", the Editor page with Cancel,
+  Apply, OK) in its own window; `-leanedit [files]` runs LeanEdit on its
+  own (closing quits, settings go straight to config.toml).
+- Files open from `EditorService.Open`, the file browser's "Open in
+  Editor" and double click on text files, and files dropped on the main
+  window.
+
+### Deviations
+
+- gvcode has one cursor: no block selection, no extra carets (Add Caret
+  above/below, Cursors to Line Ends, Select All Occurrences are disabled);
+  "Find and Select Next Occurrence" moves the selection.
+- No code folding (Fold All/Unfold All are disabled) and no overwrite mode
+  (the status bar shows INS/LINE).
+- Syntax highlighting has colors only: gvcode shapes a line with one face,
+  so keywords are not bold and comments not italic.
+- Modified lines are the lines between the common start and end of the
+  saved and the current text (CodeMirror tracks each edit); for single
+  edits that is the same.
+- LeanEdit on its own does not yet hand files to a running instance
+  (single instance) and has no own icon; that is stage 8 packaging.
+
+### Findings
+
+- A menu that closes in the frame an entry is chosen lost the choice: the
+  open menu's index was already reset; the menu bar remembers the menu it
+  showed.
+- Windows opened before the main window is mapped end up below it on X11
+  without a window manager; `-edit` opens its file a second later.

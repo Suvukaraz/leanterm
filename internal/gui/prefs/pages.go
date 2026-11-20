@@ -620,10 +620,11 @@ func (d *Dialog) editorPage(th *gtk.Theme) layout.Widget {
 	lbl := func(s string) layout.Widget { return d.label(s, 0.9, 130) }
 	return gapCol(10,
 		f.Frame("Font", form.Row(lbl("Editor font:"), f.Font(&e.Font, true, false))),
-		f.Frame("Opening files", gapCol(8,
+		// LeanEdit on its own has no LeanTerm file browsers to configure.
+		form.If(!d.standalone, f.Frame("Opening files", gapCol(8,
 			form.Row(lbl("Double-click on a text file opens it in:"), f.Radio(&e.OpenTextFilesIn, openInOpts, false, false)),
 			d.hint(`Applies to the SFTP and the local file browser. "Open in Editor" and "Open with default application" stay available in the context menu.`),
-		)),
+		))),
 		f.Frame("Windows", gapCol(8,
 			f.Check(&e.SingleInstance, "Open files in the running LeanEdit as new tabs (single instance)", false),
 			d.hint(`For LeanEdit started on its own (desktop, "Open with"). Off: every file opens in a new window. File → New Window always opens one. Applies to the next start; the editor in LeanTerm is not affected.`),
