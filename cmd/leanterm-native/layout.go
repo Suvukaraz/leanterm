@@ -129,6 +129,15 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions { return u.editConn.Layout(gtx, u.th) }),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions { return u.prefs.Layout(gtx, u.th) }),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			u.wol.Layout(gtx, u.th)
+			u.quick.Layout(gtx, u.th)
+			u.editVars.Layout(gtx, u.th)
+			u.bulk.Layout(gtx, u.th)
+			u.clAdmin.Layout(gtx, u.th)
+			u.pcc.Layout(gtx, u.th)
+			return layout.Dimensions{}
+		}),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			u.handleMacroConfirm(gtx)
 			return layout.Dimensions{}
 		}),
@@ -147,7 +156,8 @@ func (u *ui) layout(gtx layout.Context) layout.Dimensions {
 // dialogOpen reports whether any dialog is open (the global keys go to the
 // dialog then, not to the window).
 func (u *ui) dialogOpen() bool {
-	return u.quit.open || u.del.open || u.addRen.open || u.about.open || u.keys.open || u.prompter.Active() || u.macroConfirmOpen || u.filesDialogOpen() || u.editConn.Opened() || u.prefs.Active()
+	return u.quit.open || u.del.open || u.addRen.open || u.about.open || u.keys.open || u.prompter.Active() || u.macroConfirmOpen || u.filesDialogOpen() || u.editConn.Opened() || u.prefs.Active() ||
+		u.wol.Opened() || u.quick.Opened() || u.editVars.Opened() || u.bulk.Opened() || u.clAdmin.Opened() || u.pcc.Opened()
 }
 
 // ---- button bar --------------------------------------------------------------

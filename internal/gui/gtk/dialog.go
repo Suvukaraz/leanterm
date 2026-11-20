@@ -9,6 +9,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -59,6 +60,10 @@ func (d *Dialog) Layout(gtx layout.Context, th *Theme, body layout.Widget, actio
 			if e, ok := ev.(key.Event); ok && e.State == key.Press {
 				d.closeReq = true
 			}
+		}
+		// Callers read CloseRequested before Layout: ask for that frame.
+		if d.closeReq {
+			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
 
@@ -134,7 +139,8 @@ func (d *Dialog) banner(gtx layout.Context, th *Theme) layout.Dimensions {
 		return layout.Inset{Top: 10, Bottom: 10, Left: 16, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, FillWidth(func(gtx layout.Context) layout.Dimensions {
-					return Text{S: d.Banner, Size: Em(2.2), Color: c(0xeeeeee, 0xff), Weight: font.Bold, MaxLines: 1, LineHeight: 1}.Layout(gtx, th)
+					// Long banners wrap (QuickConnectDialog.svelte).
+					return Text{S: d.Banner, Size: Em(2.2), Color: c(0xeeeeee, 0xff), Weight: font.Bold, LineHeight: 1}.Layout(gtx, th)
 				})),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if !d.Closable {

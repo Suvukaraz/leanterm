@@ -86,6 +86,14 @@ func box(gtx layout.Context, sz image.Point, radius int, fill, border color.NRGB
 	paint.FillShape(gtx.Ops, fill, clip.UniformRRect(r.Inset(b), max(0, radius-b)).Op(gtx.Ops))
 }
 
+// dim is c at CSS opacity a over bg, mixed in sRGB like a browser (Gio
+// blends alpha in linear light, which makes faded text look brighter).
+func dim(c, bg color.NRGBA, a float32) color.NRGBA {
+	t := a * float32(c.A) / 255
+	mix := func(x, y uint8) uint8 { return uint8(float32(y) + (float32(x)-float32(y))*t + 0.5) }
+	return color.NRGBA{R: mix(c.R, bg.R), G: mix(c.G, bg.G), B: mix(c.B, bg.B), A: 0xff}
+}
+
 // faded applies CSS opacity to a color.
 func faded(c color.NRGBA, opacity float32) color.NRGBA {
 	c.A = uint8(float32(c.A)*opacity + 0.5)

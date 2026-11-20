@@ -83,7 +83,7 @@ func (b Button) layout(gtx layout.Context, th *Theme, c *widget.Clickable) layou
 					if b.IconColor.A != 0 && !b.Primary {
 						ic = b.IconColor
 						if b.Disabled {
-							ic = faded(ic, 0.5)
+							ic = dim(ic, p.BgColor, 0.5)
 						}
 					}
 					return th.IconBox(gtx, b.Icon, 16, ic)
@@ -133,7 +133,10 @@ func (b Button) layout(gtx layout.Context, th *Theme, c *widget.Clickable) layou
 			}
 		}
 		if b.Disabled {
-			bg, border, fg = faded(bg, 0.5), faded(border, 0.5), faded(fg, 0.5)
+			// CSS opacity 0.5: Gio blends alpha in linear light, which looks
+			// brighter than the browser; text is mixed with the window
+			// color in sRGB instead.
+			bg, border, fg = faded(bg, 0.5), faded(border, 0.5), dim(fg, p.BgColor, 0.5)
 			// Redraw the content faded.
 			call, _ = record(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Inset{Left: padX + 1, Right: padX + 1, Top: padY + 1, Bottom: padY + 1}.Layout(gtx, content)

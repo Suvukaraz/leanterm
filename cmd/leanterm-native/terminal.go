@@ -684,13 +684,13 @@ func (u *ui) handleTermMenu(gtx layout.Context) {
 		t.view.RequestPaste(gtx)
 		u.focus = true
 	case id == "cluster-new":
-		u.showNotice(t, "The cluster administration is not implemented yet", "", false)
+		u.clAdmin.Open()
 	case strings.HasPrefix(id, "cluster:"):
 		u.clusterSvc.Add(tmpID, strings.TrimPrefix(id, "cluster:"))
 	case id == "cluster-remove":
 		u.clusterSvc.Remove(tmpID)
 	case id == "pcc":
-		u.showNotice(t, "The Power Cluster Controller is not implemented yet", "", false)
+		u.pcc.Open()
 	case scan(id, "macro:%d", &i):
 		if ms := u.macros(t); i < len(ms) {
 			// The menu runs macros directly (TerminalContextMenu.svelte).

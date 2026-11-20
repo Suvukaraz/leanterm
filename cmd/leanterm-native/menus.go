@@ -78,7 +78,7 @@ func (u *ui) handleClicks(gtx layout.Context) {
 		}
 	}
 	if clicked(&b.wol) {
-		u.dropMsg = "The Wake On LAN window is not implemented yet"
+		u.wol.Open("", "")
 	}
 	if clicked(&b.prefs) {
 		u.prefs.Open("")
@@ -113,7 +113,7 @@ func (u *ui) handleClicks(gtx layout.Context) {
 		u.connectSelected()
 	}
 	if clicked(&b.quickConnect) {
-		u.dropMsg = "The quick connect window is not implemented yet"
+		u.quick.Open()
 	}
 	if clicked(&b.favourite) {
 		u.toggleFavourite()
@@ -122,8 +122,14 @@ func (u *ui) handleClicks(gtx layout.Context) {
 		u.nb.Selected = 0
 		u.focus = true
 	}
+	if clicked(&b.clusters) {
+		u.clAdmin.Open()
+	}
+	if clicked(&b.pcc) {
+		u.pcc.Open()
+	}
 	if clicked(&u.manageClusters) {
-		u.dropMsg = "The cluster administration is not implemented yet"
+		u.clAdmin.Open()
 	}
 	if clicked(&u.statsReset) {
 		if id := u.notesNode; id != "" {
@@ -400,10 +406,9 @@ func (u *ui) openTreeMenu(_ layout.Context, _ string, _ image.Point) {
 		gtk.MenuItem{ID: "cut", Label: "Cut node(s)", Icon: fonts.IconCut, Disabled: isRoot || anyProtected},
 		gtk.MenuItem{ID: "paste", Label: "Paste node(s)", Icon: fonts.IconPaste, Disabled: !canPaste},
 		gtk.MenuItem{Separator: true},
-		// These open dialogs that are not ported yet.
-		gtk.MenuItem{ID: "edit-variables", Label: "Edit Local Variables...", Icon: fonts.IconEdit, Disabled: true},
-		gtk.MenuItem{ID: "bulk-edit", Label: "Bulk Edit...", Icon: fonts.IconEdit, Disabled: true},
-		gtk.MenuItem{ID: "wol", Label: "Wake On LAN...", Icon: fonts.IconBolt, Disabled: true},
+		gtk.MenuItem{ID: "edit-variables", Label: "Edit Local Variables...", Icon: fonts.IconEdit, Disabled: !isConn},
+		gtk.MenuItem{ID: "bulk-edit", Label: "Bulk Edit...", Icon: fonts.IconEdit, Disabled: len(selNodes) < 1},
+		gtk.MenuItem{ID: "wol", Label: "Wake On LAN...", Icon: fonts.IconPowerOff, Disabled: !isConn},
 	)
 
 	// Start N instances of the node (connections) or the group's connections.
@@ -445,6 +450,18 @@ func (u *ui) handleTreeMenu() {
 		u.keys.open = true
 	case id == "edit":
 		u.openEdit()
+	case id == "edit-variables":
+		if isSingle && !isGroup {
+			u.editVars.Open(sel[0])
+		}
+	case id == "bulk-edit":
+		if len(sel) > 0 {
+			u.bulk.Open(sel)
+		}
+	case id == "wol":
+		if isSingle && !isGroup {
+			u.wol.Open(selNodes[0].Host, "")
+		}
 	case id == "expand-all":
 		u.expandAll()
 	case id == "collapse-all":

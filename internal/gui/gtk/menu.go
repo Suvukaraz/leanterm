@@ -327,7 +327,7 @@ func (m *Menu) rowContent(gtx layout.Context, th *Theme, i int, it MenuItem, hot
 		fg, muted = p.SelectedFg, faded(p.SelectedFg, 0.8)
 	}
 	if it.Disabled {
-		fg, muted = faded(fg, 0.45), faded(muted, 0.45)
+		fg, muted = dim(fg, p.MenuBg, 0.45), dim(muted, p.MenuBg, 0.45)
 	}
 	call, d := record(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 4, Bottom: 4, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

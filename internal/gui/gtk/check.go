@@ -80,16 +80,22 @@ func (th *Theme) radio(gtx layout.Context, on, disabled bool) layout.Dimensions 
 // CheckButton draws a check box with its label (CheckButton.svelte); b holds
 // the state.
 func (th *Theme) CheckButton(gtx layout.Context, b *widget.Bool, label string, disabled bool) layout.Dimensions {
+	return th.CheckButtonSize(gtx, b, label, 0, disabled)
+}
+
+// CheckButtonSize is CheckButton with the label in another size (a parent's
+// font-size; 0 = the GUI font).
+func (th *Theme) CheckButtonSize(gtx layout.Context, b *widget.Bool, label string, size unit.Sp, disabled bool) layout.Dimensions {
 	if disabled {
 		gtx = gtx.Disabled()
 	}
 	// CSS: margin 2px 0.
 	return layout.Inset{Top: 2, Bottom: 2}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return th.checkButton(gtx, b, label, disabled)
+		return th.checkButton(gtx, b, label, size, disabled)
 	})
 }
 
-func (th *Theme) checkButton(gtx layout.Context, b *widget.Bool, label string, disabled bool) layout.Dimensions {
+func (th *Theme) checkButton(gtx layout.Context, b *widget.Bool, label string, size unit.Sp, disabled bool) layout.Dimensions {
 	return b.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if !disabled {
 			pointer.CursorPointer.Add(gtx.Ops)
@@ -99,7 +105,7 @@ func (th *Theme) checkButton(gtx layout.Context, b *widget.Bool, label string, d
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				// The box's margin-right (4px) is the gap to the label; a label
 				// wraps when the room is short (a grid column).
-				return Text{S: label, Color: th.Pal.FgColor, LineHeight: 1.2}.Layout(gtx, th)
+				return Text{S: label, Size: size, Color: th.Pal.FgColor, LineHeight: 1.2}.Layout(gtx, th)
 			}),
 		)
 	})

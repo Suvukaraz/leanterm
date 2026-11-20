@@ -422,12 +422,10 @@ func (d *Dialog) termBehaviour(th *gtk.Theme) layout.Widget {
 			if dir == "" && def != nil {
 				dir = def()
 			}
+			choose := f.ChooseFile
 			go func() {
-				if path, err := f.ChooseFile(title, dir, true); err == nil && path != "" {
-					*p = path
-					if f.Changed != nil {
-						f.Changed()
-					}
+				if path, err := choose(title, dir, true); err == nil && path != "" {
+					f.Later(func() { *p = path })
 				}
 			}()
 		}

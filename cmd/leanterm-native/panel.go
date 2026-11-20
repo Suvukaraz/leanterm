@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gioui.org/layout"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
@@ -877,18 +878,20 @@ func (u *ui) clustersRow(gtx layout.Context) layout.Dimensions {
 			if u.clustersVisible {
 				kids = append(kids,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						b := gtk.Button{Label: "Clusters", Icon: fonts.IconSitemap, Disabled: true, Variant: gtk.Normal}
+						b := gtk.Button{Label: "Clusters", Icon: fonts.IconSitemap, Variant: gtk.Normal}
 						if isCompact {
 							b.Label = ""
 						}
+						b.MinWidth = unit.Dp(float32(gtx.Constraints.Max.X-gtx.Dp(2)) / gtx.Metric.PxPerDp) // flex: 1
 						return b.Layout(gtx, u.th, &u.buttons.clusters)
 					}),
 					layout.Rigid(layout.Spacer{Width: 4}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						b := gtk.Button{Label: "PCC", Icon: fonts.IconList, Disabled: true, Variant: gtk.Normal}
+						b := gtk.Button{Label: "PCC", Icon: fonts.IconList, Variant: gtk.Normal}
 						if isCompact {
 							b.Label = ""
 						}
+						b.MinWidth = unit.Dp(float32(gtx.Constraints.Max.X-gtx.Dp(2)) / gtx.Metric.PxPerDp) // flex: 1
 						return b.Layout(gtx, u.th, &u.buttons.pcc)
 					}),
 				)

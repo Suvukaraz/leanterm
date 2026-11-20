@@ -1,9 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+	"time"
+
 	"gioui.org/layout"
 
 	"github.com/Suvukaraz/leanterm/internal/config"
+	"github.com/Suvukaraz/leanterm/internal/gui/dialogs"
 	"github.com/Suvukaraz/leanterm/internal/gui/form"
 	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/services"
@@ -48,6 +53,7 @@ func (u *ui) setupEditDialogs(readOnly bool) {
 	p.Invalidate = u.w.Invalidate
 	p.F.ChooseFile = e.F.ChooseFile
 	p.F.Changed = u.w.Invalidate
+	u.setupSmallDialogs()
 	p.Saved = func(before, after services.Settings) {
 		// The new preference wins over a dragged panel width.
 		if before.SFTPBrowser.Width != after.SFTPBrowser.Width {
@@ -88,4 +94,62 @@ func (u *ui) treeToolbarClicks(gtx layout.Context) {
 	if b.delete.Clicked(gtx) && u.canDelete() {
 		u.startDeleteSelected()
 	}
+}
+
+// setupSmallDialogs connects Wake On LAN, Quick Connect, the variables,
+// bulk edit and cluster windows to the services.
+func (u *ui) setupSmallDialogs() {
+	inv := u.w.Invalidate
+	u.wol.Send, u.wol.LookupArp, u.wol.Invalidate = u.systemSvc.WakeOnLan, u.systemSvc.LookupArpMAC, inv
+	u.quick.Invalidate = inv
+	u.quick.Connect = func(title, method, host string, port int, user, password string) error {
+		_, err := u.sessionSvc.OpenQuick(fmt.Sprintf("quick-%d", time.Now().UnixMilli()), title, method, host, port, user, password)
+		return err
+	}
+	u.editVars.Load, u.editVars.Save, u.editVars.Invalidate = u.configSvc.GetConnectionForEdit, u.configSvc.SaveConnection, inv
+	u.bulk.Apply, u.bulk.Invalidate = u.configSvc.ApplyBulkEdit, inv
+	u.bulk.Applied = u.rebuildTree
+
+	cs := u.clusterSvc
+	u.clusterFns = dialogs.Clusters{
+		List: cs.List,
+		Sessions: func() []dialogs.Session {
+			var out []dialogs.Session
+			for _, s := range u.sessionSvc.List() {
+				out = append(out, dialogs.Session{TmpID: s.TmpID, Title: s.Title, Kind: string(s.Kind)})
+			}
+			return out
+		},
+		Create:  cs.Create,
+		Delete:  cs.Delete,
+		Add:     cs.Add,
+		Remove:  cs.Remove,
+		Matches: cs.AutoClusterMatches,
+		SaveRule: func(r config.AutoClusterConfig) error {
+			cfg := u.core.Store.Config()
+			cfg.AutoClusters = append(cfg.AutoClusters, r)
+			return u.core.Store.Save()
+		},
+		Saved: func() [][2]string {
+			var out [][2]string
+			for _, c := range u.core.Store.Config().Connections {
+				title := c.Title
+				if title == "" {
+					title = c.Name
+				}
+				cl := strings.Join(c.Clusters, ", ")
+				if cl == "" {
+					cl = "(no clusters)"
+				}
+				out = append(out, [2]string{title, cl})
+			}
+			return out
+		},
+		Send:      cs.PCCSend,
+		Restart:   cs.RestartAll,
+		CloseAll:  cs.CloseAll,
+		PreventSB: cs.SetPreventSingleBroadcast,
+	}
+	u.clAdmin.C, u.pcc.C = &u.clusterFns, &u.clusterFns
+	u.clAdmin.OpenPCC, u.pcc.OpenClusters = u.pcc.Open, u.clAdmin.Open
 }

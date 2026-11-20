@@ -2,6 +2,7 @@ package main
 
 import (
 	"gioui.org/text"
+	"github.com/Suvukaraz/leanterm/internal/gui/dialogs"
 	"github.com/Suvukaraz/leanterm/internal/gui/editconn"
 	"github.com/Suvukaraz/leanterm/internal/gui/filebrowser"
 	"github.com/Suvukaraz/leanterm/internal/gui/prefs"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/Suvukaraz/leanterm/internal/config"
 	"github.com/Suvukaraz/leanterm/internal/gui/appcore"
-	"github.com/Suvukaraz/leanterm/internal/gui/dialogs"
 	"github.com/Suvukaraz/leanterm/internal/gui/dnd"
 	"github.com/Suvukaraz/leanterm/internal/gui/gtk"
 	"github.com/Suvukaraz/leanterm/internal/gui/termview"
@@ -190,8 +190,15 @@ type ui struct {
 	filesEvents chan func()
 
 	// The configuration dialogs (stage 6).
-	editConn editconn.Dialog
-	prefs    prefs.Dialog
+	editConn   editconn.Dialog
+	prefs      prefs.Dialog
+	wol        dialogs.WakeOnLan
+	quick      dialogs.QuickConnect
+	editVars   dialogs.EditVariables
+	bulk       dialogs.BulkEdit
+	clAdmin    dialogs.ClusterAdmin
+	pcc        dialogs.PCC
+	clusterFns dialogs.Clusters
 
 	// winWidth is the window width in pixels (CSS vw units).
 	winWidth int

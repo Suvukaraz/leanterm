@@ -28,11 +28,44 @@ type Form struct {
 	// Changed is called after a file dialog wrote a field (a redraw).
 	Changed func()
 
-	state map[any]any
-	clk   map[string]*widget.Clickable
+	state   map[any]any
+	clk     map[string]*widget.Clickable
+	pending chan func()
+}
+
+// Later runs fn on the UI goroutine with the next widget the form lays out
+// (results of file dialogs, which run in goroutines), and asks for a frame.
+func (f *Form) Later(fn func()) {
+	f.pendingCh() <- fn
+	if f.Changed != nil {
+		f.Changed()
+	}
+}
+
+func (f *Form) pendingCh() chan func() {
+	if f.pending == nil {
+		f.pending = make(chan func(), 16)
+	}
+	return f.pending
+}
+
+// apply runs what Later queued. It creates the channel too: every widget
+// calls it on the UI goroutine before a click can start a goroutine that
+// calls Later.
+func (f *Form) apply() {
+	ch := f.pendingCh()
+	for {
+		select {
+		case fn := <-ch:
+			fn()
+		default:
+			return
+		}
+	}
 }
 
 func get[T any](f *Form, key any, mk func() *T) *T {
+	f.apply()
 	if f.state == nil {
 		f.state = map[any]any{}
 	}
@@ -188,19 +221,24 @@ func (f *Form) Entry(p *string, o EntryOpts) layout.Widget {
 		if o.Password {
 			st.ed.Mask = '•'
 		}
-		return gtk.Entry{Placeholder: o.Placeholder, Width: o.Width, ReadOnly: o.ReadOnly, Disabled: f.Disabled || o.Disabled, Mono: o.Mono}.Layout(gtx, f.Th, &st.ed)
+		return gtk.Entry{Placeholder: o.Placeholder, Width: o.Width, Password: o.Password, ReadOnly: o.ReadOnly, Disabled: f.Disabled || o.Disabled, Mono: o.Mono}.Layout(gtx, f.Th, &st.ed)
 	}
 }
 
 // Check edits *p with a check button.
 func (f *Form) Check(p *bool, label string, disabled bool) layout.Widget {
+	return f.CheckSize(p, label, 0, disabled)
+}
+
+// CheckSize is Check with the label in size (0 = the GUI font).
+func (f *Form) CheckSize(p *bool, label string, size unit.Sp, disabled bool) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		b := get(f, p, func() *widget.Bool { return &widget.Bool{} })
 		if b.Update(gtx) && !f.Disabled && !disabled {
 			*p = b.Value
 		}
 		b.Value = *p
-		return f.Th.CheckButton(gtx, b, label, f.Disabled || disabled)
+		return f.Th.CheckButtonSize(gtx, b, label, size, f.Disabled || disabled)
 	}
 }
 
@@ -295,10 +333,7 @@ func (f *Form) File(p *string, title string, folder, disabled bool) layout.Widge
 			go func() {
 				path, err := f.ChooseFile(title, dir, folder)
 				if err == nil && path != "" {
-					*p = path
-					if f.Changed != nil {
-						f.Changed()
-					}
+					f.Later(func() { *p = path })
 				}
 			}()
 		}

@@ -319,6 +319,19 @@ for local shells, with one UI.
   dialog. It edits a copy of the settings; saving reloads the window
   through `settings:changed` (colour scheme, looks, tree), and a changed
   panel width replaces the dragged one.
+- `internal/gui/dialogs`: Wake On LAN (ARP lookup, magic packet), Quick
+  Connect (an unsaved SSH/Telnet/SFTP connection), Edit Local Variables
+  (`<V:0>`..`<V:9>`), Bulk Edit (field rules with regex replacement), the
+  cluster administration (running clusters, saved clusters, auto cluster
+  rules with a preview) and the Power Cluster Controller (send one line or
+  a script to a cluster or all terminals, restart/close all). The button
+  bar, the tree menu, the cluster buttons and the terminal menu open them.
+  Results of blocking service calls reach the dialogs through a channel
+  drained on the UI goroutine (`go test -race` checks it).
+- Not ported: the chain dialog opens when a connection is dragged from the
+  tree onto a terminal, which the native tree does not offer yet; the
+  piped output window is never opened by the web GUI either; Enter Value
+  belongs to LeanEdit (stage 7).
 
 ### Findings
 
@@ -333,3 +346,15 @@ for local shells, with one UI.
   area must be inside the button's (else the tab column ignores clicks).
 - The terminal engine choice offers Ghostty and the pure Go VT engine; the
   web GUI's "rio" value means VT.
+- Gio blends alpha in linear light: text at CSS opacity 0.5 came out much
+  brighter than in the browser (173 instead of 140 on the dark theme).
+  Disabled buttons and menu items mix their text with the background in
+  sRGB instead (`gtk.dim`). Check labels stay unfaded, as in the web GUI.
+- `form.Entry` did not pass `Password` on: password fields (also in Edit
+  Connection) showed their text. Fixed, with a test.
+- The web cluster window's "Saved clusters" tab reads connections from the
+  settings, which have none, and "Save Rule" puts the rule into settings
+  that `SaveSettings` drops: the native window lists the connections with
+  their clusters and saves rules to `auto_clusters`.
+- A dialog's Escape set the close request after the caller had read it;
+  the dialog now asks for another frame, so it closes at once.

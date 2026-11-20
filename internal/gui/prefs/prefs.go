@@ -152,16 +152,14 @@ func (d *Dialog) message(s string) {
 	d.msgOpen = true
 }
 
-func (d *Dialog) post(s string) {
-	if d.pending == nil {
-		return
-	}
+// post hands a message from a goroutine to the next frame.
+func post(ch chan string, invalidate func(), s string) {
 	select {
-	case d.pending <- s:
+	case ch <- s:
 	default:
 	}
-	if d.Invalidate != nil {
-		d.Invalidate()
+	if invalidate != nil {
+		invalidate()
 	}
 }
 
@@ -194,17 +192,18 @@ func (d *Dialog) export() {
 	if d.ChooseSaveFile == nil {
 		return
 	}
+	ch, inv, choose, cfg := d.pending, d.Invalidate, d.ChooseSaveFile, d.Config
 	go func() {
-		path, err := d.ChooseSaveFile("Export LeanTerm configuration", "leanterm-export.toml")
+		path, err := choose("Export LeanTerm configuration", "leanterm-export.toml")
 		switch {
 		case err != nil:
-			d.post("Export failed: " + err.Error())
+			post(ch, inv, "Export failed: "+err.Error())
 		case path == "":
 		default:
-			if err := d.Config.ExportFull(path, false, false, ""); err != nil {
-				d.post("Export failed: " + err.Error())
+			if err := cfg.ExportFull(path, false, false, ""); err != nil {
+				post(ch, inv, "Export failed: "+err.Error())
 			} else {
-				d.post("Configuration exported to\n" + path)
+				post(ch, inv, "Configuration exported to\n"+path)
 			}
 		}
 	}()
