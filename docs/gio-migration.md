@@ -150,3 +150,53 @@ most 1–3 px.
   through Gio's input router and found several such bugs (disabled buttons
   still clickable, a spin button's keys eaten by its editor, a dialog's Escape
   one frame late, menus' hover overriding the keyboard).
+
+## Stage 3: the main window
+
+`cmd/leanterm-native` is the main window on the backend of
+`internal/gui/appcore`: button bar, connection panel (tree, favourites,
+history, clusters, search and connect row), the notebook with the Info tab
+and terminal tabs (splits, tab menu, reordering), the terminal status bar,
+the global shortcuts, the add/rename/delete/quit/about/keybindings dialogs,
+the lock overlay and the UI state (window, panel width, expanded groups).
+`gio.yml` builds it for Linux and Windows and runs it: under Xvfb with
+`build/gio/demo-config` (expand a group, open the tree menu, a local shell,
+screenshots as artifacts, `-quit-after`), on Windows start and quit.
+
+### Side-by-side check
+
+The Wails build and `leanterm-native` ran with the same configuration under
+Xvfb (the Wails one needs `dbus-run-session`, `GTK_A11Y=none` and
+`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` there). Button bar, tree,
+welcome page, tabs, context menu and terminal status bar now match in
+layout, sizes and colors. Remaining differences:
+
+- Icons are Nerd Font glyphs in the main color of the web GUI's colored
+  SVGs; glyphs fill their 16px box a little less.
+- The web GUI shows a scrollbar under the left notebook's tabs when they do
+  not fit (a browser artifact); the native one does not.
+- Terminal cells: same width, but the line height and glyph weight differ
+  (stage 4 renders the terminal after `look.ts`).
+
+### Findings
+
+- **A system font was shadowed**: the Go fonts were registered under the
+  same names as the fontconfig faces, and Gio picked them. The GUI used Go
+  instead of Inter (visible in the wide hyphen) and Go Mono instead of
+  DejaVu Sans Mono in terminals. `fonts` now only adds a fallback where no
+  system face exists; a test checks that no face is registered twice.
+- **Redraws**: Gio draws a frame only after an event. A widget that changes
+  its state during Layout after drawing, or queues events that the program
+  reads before Layout, must ask for another frame
+  (`gtx.Execute(op.InvalidateCmd{})`), else the change shows only on the
+  next pointer move. `gtk.Tree` and `gtk.Notebook` do so.
+- **Widget state must survive frames**: recreating `gtk.Tab`s every frame
+  lost their clicks (the left notebook could not switch tabs).
+- **Pointer position**: input areas are siblings in Gio, so an area below
+  the others never sees the pointer above them. The window-wide pointer
+  position for context menus comes from a pass-through area
+  (`pointer.PassOp`) on top. Menus close on a click outside through such an
+  area too, so the click still reaches its target, as in the web GUI.
+- **Synthetic clicks**: a press that arrives in the same frame as the
+  pointer move onto a widget whose filter was not read yet is lost (xdotool
+  `mousemove x y click`); the CI run moves first and presses after a pause.

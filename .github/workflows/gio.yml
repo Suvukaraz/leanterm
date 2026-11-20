@@ -7,9 +7,9 @@ name: Gio prototype
 on:
   push:
     branches: [main, 'claude/**']
-    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+    paths: ['cmd/leanterm-gio/**', 'cmd/leanterm-native/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
   pull_request:
-    paths: ['cmd/leanterm-gio/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
+    paths: ['cmd/leanterm-gio/**', 'cmd/leanterm-native/**', 'internal/**', 'build/gio/**', '*.go', 'go.mod', 'go.sum', '.github/workflows/gio.yml']
   workflow_dispatch:
 
 env:
@@ -78,7 +78,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
         run: |
-          go vet -tags ghostty ./internal/... ./cmd/leanterm-gio/
+          go vet -tags ghostty ./internal/... ./cmd/leanterm-gio/ ./cmd/leanterm-native/
           go test -race -tags ghostty -v ./internal/gui/term/ 2>&1 | tee term-tests.txt
           grep -q -- '--- PASS: TestKeys/ghostty' term-tests.txt
           go test -race -tags ghostty ./internal/...
@@ -88,6 +88,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ runner.temp }}/ghostty/linux/lib/pkgconfig
         run: |
           go build -tags ghostty -trimpath -o bin/leanterm-gio ./cmd/leanterm-gio
+          go build -tags ghostty -trimpath -o bin/leanterm-native ./cmd/leanterm-native
           # The binary must not need a newer glibc than 2.34.
           objdump -T bin/leanterm-gio | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
 
@@ -103,6 +104,7 @@ jobs:
         run: |
           mkdir -p bin/windows
           go build -tags ghostty -trimpath -o bin/windows/leanterm-gio.exe ./cmd/leanterm-gio
+          go build -tags ghostty -trimpath -o bin/windows/leanterm-native.exe ./cmd/leanterm-native
           go test -c -tags ghostty -o bin/windows/term.test.exe ./internal/gui/term/
           go test -c -tags ghostty -o bin/windows/termview.test.exe ./internal/gui/termview/
           go test -c -tags ghostty -o bin/windows/codeedit.test.exe ./internal/gui/codeedit/
@@ -130,12 +132,41 @@ jobs:
           kill $APP
           cat gui.log
 
+      # The main window (stage 3) with a demo configuration: the tree, its
+      # context menu, a local shell; then quitting through the UI thread.
+      - name: Run the native main window under a virtual display
+        run: |
+          export DISPLAY=:98 LANG=C.UTF-8
+          Xvfb :98 -screen 0 1280x800x24 & sleep 2
+          cfg=$(mktemp -d); cp build/gio/demo-config/config.toml "$cfg/"
+          SHELL=/bin/bash bin/leanterm-native -config-dir "$cfg" > native.log 2>&1 & APP=$!
+          sleep 5
+          xwd -root -silent | convert xwd:- native-start.png
+          # Expand "Lab" (second row of the tree), right-click "demo-ssh".
+          xdotool mousemove 28 123 click 1; sleep 1
+          xwd -root -silent | convert xwd:- native-expanded.png
+          xdotool mousemove 90 189; sleep 0.3; xdotool mousedown 3; sleep 0.1; xdotool mouseup 3; sleep 1
+          xwd -root -silent | convert xwd:- native-menu.png
+          xdotool key Escape; sleep 0.5
+          # Local shell from the button bar.
+          xdotool mousemove 372 16; sleep 0.3; xdotool mousedown 1; sleep 0.1; xdotool mouseup 1; sleep 3
+          xdotool mousemove 800 400 click 1; sleep 0.5
+          xdotool type --delay 15 'echo native-$((6*7))'; xdotool key Return; sleep 1
+          xwd -root -silent | convert xwd:- native-shell.png
+          kill -0 $APP
+          kill $APP
+          cat native.log
+          # -quit-after exits cleanly through the UI thread.
+          timeout 30 bin/leanterm-native -config-dir "$cfg" -quit-after 4s
+
       - uses: actions/upload-artifact@v4
         with:
           name: gio-prototype-linux
           path: |
             bin/leanterm-gio
+            bin/leanterm-native
             screenshot-*.png
+            native-*.png
 
       - uses: actions/upload-artifact@v4
         with:
@@ -158,7 +189,7 @@ jobs:
       # Native, without cgo: vt engine, ConPTY shells (x/xpty), widgets.
       - name: Tests (vt engine, pure Go)
         run: |
-          go vet ./internal/... ./cmd/leanterm-gio/
+          go vet ./internal/... ./cmd/leanterm-gio/ ./cmd/leanterm-native/
           go test ./internal/...
 
       - uses: actions/download-artifact@v4
@@ -192,11 +223,31 @@ jobs:
           if (-not (Select-String -Path gui.log -Pattern 'file drop enabled')) { throw 'file drop was not enabled' }
           if (-not (Select-String -Path gui.log -Pattern 'Dropped at .*go\.mod')) { throw 'the dropped file did not arrive' }
 
+      - name: Start and quit the native main window
+        shell: pwsh
+        run: |
+          $cfg = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\native-cfg"
+          Copy-Item build\gio\demo-config\config.toml $cfg
+          $p = Start-Process -FilePath bin\leanterm-native.exe -ArgumentList '-config-dir', "$cfg", '-quit-after', '10s' `
+            -RedirectStandardError native.log -RedirectStandardOutput native.out -PassThru
+          Start-Sleep -Seconds 6
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\screenshot-native-windows.png")
+          if (-not $p.WaitForExit(30000)) { throw 'the native window did not quit' }
+          Get-Content native.log
+          if ($p.ExitCode -ne 0) { throw "exit code $($p.ExitCode)" }
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: gio-prototype-windows
           path: |
             bin/leanterm-gio.exe
+            bin/leanterm-native.exe
+            screenshot-native-windows.png
+            native.log
             screenshot-windows.png
             gui.log

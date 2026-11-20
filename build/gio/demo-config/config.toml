@@ -1,0 +1,81 @@
+# Demo configuration for the GUI runs of .github/workflows/gio.yml: groups
+# (one protected), a favourite, SSH and Telnet connections. Nothing here
+# is reachable; the runs only open local shells.
+
+[[groups]]
+id = 'a0000000-0000-4000-8000-000000000001'
+parent = ''
+name = 'Production'
+description = 'Live servers'
+protected = true
+
+[[groups]]
+id = 'a0000000-0000-4000-8000-000000000002'
+parent = ''
+name = 'Lab'
+
+[[groups]]
+id = 'a0000000-0000-4000-8000-000000000003'
+parent = 'a0000000-0000-4000-8000-000000000002'
+name = 'Routers'
+
+[[connections]]
+id = 'c0000000-0000-4000-8000-000000000001'
+parent = 'a0000000-0000-4000-8000-000000000001'
+name = 'web-01'
+title = 'web-01'
+method = 'ssh'
+host = '10.0.0.11'
+port = 22
+favourite = true
+description = 'Frontend web server'
+sftp_browser = 'global'
+[connections.network]
+mode = 'global'
+[connections.auth]
+type = 'password'
+user = 'admin'
+
+[[connections]]
+id = 'c0000000-0000-4000-8000-000000000002'
+parent = 'a0000000-0000-4000-8000-000000000001'
+name = 'db-01'
+title = 'db-01'
+method = 'ssh'
+host = '10.0.0.21'
+port = 22
+sftp_browser = 'global'
+[connections.network]
+mode = 'global'
+[connections.auth]
+type = 'password'
+user = 'admin'
+
+[[connections]]
+id = 'c0000000-0000-4000-8000-000000000003'
+parent = 'a0000000-0000-4000-8000-000000000003'
+name = 'edge-rtr'
+title = 'edge-rtr'
+method = 'telnet'
+host = '192.168.1.1'
+port = 23
+
+sftp_browser = 'global'
+[connections.network]
+mode = 'global'
+[connections.auth]
+type = 'manual'
+[[connections]]
+id = 'c0000000-0000-4000-8000-000000000004'
+parent = ''
+name = 'demo-ssh'
+title = 'demo@localhost'
+method = 'ssh'
+host = '127.0.0.1'
+port = 2222
+sftp_browser = 'global'
+[connections.network]
+mode = 'global'
+[connections.auth]
+type = 'password'
+user = 'demo'
