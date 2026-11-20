@@ -11,6 +11,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/Suvukaraz/leanterm/internal/gui/filedialog"
 	"image"
 	"log"
 	"os"
@@ -250,8 +251,10 @@ func (u *ui) Quit() { u.exitNow() }
 
 // ChooseFile shows a native file chooser. The native GUI has none yet; the
 // services report the error to the user.
+// ChooseFile shows the system's file dialog (blocking: callers run it
+// outside the GUI's event handling).
 func (u *ui) ChooseFile(d services.FileDialog) (string, error) {
-	return "", fmt.Errorf("the native GUI cannot show file dialogs yet (%q)", d.Title)
+	return filedialog.Choose(filedialog.Options{Title: d.Title, Directory: d.Directory, Filename: d.Filename, Save: d.Save, Folder: d.Folder})
 }
 
 // editorWindows is the native GUI's side of LeanEdit (stage 7): nothing is
