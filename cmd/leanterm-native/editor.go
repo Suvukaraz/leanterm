@@ -19,6 +19,7 @@ import (
 	"github.com/Suvukaraz/leanterm/internal/gui/leanedit"
 	"github.com/Suvukaraz/leanterm/internal/gui/prefs"
 	"github.com/Suvukaraz/leanterm/internal/services"
+	"github.com/Suvukaraz/leanterm/internal/singleinstance"
 )
 
 // editorWindows is the native GUI's side of LeanEdit: its window runs its
@@ -244,6 +245,9 @@ func (leanEditHost) Quit() { os.Exit(0) }
 // runLeanEdit starts only the editor (leanterm-native -leanedit [files]):
 // no main window and no sessions; closing the window quits. Its settings
 // go straight to config.toml (EditorService standalone).
+//
+// With [editor] single_instance (the default), files go to a LeanEdit that
+// is running already (see internal/singleinstance) and this process exits.
 func runLeanEdit(configDir string, files []string) {
 	store, err := config.NewStore(config.StoreOptions{ConfigDir: configDir, NoBackup: true})
 	if err != nil {
@@ -252,18 +256,48 @@ func runLeanEdit(configDir string, files []string) {
 	if err := store.Load(); err != nil {
 		log.Fatal(err)
 	}
+	single := store.Config().Editor.SingleInstance
+	if single {
+		forwarded, err := singleinstance.Forward(store.ConfigDir(), files)
+		if err != nil {
+			log.Print("LeanEdit: ", err)
+		}
+		if forwarded {
+			return
+		}
+	}
 	bus := events.New()
 	svc := services.NewEditorService(store, nil, bus)
 	svc.SetStandalone(true)
 	// Settings saved by LeanTerm or another LeanEdit apply right away.
 	store.OnReload = func() { bus.Emit(events.SettingsChanged, nil) }
 	host := leanEditHost{}
-	ew := &editorWindows{store: store, svc: svc, standalone: true, onExit: func() { os.Exit(0) },
-		chooseFile: func(title, dir string, folder bool) (string, error) {
-			return host.ChooseFile(services.FileDialog{Title: title, Directory: dir, Folder: folder})
-		}}
+	var server *singleinstance.Server
+	ew := &editorWindows{store: store, svc: svc, standalone: true, onExit: func() {
+		if server != nil {
+			_ = server.Close()
+		}
+		os.Exit(0)
+	}, chooseFile: func(title, dir string, folder bool) (string, error) {
+		return host.ChooseFile(services.FileDialog{Title: title, Directory: dir, Folder: folder})
+	}}
 	svc.SetGUI(host, ew)
 	ew.watchEditorEvents(bus)
+	if single {
+		// Later instances hand their files over and exit (on the server's goroutine).
+		server, err = singleinstance.Listen(store.ConfigDir(), func(paths []string) {
+			if len(paths) == 0 {
+				_ = svc.ShowWindow()
+			}
+			for _, p := range paths {
+				_ = svc.Open(services.EditorFile{Kind: "local", Path: p})
+			}
+		})
+		if err != nil {
+			log.Print("LeanEdit: single instance off: ", err)
+			server = nil
+		}
+	}
 	go func() {
 		opened := false
 		for _, f := range files {
