@@ -4,16 +4,19 @@ package fonts
 
 import (
 	_ "embed"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
 	"gioui.org/font"
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
+	"golang.org/x/image/font/gofont/gomono"
 )
 
 // Typefaces used by the GUI.
@@ -125,6 +128,19 @@ var (
 	collection []font.FontFace
 )
 
+// monoData is the file of the regular monospace face.
+var monoData []byte
+
+// MonospaceData returns the font file of the regular monospace face (Go
+// Mono without a system one), e.g. to draw terminal screenshots.
+func MonospaceData() []byte {
+	Collection()
+	if monoData != nil {
+		return monoData
+	}
+	return gomono.TTF
+}
+
 // Collection returns the system faces found (registered under [UI] and
 // [Monospace]) followed by the Go fonts as fallback, also for glyphs the
 // system faces lack.
@@ -144,9 +160,15 @@ func Collection() []font.FontFace {
 					Font: font.Font{Typeface: c.typeface, Style: c.style, Weight: c.weight},
 					Face: face,
 				})
+				if c.typeface == Monospace && c.style == font.Regular && c.weight == font.Normal {
+					monoData = data
+				}
 				break
 			}
 		}
+		// System fonts for scripts and emoji the UI and monospace fonts
+		// lack (CJK, color emoji): the shaper falls back to them.
+		collection = append(collection, fallbackFaces()...)
 		// Nerd Font symbols: icons, and the fallback for Powerline and other
 		// Nerd Font glyphs in prompts.
 		if face, err := opentype.Parse(symbolsTTF); err == nil {
@@ -177,4 +199,63 @@ func Collection() []font.FontFace {
 		}
 	})
 	return collection
+}
+
+// Fallback is the name prefix of the system faces for characters the UI
+// and monospace fonts do not have ("LeanTerm Fallback 1", ...): each face
+// needs its own name, as Gio keeps one face per name, weight and style.
+const Fallback font.Typeface = "LeanTerm Fallback"
+
+// fallbackFaces loads system fonts for CJK and emoji: fontconfig's choice
+// on Linux, the fonts Windows ships elsewhere.
+func fallbackFaces() []font.FontFace {
+	type src struct {
+		path  string
+		index int
+	}
+	var srcs []src
+	seen := map[src]bool{}
+	add := func(s src) {
+		if s.path != "" && !seen[s] {
+			seen[s] = true
+			srcs = append(srcs, s)
+		}
+	}
+	if runtime.GOOS == "linux" {
+		if fc, err := exec.LookPath("fc-match"); err == nil {
+			for _, pattern := range []string{"monospace:lang=ja", "monospace:lang=zh-cn", "monospace:lang=ko", "emoji"} {
+				out, err := exec.Command(fc, "-f", "%{file}\n%{index}", pattern).Output()
+				if err != nil {
+					continue
+				}
+				parts := strings.SplitN(string(out), "\n", 2)
+				idx := 0
+				if len(parts) == 2 {
+					idx, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+				}
+				add(src{strings.TrimSpace(parts[0]), idx})
+			}
+		}
+	}
+	if runtime.GOOS == "windows" {
+		dir := filepath.Join(os.Getenv("WINDIR"), "Fonts")
+		for _, n := range []string{"msgothic.ttc", "msyh.ttc", "malgun.ttf", "seguiemj.ttf"} {
+			add(src{filepath.Join(dir, n), 0})
+		}
+	}
+	var out []font.FontFace
+	for _, s := range srcs {
+		data, err := os.ReadFile(s.path)
+		if err != nil {
+			continue
+		}
+		faces, err := opentype.ParseCollection(data)
+		if err != nil || len(faces) == 0 {
+			continue
+		}
+		f := faces[min(s.index, len(faces)-1)]
+		f.Font = font.Font{Typeface: font.Typeface(fmt.Sprintf("%s %d", Fallback, len(out)+1))}
+		out = append(out, f)
+	}
+	return out
 }

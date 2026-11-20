@@ -1,10 +1,13 @@
 package fonts
 
 import (
+	"strings"
 	"testing"
 
 	"gioui.org/font"
 	"gioui.org/font/opentype"
+	"gioui.org/text"
+	"golang.org/x/image/math/fixed"
 )
 
 func TestSymbolsFontHasAllIcons(t *testing.T) {
@@ -57,5 +60,29 @@ func TestCollectionHasNoDuplicateFaces(t *testing.T) {
 			t.Errorf("face %+v registered twice", ff.Font)
 		}
 		seen[ff.Font] = true
+	}
+}
+
+// Characters the monospace font lacks come from the system's fallback
+// faces (CJK here; skipped where none is installed).
+func TestMonospaceFallsBackForCJK(t *testing.T) {
+	hasFallback := false
+	for _, ff := range Collection() {
+		hasFallback = hasFallback || strings.HasPrefix(string(ff.Font.Typeface), string(Fallback))
+	}
+	if !hasFallback {
+		t.Skip("no fallback fonts on this system")
+	}
+	sh := text.NewShaper(text.NoSystemFonts(), text.WithCollection(Collection()))
+	sh.LayoutString(text.Parameters{Font: font.Font{Typeface: Monospace}, PxPerEm: fixed.I(16), MaxWidth: 1000}, "日本")
+	n := 0
+	for g, ok := sh.NextGlyph(); ok; g, ok = sh.NextGlyph() {
+		if g.ID&0xffff == 0 {
+			t.Fatalf("glyph %d is .notdef (tofu)", n)
+		}
+		n++
+	}
+	if n != 2 {
+		t.Fatalf("%d glyphs", n)
 	}
 }
